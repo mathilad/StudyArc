@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Study Arc",
+    "slug": "study-arc",
+    "version": "1.0.0",
+    "orientation": "default",
+    "scheme": "studyarc",
+    "userInterfaceStyle": "dark",
+    "plugins": [
+      "expo-router",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Study Arc uses your photo library only when you choose a profile picture.",
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.studyarc.app"
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false,
+      "package": "com.studyarc.app"
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "experiments": {
+      "typedRoutes": false
+    },
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "backgroundColor": "#080D14"
+    }
+  }
+}

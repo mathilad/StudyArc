@@ -1,0 +1,8 @@
+Study Arc is already wired to Supabase.
+
+1. Run supabase/schema.sql once in the Supabase SQL Editor.
+2. Enable Email auth and configure redirect URLs (see DATABASE_SETUP.md).
+3. Run: npm install
+4. Run: npx expo start
+
+IMPORTANT: Rotate the SUPABASE_SECRET_KEY that was exposed. It is not used anywhere in this project.
