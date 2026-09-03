@@ -1,57 +1,74 @@
-{
-  "expo": {
-    "name": "Study Arc",
-    "slug": "study-arc",
-    "version": "1.0.0",
-    "orientation": "default",
-    "scheme": "studyarc",
-    "userInterfaceStyle": "dark",
+name: Build Study Arc APK
 
-    "icon": "./assets/images/icon.png",
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
 
-    "plugins": [
-      "expo-router",
-      "expo-notifications",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#080D14",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 1
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Study Arc uses your photo library only when you choose a profile picture.",
-          "microphonePermission": false
-        }
-      ]
-    ],
+jobs:
+  build-apk:
+    name: Build Android APK
+    runs-on: ubuntu-latest
 
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.studyarc.app",
-      "buildNumber": "1"
-    },
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
 
-    "android": {
-      "package": "com.studyarc.app",
-      "versionCode": 1,
-      "predictiveBackGestureEnabled": false,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#080D14"
-      }
-    },
+    steps:
+      - name: Checkout Study Arc
+        uses: actions/checkout@v4
 
-    "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
-    },
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
-    "experiments": {
-      "typedRoutes": false
-    }
-  }
-}
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Show Study Arc configuration
+        run: npx expo config --type public
+
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --non-interactive --clean
+
+      - name: Make Gradle executable
+        run: chmod +x android/gradlew
+
+      - name: Build Study Arc APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Prepare Study Arc APK
+        run: |
+          mkdir -p output
+
+          APK=$(find android/app/build/outputs/apk/release \
+            -name "*.apk" \
+            -type f \
+            | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "APK was not generated."
+            exit 1
+          fi
+
+          cp "$APK" output/StudyArc-v1.0.0.apk
+
+      - name: Upload Study Arc APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: StudyArc-v1.0.0-APK
+          path: output/StudyArc-v1.0.0.apk
+          if-no-files-found: error
+          retention-days: 30
