@@ -1,0 +1,125 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import React, { useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useStudent } from "../context/StudentContext";
+import { SUBJECTS, expandSubjectChoices, type SubjectName } from "../data/subjects";
+
+const parseDecimal = (value: string) => {
+  const trimmed = value.trim().replace(",", ".");
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : NaN;
+};
+
+export default function TestMarkScreen() {
+  const router = useRouter();
+  const { profile, addTestMark } = useStudent();
+  const subjects = useMemo(() => expandSubjectChoices(profile.subjectChoices), [profile.subjectChoices]);
+  const [subject, setSubject] = useState<SubjectName>(subjects[0] ?? "Physics");
+  const [title, setTitle] = useState("Class test");
+  const [mcqScore, setMcqScore] = useState("");
+  const [mcqTotal, setMcqTotal] = useState("");
+  const [essayScore, setEssayScore] = useState("");
+  const [essayTotal, setEssayTotal] = useState("");
+  const [weak, setWeak] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const topics = SUBJECTS[subject]?.topics ?? [];
+
+  const readPair = (scoreText: string, totalText: string, label: string) => {
+    const score = parseDecimal(scoreText);
+    const total = parseDecimal(totalText);
+    if (score === null && total === null) return { score: null, total: null };
+    if (score === null || total === null || Number.isNaN(score) || Number.isNaN(total)) throw new Error(`Enter both ${label} mark and the total available mark.`);
+    if (score < 0 || total <= 0) throw new Error(`${label} marks must be valid positive values.`);
+    if (score > total) throw new Error(`${label} mark cannot be greater than the total available mark.`);
+    return { score, total };
+  };
+
+  const save = async () => {
+    try {
+      const mcq = readPair(mcqScore, mcqTotal, "MCQ");
+      const essay = readPair(essayScore, essayTotal, "Essay");
+      if (mcq.score === null && essay.score === null) {
+        Alert.alert("Add a mark", "Enter an MCQ mark, an Essay mark, or both.");
+        return;
+      }
+      setSaving(true);
+      await addTestMark({
+        subjectName: subject,
+        testDate: new Date().toISOString().slice(0, 10),
+        title: title.trim() || "Test",
+        mcqScore: mcq.score,
+        mcqTotal: mcq.total,
+        essayScore: essay.score,
+        essayTotal: essay.total,
+        weakTopics: weak,
+      });
+      router.back();
+    } catch (e) {
+      Alert.alert("Could not save", e instanceof Error ? e.message : "Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <View style={s.root}>
+      <LinearGradient colors={["#171022", "#080D14"]} style={StyleSheet.absoluteFill} />
+      <View style={s.head}>
+        <Pressable style={s.back} onPress={() => router.back()}><Ionicons name="arrow-back" size={22} color="#FFF" /></Pressable>
+        <View style={{ flex: 1 }}><Text style={s.title}>Add test result</Text><Text style={s.sub}>Enter the real mark and what the paper was marked out of.</Text></View>
+        <Pressable onPress={save} disabled={saving} style={[s.save, saving && { opacity: .55 }]}><Text style={s.saveText}>{saving ? "Saving…" : "Save"}</Text></Pressable>
+      </View>
+
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <Text style={s.label}>SUBJECT</Text>
+        <View style={s.wrap}>{subjects.map(x => <Pressable key={x} onPress={() => { setSubject(x); setWeak([]); }} style={[s.chip, subject === x && s.chipActive]}><Text style={[s.chipText, subject === x && s.chipTextActive]}>{x}</Text></Pressable>)}</View>
+
+        <Text style={s.label}>TEST NAME</Text>
+        <TextInput value={title} onChangeText={setTitle} style={s.input} placeholder="e.g. Mechanics class test" placeholderTextColor="#556275" />
+
+        <MarkPair label="MCQ" score={mcqScore} total={mcqTotal} setScore={setMcqScore} setTotal={setMcqTotal} accent="#8E9CFF" />
+        <MarkPair label="ESSAY" score={essayScore} total={essayTotal} setScore={setEssayScore} setTotal={setEssayTotal} accent="#FF8DA1" />
+
+        <Text style={s.label}>TOPICS THAT NEED MORE WORK</Text>
+        <Text style={s.help}>Optional. Pick lessons that felt weak. Study Arc will prioritize them in planning and analysis.</Text>
+        <View style={s.topicList}>{topics.map(t => {
+          const on = weak.includes(t.title);
+          return <Pressable key={t.id} onPress={() => setWeak(p => on ? p.filter(x => x !== t.title) : [...p, t.title])} style={[s.topic, on && s.topicOn]}>
+            <View style={[s.check, on && s.checkOn]}>{on && <Ionicons name="checkmark" size={14} color="#130C1D" />}</View>
+            <View style={{ flex: 1 }}><Text style={[s.topicTitle, on && { color: "#F1E9FB" }]}>{t.sinhala || t.title}</Text><Text style={s.topicSub}>{t.unit ? `${t.unit} · ` : ""}{t.title}</Text></View>
+          </Pressable>;
+        })}</View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function MarkPair({ label, score, total, setScore, setTotal, accent }: { label: string; score: string; total: string; setScore: (v: string) => void; setTotal: (v: string) => void; accent: string }) {
+  return <View style={s.markSection}>
+    <View style={s.markHeading}><View style={[s.markDot, { backgroundColor: accent }]} /><Text style={s.markTitle}>{label} MARK</Text><Text style={s.optional}>OPTIONAL</Text></View>
+    <View style={s.markRow}>
+      <View style={s.markField}><Text style={s.smallLabel}>MARK RECEIVED</Text><TextInput value={score} onChangeText={setScore} keyboardType="decimal-pad" inputMode="decimal" placeholder="32.5" placeholderTextColor="#4E5A6A" style={s.markInput} /></View>
+      <Text style={s.slash}>/</Text>
+      <View style={s.markField}><Text style={s.smallLabel}>OUT OF</Text><TextInput value={total} onChangeText={setTotal} keyboardType="decimal-pad" inputMode="decimal" placeholder="50" placeholderTextColor="#4E5A6A" style={s.markInput} /></View>
+    </View>
+  </View>;
+}
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#080D14" },
+  head: { padding: 18, paddingTop: 22, flexDirection: "row", alignItems: "center", gap: 11 },
+  back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#151C27", alignItems: "center", justifyContent: "center" },
+  title: { color: "#F5F6F8", fontSize: 21, fontWeight: "900" }, sub: { color: "#738093", fontSize: 10, marginTop: 3 },
+  save: { height: 42, paddingHorizontal: 17, borderRadius: 14, backgroundColor: "#B784FF", alignItems: "center", justifyContent: "center" }, saveText: { color: "#150C1D", fontWeight: "900" },
+  content: { padding: 20, paddingBottom: 45, maxWidth: 760, width: "100%", alignSelf: "center" },
+  label: { color: "#788596", fontSize: 9, fontWeight: "900", letterSpacing: 1.2, marginTop: 20, marginBottom: 9 },
+  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 }, chip: { minHeight: 40, paddingHorizontal: 13, borderRadius: 13, backgroundColor: "#111923", borderWidth: 1, borderColor: "#283546", alignItems: "center", justifyContent: "center" }, chipActive: { backgroundColor: "#392557", borderColor: "#805EBC" }, chipText: { color: "#8290A2", fontSize: 11, fontWeight: "800" }, chipTextActive: { color: "#F1E9FC" },
+  input: { height: 54, borderRadius: 16, backgroundColor: "#111923", borderWidth: 1, borderColor: "#283546", paddingHorizontal: 15, color: "#F0F3F7", fontWeight: "700" },
+  markSection: { marginTop: 20, borderRadius: 19, backgroundColor: "#111923", borderWidth: 1, borderColor: "#283546", padding: 14 },
+  markHeading: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 11 }, markDot: { width: 7, height: 7, borderRadius: 4 }, markTitle: { color: "#B7C0CC", fontSize: 10, fontWeight: "900", letterSpacing: 1 }, optional: { marginLeft: "auto", color: "#586576", fontSize: 8, fontWeight: "900" },
+  markRow: { flexDirection: "row", alignItems: "flex-end", gap: 10 }, markField: { flex: 1 }, smallLabel: { color: "#687587", fontSize: 8, fontWeight: "900", marginBottom: 6 }, markInput: { height: 58, borderRadius: 15, backgroundColor: "#0C131C", borderWidth: 1, borderColor: "#2A3747", paddingHorizontal: 14, color: "#F5F6F8", fontSize: 20, fontWeight: "900" }, slash: { color: "#6D798A", fontSize: 25, fontWeight: "700", paddingBottom: 14 },
+  help: { color: "#748194", fontSize: 11, lineHeight: 17, marginTop: -3, marginBottom: 8 }, topicList: { gap: 8 }, topic: { minHeight: 62, borderRadius: 16, backgroundColor: "#101720", borderWidth: 1, borderColor: "#263241", padding: 11, flexDirection: "row", alignItems: "center", gap: 11 }, topicOn: { backgroundColor: "#1B1526", borderColor: "#5D4578" }, check: { width: 27, height: 27, borderRadius: 9, borderWidth: 1, borderColor: "#3B4859", alignItems: "center", justifyContent: "center" }, checkOn: { backgroundColor: "#B784FF", borderColor: "#B784FF" }, topicTitle: { color: "#D9DEE5", fontSize: 13, fontWeight: "900" }, topicSub: { color: "#6F7C8D", fontSize: 9.5, marginTop: 3 },
+});

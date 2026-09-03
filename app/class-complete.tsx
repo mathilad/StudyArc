@@ -1,0 +1,62 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useStudent } from "../context/StudentContext";
+import { SUBJECTS, type SubjectName } from "../data/subjects";
+
+export default function ClassCompleteScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ subjectName?: string | string[] }>();
+  const initialSubject = (Array.isArray(params.subjectName) ? params.subjectName[0] : params.subjectName) as SubjectName | undefined;
+  const { profile, subtopicCoverage, setSubtopicsCovered } = useStudent();
+  const available = useMemo(() => {
+    const set = new Set<SubjectName>();
+    profile.subjectChoices.forEach(choice => {
+      if (choice === "Combined Mathematics") { set.add("Pure Mathematics"); set.add("Applied Mathematics"); }
+      else if (choice in SUBJECTS) set.add(choice as SubjectName);
+    });
+    return [...set];
+  }, [profile.subjectChoices]);
+  const [subjectName, setSubjectName] = useState<SubjectName>(initialSubject && SUBJECTS[initialSubject] ? initialSubject : available[0] ?? "Physics");
+  const [topicName, setTopicName] = useState<string>(SUBJECTS[subjectName].topics[0]?.title ?? "");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const subject = SUBJECTS[subjectName];
+  const topic = subject.topics.find(x => x.title === topicName) ?? subject.topics[0];
+  const alreadyCovered = (subtopic: string) => subtopicCoverage.some(x => x.subjectName === subjectName && x.topicName === topic.title && x.subtopicName === subtopic && x.covered);
+
+  const chooseSubject = (value: SubjectName) => {
+    setSubjectName(value);
+    setTopicName(SUBJECTS[value].topics[0]?.title ?? "");
+    setSelected([]);
+  };
+  const chooseTopic = (value: string) => { setTopicName(value); setSelected([]); };
+  const save = async () => {
+    if (!selected.length) { Alert.alert("Choose what was covered", "Select at least one subtopic completed in this class."); return; }
+    setSaving(true);
+    try {
+      await setSubtopicsCovered(subjectName, topic.title, selected, true, "Class");
+      Alert.alert("Class progress saved", `${selected.length} subtopic${selected.length === 1 ? "" : "s"} marked covered.`, [{ text: "Done", onPress: () => router.back() }]);
+    } catch (e) {
+      Alert.alert("Could not save", e instanceof Error ? e.message : "Try again.");
+    } finally { setSaving(false); }
+  };
+
+  return <View style={s.root}>
+    <LinearGradient colors={[subject.color + "22", "#080D14", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <View style={s.head}><Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={22} color="#FFF" /></Pressable><View style={{ flex: 1 }}><Text style={s.title}>Class completed</Text><Text style={s.sub}>What did you cover today?</Text></View><Pressable disabled={saving} onPress={save} style={[s.save, saving && { opacity: .5 }]}><Text style={s.saveText}>{saving ? "Saving…" : "Save"}</Text></Pressable></View>
+    <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <Text style={s.label}>SUBJECT</Text><View style={s.wrap}>{available.map(x => <Pressable key={x} onPress={() => chooseSubject(x)} style={[s.chip, subjectName === x && s.chipOn]}><Text style={[s.chipText, subjectName === x && s.chipTextOn]}>{x}</Text></Pressable>)}</View>
+      <Text style={s.label}>LESSON</Text><View style={s.lessonList}>{subject.topics.map(x => <Pressable key={x.id} onPress={() => chooseTopic(x.title)} style={[s.lesson, topic.title === x.title && s.lessonOn]}><View style={[s.lessonNum, { backgroundColor: subject.color + "18" }]}><Text style={[s.lessonNumText, { color: subject.color }]}>{x.unit ?? x.id}</Text></View><View style={{ flex: 1 }}><Text style={s.lessonTitle}>{x.sinhala || x.title}</Text>{x.sinhala && <Text style={s.lessonSub}>{x.title}</Text>}</View>{topic.title === x.title && <Ionicons name="checkmark-circle" size={20} color={subject.color} />}</Pressable>)}</View>
+      <Text style={s.label}>SUBTOPICS COVERED IN THIS CLASS</Text><Text style={s.help}>Tap every subtopic completed today. Previously covered items stay visible and can be selected again if the class reviewed them.</Text>
+      <View style={s.subtopics}>{topic.subtopics.map(x => { const on = selected.includes(x); const old = alreadyCovered(x); return <Pressable key={x} onPress={() => setSelected(p => on ? p.filter(v => v !== x) : [...p, x])} style={[s.coverageRow, on && { borderColor: subject.color, backgroundColor: subject.color + "12" }]}><View style={[s.check, on && { backgroundColor: subject.color, borderColor: subject.color }]}>{on && <Ionicons name="checkmark" size={14} color="#081017" />}</View><View style={{ flex: 1 }}><Text style={s.coverageTitle}>{x}</Text><Text style={s.coverageSub}>{old ? "Already marked covered · tap if reviewed today" : "Not covered yet"}</Text></View></Pressable>; })}</View>
+    </ScrollView>
+  </View>;
+}
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#080D14" }, head: { padding: 18, paddingTop: 22, flexDirection: "row", gap: 11, alignItems: "center" }, back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#151C27", alignItems: "center", justifyContent: "center" }, title: { color: "#F5F6F8", fontSize: 21, fontWeight: "900" }, sub: { color: "#748194", fontSize: 10, marginTop: 3 }, save: { height: 42, paddingHorizontal: 16, borderRadius: 14, backgroundColor: "#B784FF", alignItems: "center", justifyContent: "center" }, saveText: { color: "#150C1D", fontWeight: "900" }, content: { padding: 20, paddingBottom: 45, maxWidth: 780, width: "100%", alignSelf: "center" }, label: { color: "#778496", fontSize: 9, fontWeight: "900", letterSpacing: 1.2, marginTop: 19, marginBottom: 9 }, wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 }, chip: { minHeight: 39, paddingHorizontal: 13, borderRadius: 13, backgroundColor: "#111923", borderWidth: 1, borderColor: "#293646", alignItems: "center", justifyContent: "center" }, chipOn: { backgroundColor: "#34244D", borderColor: "#7656A8" }, chipText: { color: "#8290A2", fontSize: 11, fontWeight: "800" }, chipTextOn: { color: "#F1E8FC" }, lessonList: { gap: 8 }, lesson: { minHeight: 62, borderRadius: 16, backgroundColor: "#101720", borderWidth: 1, borderColor: "#263241", padding: 10, flexDirection: "row", alignItems: "center", gap: 10 }, lessonOn: { borderColor: "#664A86", backgroundColor: "#171321" }, lessonNum: { width: 48, minHeight: 36, borderRadius: 10, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 }, lessonNumText: { fontSize: 7.5, fontWeight: "900", textAlign: "center" }, lessonTitle: { color: "#E8ECF1", fontSize: 12, fontWeight: "900" }, lessonSub: { color: "#718092", fontSize: 9, marginTop: 3 }, help: { color: "#718092", fontSize: 10.5, lineHeight: 16, marginBottom: 9 }, subtopics: { gap: 8 }, coverageRow: { minHeight: 64, borderRadius: 16, backgroundColor: "#101720", borderWidth: 1, borderColor: "#273342", padding: 11, flexDirection: "row", alignItems: "center", gap: 11 }, check: { width: 29, height: 29, borderRadius: 10, borderWidth: 1, borderColor: "#3B4859", alignItems: "center", justifyContent: "center" }, coverageTitle: { color: "#DDE2E8", fontSize: 12, fontWeight: "900" }, coverageSub: { color: "#6C798B", fontSize: 9, marginTop: 4 },
+});
