@@ -6,6 +6,9 @@
     "orientation": "default",
     "scheme": "studyarc",
     "userInterfaceStyle": "dark",
+
+    "icon": "./assets/images/icon.png",
+
     "plugins": [
       "expo-router",
       "expo-notifications",
@@ -17,24 +20,30 @@
         }
       ]
     ],
+
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.studyarc.app"
+      "bundleIdentifier": "com.studyarc.app",
+      "buildNumber": "1"
     },
+
     "android": {
+      "package": "com.studyarc.app",
+      "versionCode": 1,
       "predictiveBackGestureEnabled": false,
-      "package": "com.studyarc.app"
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#080D14"
+      }
     },
+
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
     "experiments": {
       "typedRoutes": false
-    },
-    "icon": "./assets/images/icon.png",
-    "splash": {
-      "backgroundColor": "#080D14"
     }
   }
 }
