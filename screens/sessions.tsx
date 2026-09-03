@@ -1,0 +1,75 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useState } from "react";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useStudy } from "../context/StudyContext";
+import Screen from "../components/Screen";
+
+const fmt = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? `${h}h ${m}m` : `${m}m`; };
+
+export default function Sessions() {
+  const { sessions, todaySeconds, deleteSession } = useStudy();
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; title: string } | null>(null);
+
+  const actuallyDelete = async (id: string) => {
+    setDeleting(id);
+    try { await deleteSession(id); }
+    catch (e) { Alert.alert("Could not delete", e instanceof Error ? e.message : "Try again."); }
+    finally { setDeleting(null); }
+  };
+
+  const remove = (id: string, title: string) => {
+    setPendingDelete({ id, title });
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete || deleting) return;
+    const target = pendingDelete;
+    setPendingDelete(null);
+    await actuallyDelete(target.id);
+  };
+
+  return <Screen>
+    <LinearGradient colors={["#0F111D", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <ScrollView contentContainerStyle={s.content}>
+      <Text style={s.title}>Sessions</Text><Text style={s.sub}>Your study history, including repeat past-paper attempts. Delete works offline too and syncs the deletion later.</Text>
+      <View style={s.hero}><View><Text style={s.label}>TODAY</Text><Text style={s.heroValue}>{fmt(todaySeconds)}</Text></View><View style={s.line} /><View><Text style={s.label}>ALL SESSIONS</Text><Text style={s.heroValue}>{sessions.length}</Text></View></View>
+      {sessions.length === 0 ? <View style={s.empty}><Ionicons name="hourglass-outline" size={36} color="#657285" /><Text style={s.emptyTitle}>No sessions yet</Text><Text style={s.emptyText}>Your completed stopwatch sessions will appear here.</Text></View> : sessions.map(x => <View key={x.id} style={s.card}>
+        <View style={[s.icon, { backgroundColor: x.studyType === "Past Papers" ? "#8E9CFF18" : "#B784FF18" }]}><Ionicons name={x.studyType === "Past Papers" ? "documents-outline" : x.studyType === "Revision" ? "refresh-outline" : "timer-outline"} size={20} color={x.studyType === "Past Papers" ? "#8E9CFF" : "#B784FF"} /></View>
+        <View style={{ flex: 1, minWidth: 0 }}><Text style={s.topic} numberOfLines={1}>{x.topicName}</Text><Text style={s.meta}>{x.subjectName} · {x.studyType}</Text>{x.studyType === "Past Papers" && <Text style={s.paper}>{x.paperYear ?? "Year not set"} · {x.paperSection ?? "Paper"} · Attempt {x.attemptNo ?? 1}</Text>}<Text style={s.date}>{new Date(x.startedAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })} · {new Date(x.startedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", hour12: true })}</Text>{(x.focusRating || x.understandingRating) && <Text style={s.rating}>Focus {x.focusRating ? `${x.focusRating}/5` : "—"} · Understanding {x.understandingRating ? `${x.understandingRating}/5` : "—"}</Text>}</View>
+        <View style={s.right}><Text style={s.duration}>{fmt(x.durationSeconds)}</Text><Pressable disabled={deleting === x.id} hitSlop={8} onPress={() => remove(x.id, x.topicName)} style={[s.delete, deleting === x.id && { opacity: .45 }]}><Ionicons name={deleting === x.id ? "hourglass-outline" : "trash-outline"} size={17} color="#B67B87" /></Pressable></View>
+      </View>)}
+    </ScrollView>
+
+    <Modal
+      visible={!!pendingDelete}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setPendingDelete(null)}
+    >
+      <View style={s.modalOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setPendingDelete(null)} />
+        <View style={s.deleteModal}>
+          <View style={s.deleteModalIcon}>
+            <Ionicons name="trash-outline" size={23} color="#F2A1AE" />
+          </View>
+          <Text style={s.deleteModalTitle}>Delete study session?</Text>
+          <Text style={s.deleteModalTopic} numberOfLines={2}>{pendingDelete?.title}</Text>
+          <Text style={s.deleteModalText}>This removes the saved session and its laps from your history. If you are offline, the deletion will sync when you reconnect.</Text>
+          <View style={s.deleteModalActions}>
+            <Pressable onPress={() => setPendingDelete(null)} style={s.cancelButton}>
+              <Text style={s.cancelButtonText}>Keep session</Text>
+            </Pressable>
+            <Pressable onPress={confirmDelete} style={s.confirmDeleteButton}>
+              <Ionicons name="trash-outline" size={16} color="#FFF4F6" />
+              <Text style={s.confirmDeleteText}>Delete</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  </Screen>;
+}
+
+const s = StyleSheet.create({ content: { padding: 20, paddingBottom: 44, maxWidth: 850, width: "100%", alignSelf: "center" }, title: { color: "#F5F6F8", fontSize: 34, fontWeight: "900" }, sub: { color: "#798596", fontSize: 12, lineHeight: 18, marginTop: 5, marginBottom: 18 }, hero: { minHeight: 93, borderRadius: 21, backgroundColor: "#111923", borderWidth: 1, borderColor: "#293646", padding: 17, flexDirection: "row", alignItems: "center", justifyContent: "space-around" }, label: { color: "#748194", fontSize: 8.5, fontWeight: "900", letterSpacing: 1.1 }, heroValue: { color: "#F0F2F6", fontSize: 24, fontWeight: "900", marginTop: 5 }, line: { width: 1, height: 47, backgroundColor: "#2B3746" }, card: { minHeight: 91, borderRadius: 19, backgroundColor: "#101720", borderWidth: 1, borderColor: "#263241", padding: 13, flexDirection: "row", alignItems: "center", gap: 11, marginTop: 9 }, icon: { width: 45, height: 45, borderRadius: 14, alignItems: "center", justifyContent: "center" }, topic: { color: "#EDF0F4", fontSize: 13.5, fontWeight: "900" }, meta: { color: "#8793A2", fontSize: 9.5, marginTop: 3 }, paper: { color: "#9FAAF4", fontSize: 9, fontWeight: "800", marginTop: 3 }, date: { color: "#657386", fontSize: 9, marginTop: 4 }, rating: { color: "#907CA8", fontSize: 8.5, marginTop: 3 }, right: { alignItems: "flex-end", gap: 9 }, duration: { color: "#C9A8F3", fontSize: 11, fontWeight: "900" }, delete: { width: 34, height: 34, borderRadius: 10, backgroundColor: "#23141A", alignItems: "center", justifyContent: "center" }, empty: { marginTop: 22, padding: 38, borderRadius: 21, backgroundColor: "#101720", borderWidth: 1, borderColor: "#263241", alignItems: "center" }, emptyTitle: { color: "#E7EBF0", fontSize: 17, fontWeight: "900", marginTop: 11 }, emptyText: { color: "#738093", fontSize: 11, marginTop: 5 }, modalOverlay: { flex: 1, backgroundColor: "rgba(3,6,10,.78)", alignItems: "center", justifyContent: "center", padding: 22 }, deleteModal: { width: "100%", maxWidth: 410, borderRadius: 24, backgroundColor: "#101720", borderWidth: 1, borderColor: "#3B2C37", padding: 22, alignItems: "center" }, deleteModalIcon: { width: 52, height: 52, borderRadius: 17, backgroundColor: "#2B171E", borderWidth: 1, borderColor: "#5A303B", alignItems: "center", justifyContent: "center", marginBottom: 15 }, deleteModalTitle: { color: "#F4F5F7", fontSize: 20, fontWeight: "900", textAlign: "center" }, deleteModalTopic: { color: "#D1B8F0", fontSize: 13, fontWeight: "800", textAlign: "center", marginTop: 7 }, deleteModalText: { color: "#7F8B9A", fontSize: 11, lineHeight: 17, textAlign: "center", marginTop: 10 }, deleteModalActions: { width: "100%", flexDirection: "row", gap: 10, marginTop: 20 }, cancelButton: { flex: 1, height: 48, borderRadius: 15, backgroundColor: "#18212D", borderWidth: 1, borderColor: "#2B3746", alignItems: "center", justifyContent: "center" }, cancelButtonText: { color: "#C8D0DA", fontSize: 12, fontWeight: "900" }, confirmDeleteButton: { flex: 1, height: 48, borderRadius: 15, backgroundColor: "#8F4050", flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center" }, confirmDeleteText: { color: "#FFF4F6", fontSize: 12, fontWeight: "900" } });

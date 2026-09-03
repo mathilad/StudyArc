@@ -1,0 +1,69 @@
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useMemo } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useStudent } from "../context/StudentContext";
+import { useStudy } from "../context/StudyContext";
+import Screen from "../components/Screen";
+import { SUBJECTS, type SubjectName } from "../data/subjects";
+
+const fmt = (sec: number) => { const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? `${h}h ${m}m` : `${m}m`; };
+const level = (v: number) => v <= 0 ? "Not started" : v < 35 ? "Starting" : v < 60 ? "Building" : v < 80 ? "Strong" : "Very strong";
+
+export default function SubjectScreen() {
+  const router = useRouter();
+  const raw = useLocalSearchParams<{ subjectName?: string | string[] }>().subjectName;
+  const name = (Array.isArray(raw) ? raw[0] : raw) as SubjectName;
+  const subject = SUBJECTS[name];
+  const { subjectSeconds, topicSeconds } = useStudy();
+  const { topicProgress, subtopicCoverage } = useStudent();
+
+  const summary = useMemo(() => {
+    if (!subject) return { coveredLessons: 0, coveredSubtopics: 0, totalSubtopics: 0, due: 0 };
+    const totalSubtopics = subject.topics.reduce((sum, t) => sum + t.subtopics.length, 0);
+    const coveredSubtopics = subject.topics.reduce((sum, t) => sum + t.subtopics.filter(sub => subtopicCoverage.some(x => x.subjectName === name && x.topicName === t.title && x.subtopicName === sub && x.covered)).length, 0);
+    const coveredLessons = subject.topics.filter(t => t.subtopics.length > 0 && t.subtopics.every(sub => subtopicCoverage.some(x => x.subjectName === name && x.topicName === t.title && x.subtopicName === sub && x.covered))).length;
+    const due = subject.topics.filter(t => {
+      const p = topicProgress.find(x => x.subjectName === name && x.topicName === t.title);
+      return p?.nextRecallAt && new Date(p.nextRecallAt) <= new Date();
+    }).length;
+    return { coveredLessons, coveredSubtopics, totalSubtopics, due };
+  }, [name, subject, subtopicCoverage, topicProgress]);
+
+  if (!subject) return <Screen><View style={s.center}><Text style={s.big}>Subject not found</Text></View></Screen>;
+
+  return <Screen>
+    <LinearGradient colors={[subject.color + "18", "#080D14", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <View style={s.head}><Pressable style={s.back} onPress={() => router.back()}><Ionicons name="arrow-back" size={22} color="#FFF" /></Pressable><View style={{ flex: 1 }}><Text style={[s.kicker, { color: subject.color }]}>{name.toUpperCase()}</Text><Text style={s.title}>Syllabus journey</Text></View><Pressable style={s.revise} onPress={() => router.push("/revision")}><Ionicons name="refresh" size={18} color={subject.color} /></Pressable></View>
+
+      <LinearGradient colors={[subject.color + "35", subject.accent + "1C", "#111923"]} style={[s.hero, { borderColor: subject.color + "66" }]}>
+        <View style={[s.icon, { backgroundColor: subject.color + "20" }]}><MaterialCommunityIcons name={subject.icon} size={40} color={subject.color} /></View>
+        <View style={{ flex: 1 }}><Text style={s.heroLabel}>STUDY TIME</Text><Text style={s.heroValue}>{fmt(subjectSeconds[name] ?? 0)}</Text><View style={s.heroMeta}><Text style={s.heroMetaText}>{summary.coveredLessons}/{subject.topics.length} lessons covered</Text><Text style={s.dot}>•</Text><Text style={s.heroMetaText}>{summary.coveredSubtopics}/{summary.totalSubtopics} subtopics</Text><Text style={s.dot}>•</Text><Text style={s.heroMetaText}>{summary.due} memory due</Text></View></View>
+      </LinearGradient>
+
+      <View style={s.sectionHead}><View><Text style={s.sectionTitle}>Lesson topics</Text><Text style={s.sectionSub}>Open a lesson to mark subtopics covered and see its learning, memory and performance analysis.</Text></View><Text style={s.count}>{subject.topics.length} LESSONS</Text></View>
+
+      {subject.topics.map((t, i) => {
+        const p = topicProgress.find(x => x.subjectName === name && x.topicName === t.title);
+        const studied = topicSeconds[`${name}::${t.title}`] ?? 0;
+        const due = !!p?.nextRecallAt && new Date(p.nextRecallAt) <= new Date();
+        const mastery = Math.round(((p?.knowledge ?? 0) + (p?.memory ?? 0) + (p?.performance ?? 0)) / 3);
+        const covered = t.subtopics.filter(sub => subtopicCoverage.some(x => x.subjectName === name && x.topicName === t.title && x.subtopicName === sub && x.covered)).length;
+        const allCovered = covered === t.subtopics.length && t.subtopics.length > 0;
+        return <Pressable key={t.id} onPress={() => router.push({ pathname: "/topic", params: { subjectName: name, topicName: t.title } })} style={[s.topic, due && s.topicDue]}>
+          <View style={[s.number, { backgroundColor: subject.color + "1A" }]}>{allCovered ? <Ionicons name="checkmark-done" size={19} color="#65D79A" /> : <Text style={[s.numberText, { color: subject.color }]}>{String(i + 1).padStart(2, "0")}</Text>}</View>
+          <View style={{ flex: 1, minWidth: 0 }}><View style={s.topicTop}><View style={{ flex: 1 }}>{t.unit && <Text style={s.unit}>{t.unit}</Text>}<Text style={s.topicName} numberOfLines={1}>{t.sinhala || t.title}</Text>{t.sinhala && <Text style={s.english}>{t.title}</Text>}</View>{due && <View style={s.due}><Text style={s.dueText}>REVIEW DUE</Text></View>}</View>
+            <View style={s.statusLine}><Text style={[s.state, { color: due ? "#E0A15E" : subject.color }]}>{due ? "Recall now" : level(mastery)}</Text><Text style={[s.coveredText, allCovered && { color: "#65D79A" }]}>{covered}/{t.subtopics.length} covered</Text></View>
+            <Text style={s.subtopicPreview} numberOfLines={2}>{t.subtopics.slice(0, 3).join(" · ")}{t.subtopics.length > 3 ? ` · +${t.subtopics.length - 3} more` : ""}</Text><Text style={s.meta}>{studied ? `${fmt(studied)} studied` : "Not studied yet"} · {t.subtopics.length} subtopics</Text>
+          </View><Ionicons name="chevron-forward" size={19} color="#667487" />
+        </Pressable>;
+      })}
+    </ScrollView>
+  </Screen>;
+}
+
+const s = StyleSheet.create({
+  content: { padding: 20, paddingBottom: 42, maxWidth: 850, width: "100%", alignSelf: "center" }, head: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18 }, back: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#121A25", alignItems: "center", justifyContent: "center" }, kicker: { fontSize: 9, fontWeight: "900", letterSpacing: 1.3 }, title: { color: "#F5F6F8", fontSize: 22, fontWeight: "900", marginTop: 3 }, revise: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#111923", borderWidth: 1, borderColor: "#273445", alignItems: "center", justifyContent: "center" }, hero: { borderRadius: 24, borderWidth: 1, padding: 19, flexDirection: "row", alignItems: "center", gap: 15 }, icon: { width: 67, height: 67, borderRadius: 21, alignItems: "center", justifyContent: "center" }, heroLabel: { color: "#8592A2", fontSize: 8.5, fontWeight: "900", letterSpacing: 1.2 }, heroValue: { color: "#FAF8FC", fontSize: 31, fontWeight: "900", marginTop: 4 }, heroMeta: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6, marginTop: 4 }, heroMetaText: { color: "#9AA6B5", fontSize: 10 }, dot: { color: "#566375" }, sectionHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 27, marginBottom: 12, gap: 10 }, sectionTitle: { color: "#F0F2F6", fontSize: 20, fontWeight: "900" }, sectionSub: { color: "#748194", fontSize: 10, marginTop: 4, maxWidth: 520 }, count: { color: "#687689", fontSize: 8.5, fontWeight: "900", letterSpacing: 1 }, topic: { borderRadius: 19, backgroundColor: "#101720", borderWidth: 1, borderColor: "#263241", padding: 13, flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 9 }, topicDue: { borderColor: "#62472F", backgroundColor: "#171613" }, number: { width: 46, height: 46, borderRadius: 14, alignItems: "center", justifyContent: "center" }, numberText: { fontSize: 11, fontWeight: "900" }, topicTop: { flexDirection: "row", alignItems: "flex-start", gap: 8 }, unit: { color: "#657386", fontSize: 8.5, fontWeight: "800", marginBottom: 2 }, topicName: { color: "#EDF0F4", fontSize: 13.5, fontWeight: "900" }, english: { color: "#758294", fontSize: 9.5, marginTop: 2 }, due: { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 8, backgroundColor: "#F0A96B18" }, dueText: { color: "#E0A15E", fontSize: 7, fontWeight: "900" }, statusLine: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 7 }, state: { fontSize: 9, fontWeight: "900" }, coveredText: { color: "#708092", fontSize: 8.5, fontWeight: "800" }, subtopicPreview: { color: "#778496", fontSize: 9, lineHeight: 14, marginTop: 5 }, meta: { color: "#667487", fontSize: 9, marginTop: 6 }, center: { flex: 1, alignItems: "center", justifyContent: "center" }, big: { color: "#FFF", fontSize: 24, fontWeight: "900" },
+});
