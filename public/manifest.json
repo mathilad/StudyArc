@@ -1,0 +1,13 @@
+{
+  "name": "Study Arc",
+  "short_name": "Study Arc",
+  "description": "Offline-first G.C.E. A/L study planner, timer and analytics app.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080D14",
+  "theme_color": "#120D1D",
+  "icons": [
+    { "src": "/icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
