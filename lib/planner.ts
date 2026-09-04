@@ -196,8 +196,9 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
   ];
   const safeFixed=mergeFixed(fixed.map(x=>({...x,start:Math.max(wake,x.start),end:Math.min(sleep,x.end)})));
   const classMinutes=safeFixed.filter(x=>x.block.type==="class").reduce((sum,x)=>sum+(x.end-x.start),0);
-  const desiredTotal=examMode?Math.max(desiredAcademicMinutes,8*60):desiredAcademicMinutes;
-  const targetStudy=Math.min(availableDay,Math.max(0,desiredTotal-(planning.countClassTimeTowardTarget?classMinutes:0)));
+  const desiredTotal=examMode?12*60:desiredAcademicMinutes;
+  const countClassTime=examMode?true:planning.countClassTimeTowardTarget;
+  const targetStudy=Math.min(availableDay,Math.max(0,desiredTotal-(countClassTime?classMinutes:0)));
   const weak=applyClassPriorities(weaknessQueue(profile,progress,testMarks,coverage,activePhase),date,classes);
   const targets=bucketTargets(profile,weak);
   const allocated:Record<string,number>={},usage:Record<string,number>={};
@@ -228,7 +229,7 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
       }
       const noCovered=weak.length===0;
       const focusEmpty=(mainExamMode||examMode)&&(activePhase.examSubjects?.length??0)>0;
-      plan.push(block(`free-${date.toDateString()}-${p}`,p,segmentEnd,"free",noCovered?"Flexible study time":examMode?"Recovery / overflow":"Your own time",{subtitle:noCovered?(focusEmpty?"No manually covered topics match your selected exam focus. Update Study phase or coverage.":"Mark lessons you have personally covered to let Study Arc schedule them here."):studyMinutes>=targetStudy?(examMode?"Protect recovery or use only for unfinished priority work":"Your study target is covered. Keep this time for yourself, rest, exercise or optional work."):"Use this time freely or as catch-up if you want"}));
+      plan.push(block(`free-${date.toDateString()}-${p}`,p,segmentEnd,"free",noCovered?"Flexible study time":examMode?"Recovery / overflow":"Your own time",{subtitle:noCovered?(focusEmpty?"No manually covered topics match your selected exam focus. Update Study phase or coverage.":"Mark lessons you have personally covered to let Study Arc schedule them here."):studyMinutes>=targetStudy?(examMode?"12-hour academic target covered. Protect recovery or use only for unfinished priority work.":"Your study target is covered. Keep this time for yourself, rest, exercise or optional work."):"Use this time freely or as catch-up if you want"}));
       p=segmentEnd;
     }
   };
