@@ -6,12 +6,14 @@ import React,{useCallback,useEffect,useMemo,useState} from "react";
 import { Pressable,ScrollView,StyleSheet,Text,View } from "react-native";
 import AnimatedEntrance from "../components/AnimatedEntrance";
 import Screen from "../components/Screen";
+import { usePlanning } from "../context/PlanningContext";
 import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
 import { useSocial } from "../context/SocialContext";
 import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
 import { SUBJECTS,expandSubjectChoices,topicDisplayName,type SubjectName } from "../data/subjects";
 import { daysUntilExam,examDateLabel,isFullWorkMode } from "../lib/exams";
+import { countUnreadNotifications } from "../lib/notificationReadState";
 import { buildNotificationFeed,scheduleDailyReviewReminder,scheduleStudyReminders } from "../lib/notifications";
 import { generateDailyPlan,type PlanBlock } from "../lib/planner";
 import { elapsedFromPersistedTimer,readActiveStudyTimer,type PersistedStudyTimer } from "../lib/timerPersistence";
@@ -24,22 +26,26 @@ const startOfLocalDay=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),d.getDate(
 export default function HomeScreen(){
  const router=useRouter();
  const{profile,classes,testMarks,topicProgress,subtopicCoverage,todayReview}=useStudent();
+ const{preferences}=usePlanning();
  const{protectedTimes,classWeekOverrides}=useScheduleAdjustments();
- const{todaySeconds,subjectSeconds}=useStudy();
+ const{todaySeconds,subjectSeconds,sessions}=useStudy();
  const{myRank,friends,pendingRequests}=useSocial();
  const[activeTimer,setActiveTimer]=useState<PersistedStudyTimer|null>(null);
+ const[unreadCount,setUnreadCount]=useState(0);
  const[,setTimerTick]=useState(0);
  const today=useMemo(()=>new Date(),[]);
- const plan=useMemo(()=>generateDailyPlan(today,profile,classes,topicProgress,testMarks,subtopicCoverage),[today,profile,classes,topicProgress,testMarks,subtopicCoverage,protectedTimes,classWeekOverrides]);
+ const plan=useMemo(()=>generateDailyPlan(today,profile,classes,topicProgress,testMarks,subtopicCoverage),[today,profile,classes,topicProgress,testMarks,subtopicCoverage,protectedTimes,classWeekOverrides,preferences]);
  const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
  const examDays=profile.examYear?daysUntilExam(profile.examYear):0;
  const fullWork=isFullWorkMode(profile.examYear,today);
- const feed=useMemo(()=>buildNotificationFeed(today,profile,plan,topicProgress,classes,Boolean(todayReview)),[classes,plan,profile,today,topicProgress,todayReview]);
+ const feed=useMemo(()=>buildNotificationFeed(today,profile,plan,topicProgress,classes,Boolean(todayReview),sessions),[classes,plan,profile,sessions,today,topicProgress,todayReview]);
+ const notificationIds=useMemo(()=>[...feed.map(item=>item.id),...pendingRequests.map(request=>`friend-${request.friendshipId}`)],[feed,pendingRequests]);
  const latestTests=testMarks.slice(0,6).reverse();
  const studyPlanMinutes=plan.filter(x=>x.type==="study"||x.type==="revision").reduce((sum,x)=>sum+durationMinutes(x.start,x.end),0);
  const bonusUnlocked=todaySeconds>=12*3600;
  useEffect(()=>{scheduleStudyReminders(today,plan).catch(()=>undefined);scheduleDailyReviewReminder(profile).catch(()=>undefined)},[today,plan,profile]);
  useFocusEffect(useCallback(()=>{let live=true;readActiveStudyTimer().then(x=>{if(live)setActiveTimer(x)});return()=>{live=false}},[]));
+ useFocusEffect(useCallback(()=>{let live=true;countUnreadNotifications(notificationIds).then(count=>{if(live)setUnreadCount(count)}).catch(()=>undefined);return()=>{live=false}},[notificationIds]));
  useEffect(()=>{if(!activeTimer?.running)return;const id=setInterval(()=>setTimerTick(x=>x+1),1000);return()=>clearInterval(id)},[activeTimer?.running]);
  const greeting=new Date().getHours()<12?"MORNING":new Date().getHours()<18?"AFTERNOON":"EVENING";
  const studyingFriends=friends.filter(x=>x.isStudying).length;
@@ -52,7 +58,7 @@ export default function HomeScreen(){
  const displayPlanTitle=(item:PlanBlock)=>{if(!item.subjectName||!item.topicName)return item.title;const localized=topicDisplayName(item.subjectName,item.topicName,profile.medium);return item.title.startsWith("Exam practice")?`Exam practice · ${localized}`:localized};
  const activeTopic=activeTimer?.topicName&&activeTimer.subjectName?topicDisplayName(activeTimer.subjectName,activeTimer.topicName,profile.medium):activeTimer?.topicName;
  return <Screen><LinearGradient colors={["#120D1D","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-  <View style={s.top}><View><Text style={s.kicker}>GOOD {greeting}</Text><Text style={s.hello}>{profile.fullName?`Hi, ${profile.fullName.split(" ")[0]}`:"Your study day"}</Text></View><View style={s.topActions}><Pressable style={s.topIcon} onPress={()=>router.push("/notifications")}><Ionicons name="notifications-outline" size={23} color="#E9D9FF"/>{feed.length+pendingRequests.length>0&&<View style={s.badge}><Text style={s.badgeText}>{Math.min(9,feed.length+pendingRequests.length)}</Text></View>}</Pressable><Pressable style={s.topIcon} onPress={()=>router.push("/stopwatch")}><Ionicons name="stopwatch-outline" size={24} color="#E9D9FF"/></Pressable></View></View>
+  <View style={s.top}><View><Text style={s.kicker}>GOOD {greeting}</Text><Text style={s.hello}>{profile.fullName?`Hi, ${profile.fullName.split(" ")[0]}`:"Your study day"}</Text></View><View style={s.topActions}><Pressable style={s.topIcon} onPress={()=>router.push("/notifications")}><Ionicons name="notifications-outline" size={23} color="#E9D9FF"/>{unreadCount>0&&<View style={s.badge}><Text style={s.badgeText}>{Math.min(9,unreadCount)}</Text></View>}</Pressable><Pressable style={s.topIcon} onPress={()=>router.push("/stopwatch")}><Ionicons name="stopwatch-outline" size={24} color="#E9D9FF"/></Pressable></View></View>
   {activeTimer?.running&&<AnimatedEntrance><Pressable onPress={()=>router.push("/stopwatch")} style={s.activeTimer}><View style={s.liveDot}/><View style={{flex:1}}><Text style={s.activeTitle}>Session still running</Text><Text style={s.activeSub}>{activeTimer.subjectName||"Quick Study"}{activeTopic?` · ${activeTopic}`:""} · {fmtStudy(Math.floor(elapsedFromPersistedTimer(activeTimer)/1000))}</Text></View><Text style={s.resume}>RESUME</Text></Pressable></AnimatedEntrance>}
   {profile.examYear&&<AnimatedEntrance><LinearGradient colors={["#432664","#271B3E","#171825","#10151E"]} start={{x:0,y:0}} end={{x:1,y:1}} style={s.examHero}><View style={s.examTop}><View><Text style={s.examLabel}>G.C.E. A/L {profile.examYear}</Text><Text style={s.examNumber}>{examDays}</Text><Text style={s.examText}>DAYS TO EXAM</Text></View><View style={s.examOrb}><Ionicons name="flag" size={27} color="#F2E8FF"/></View></View><View style={s.examDateRow}><Ionicons name="calendar-outline" size={14} color="#9C8BAF"/><Text style={s.examDate}>First exam day · {examDateLabel(profile.examYear)}</Text></View><View style={s.todayStudy}><View style={{flex:1}}><Text style={s.todayStudyLabel}>STUDIED TODAY</Text><Text style={s.todayStudyHint}>Saved sessions{activeTodaySeconds>0?" + current session":""}</Text></View><Text style={s.todayStudyValue}>{fmtStudy(todayDisplaySeconds)}</Text></View><Pressable onPress={()=>router.push("/stopwatch")} style={s.startSession}><View style={s.startLeft}><View style={s.playCircle}><Ionicons name="play" size={16} color="#160D20"/></View><View><Text style={s.startTitle}>Start session</Text><Text style={s.startSub}>Begin your next study block</Text></View></View><Ionicons name="arrow-forward" size={19} color="#F1E9FA"/></Pressable></LinearGradient></AnimatedEntrance>}
   <AnimatedEntrance delay={35}><View style={s.quickActions}><Pressable onPress={()=>router.push("/test-mark")} style={s.quickAction}><Ionicons name="stats-chart" size={20} color="#FF9CBE"/><View style={{flex:1}}><Text style={s.quickTitle}>Add test marks</Text><Text style={s.quickSub}>MCQ & essay results</Text></View></Pressable><Pressable onPress={()=>router.push("/stopwatch")} style={s.quickAction}><Ionicons name="add-circle-outline" size={21} color="#C69AFF"/><View style={{flex:1}}><Text style={s.quickTitle}>Add session</Text><Text style={s.quickSub}>Study, revise or paper</Text></View></Pressable></View></AnimatedEntrance>
