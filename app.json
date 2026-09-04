@@ -13,6 +13,15 @@
       "expo-router",
       "expo-notifications",
       [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#080D14",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 1,
+          "resizeMode": "contain"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Study Arc uses your photo library only when you choose a profile picture.",
