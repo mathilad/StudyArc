@@ -162,8 +162,8 @@ export function buildNotificationFeed(
         items.unshift({
           id:`class-complete-${item.id}-${date.toDateString()}`,
           kind:"class_complete",
-          title:"Class finished · update coverage",
-          body:`${item.subjectName??"Class"} · record the lesson and subtopics covered today so next week's plan can prioritize them.`,
+          title:"Class finished · log class learning",
+          body:`${item.subjectName??"Class"} · record which lesson and subtopics the class worked on. This stays separate from your own Covered status.`,
           whenLabel:format12Hour(item.end),
           subjectName:item.subjectName,
           priority:"high",
@@ -230,8 +230,8 @@ export async function scheduleStudyReminders(date: Date, blocks: PlanBlock[]) {
     if (when.getTime() <= now.getTime()) continue;
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: "Class finished · update coverage",
-        body: `${item.subjectName ?? "Class"} · record the lesson and subtopics covered so Study Arc can prioritize the class cycle.`,
+        title: "Class finished · log class learning",
+        body: `${item.subjectName ?? "Class"} · record what the class worked on. It will not mark the lesson as self-covered.`,
         data: { kind: "class-complete", subjectName: item.subjectName },
       },
       trigger: when,
