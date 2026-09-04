@@ -6,6 +6,7 @@ import React,{useCallback,useEffect,useMemo,useState} from "react";
 import { Pressable,ScrollView,StyleSheet,Text,View } from "react-native";
 import AnimatedEntrance from "../components/AnimatedEntrance";
 import Screen from "../components/Screen";
+import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
 import { useSocial } from "../context/SocialContext";
 import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
@@ -23,12 +24,13 @@ const startOfLocalDay=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),d.getDate(
 export default function HomeScreen(){
  const router=useRouter();
  const{profile,classes,testMarks,topicProgress,subtopicCoverage,todayReview}=useStudent();
+ const{protectedTimes,classWeekOverrides}=useScheduleAdjustments();
  const{todaySeconds,subjectSeconds}=useStudy();
  const{myRank,friends,pendingRequests}=useSocial();
  const[activeTimer,setActiveTimer]=useState<PersistedStudyTimer|null>(null);
  const[,setTimerTick]=useState(0);
  const today=useMemo(()=>new Date(),[]);
- const plan=useMemo(()=>generateDailyPlan(today,profile,classes,topicProgress,testMarks,subtopicCoverage),[today,profile,classes,topicProgress,testMarks,subtopicCoverage]);
+ const plan=useMemo(()=>generateDailyPlan(today,profile,classes,topicProgress,testMarks,subtopicCoverage),[today,profile,classes,topicProgress,testMarks,subtopicCoverage,protectedTimes,classWeekOverrides]);
  const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
  const examDays=profile.examYear?daysUntilExam(profile.examYear):0;
  const fullWork=isFullWorkMode(profile.examYear,today);
