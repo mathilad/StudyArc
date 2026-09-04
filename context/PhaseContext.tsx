@@ -1,9 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { Platform } from "react-native";
 import { useAuth } from "./AuthContext";
 import { useOffline } from "./OfflineContext";
+import { useStudent } from "./StudentContext";
+import { setRuntimePhaseSettings } from "../lib/phaseRuntime";
 import { supabase } from "../lib/supabase";
-import { DEFAULT_PHASE_SETTINGS, type PhaseSettings } from "../lib/studyPhases";
+import { DEFAULT_PHASE_SETTINGS, suggestedPhase, type PhaseSettings } from "../lib/studyPhases";
 
 const PhaseContext = createContext<{
   settings: PhaseSettings;
@@ -12,6 +15,7 @@ const PhaseContext = createContext<{
 } | null>(null);
 
 const keyFor = (userId: string) => `@study-arc/phase-settings/v1/${userId}`;
+const reminderKey = (userId: string) => `@study-arc/phase-reminder/${userId}/${new Date().toISOString().slice(0,10)}`;
 
 const normalize = (value: Partial<PhaseSettings> | null | undefined): PhaseSettings => ({
   ...DEFAULT_PHASE_SETTINGS,
@@ -24,6 +28,7 @@ const normalize = (value: Partial<PhaseSettings> | null | undefined): PhaseSetti
 export function PhaseProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { isOnline } = useOffline();
+  const { profile } = useStudent();
   const [settings, setSettings] = useState<PhaseSettings>(DEFAULT_PHASE_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [dirty, setDirty] = useState(false);
@@ -69,7 +74,7 @@ export function PhaseProvider({ children }: { children: React.ReactNode }) {
     };
     load();
     return () => { active = false; };
-  }, [user?.id]);
+  }, [isOnline, user?.id]);
 
   const savePhaseSettings = useCallback(async (updates: Partial<PhaseSettings>) => {
     if (!user) return;
@@ -89,6 +94,34 @@ export function PhaseProvider({ children }: { children: React.ReactNode }) {
     }, { onConflict: "user_id" });
     if (!error) setDirty(false);
   }, [isOnline, settings, user]);
+
+  useEffect(() => {
+    setRuntimePhaseSettings(settings);
+  }, [settings]);
+
+  useEffect(() => {
+    if (!user || loading || Platform.OS === "web") return;
+    const recommended = suggestedPhase(profile.examYear);
+    if (recommended === settings.phase) return;
+    const remind = async () => {
+      try {
+        if (await AsyncStorage.getItem(reminderKey(user.id))) return;
+        const Notifications = await import("expo-notifications");
+        const permission = await Notifications.getPermissionsAsync();
+        if (permission.status !== "granted") return;
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Study phase check",
+            body: `Study Arc suggests ${recommended}. You decide whether to change from ${settings.phase}.`,
+            data: { kind: "phase-suggestion", route: "/study-phase" },
+          },
+          trigger: new Date(Date.now() + 5000),
+        });
+        await AsyncStorage.setItem(reminderKey(user.id), "1");
+      } catch {}
+    };
+    remind();
+  }, [loading, profile.examYear, settings.phase, user]);
 
   useEffect(() => {
     if (!user || !isOnline || !dirty) return;
