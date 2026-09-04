@@ -166,8 +166,8 @@ function chooseItem(queue:QueueItem[],targets:Record<string,number>,allocated:Re
   const totalAllocated=Object.values(allocated).reduce((a,b)=>a+b,0);
   const buckets=Object.keys(targets).filter(bucket=>queue.some(x=>x.bucket===bucket));
   const chosenBucket=buckets.sort((a,b)=>{
-    const desiredA=(targets[a]/totalTarget)*Math.max(1,totalAllocated+75);
-    const desiredB=(targets[b]/totalTarget)*Math.max(1,totalAllocated+75);
+    const desiredA=(targets[a]/totalTarget)*Math.max(1,totalAllocated+180);
+    const desiredB=(targets[b]/totalTarget)*Math.max(1,totalAllocated+180);
     return (desiredB-(allocated[b]??0))-(desiredA-(allocated[a]??0));
   })[0]??queue[0]?.bucket;
   const candidates=queue.filter(x=>x.bucket===chosenBucket);
@@ -182,9 +182,9 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
   const mainExamMode=selectedPhase==="Main Exam Preparation";
   const paperMode=selectedPhase==="Paper Practice";
   const strengthenMode=selectedPhase==="Strengthening";
-  const normalTarget=Math.max(180,Math.round((profile.selfStudyHours||3)*60));
+  const normalTarget=Math.max(180,Math.min(12*60,Math.round((profile.selfStudyHours||3)*60)));
   const availableDay=Math.max(180,sleep-wake-180);
-  const targetStudy=examMode?Math.min(availableDay,Math.max(normalTarget,8*60)):normalTarget;
+  const targetStudy=examMode?Math.min(availableDay,Math.max(normalTarget,8*60)):Math.min(availableDay,normalTarget);
   const fixed:FixedBlock[]=[
     {start:wake,end:wake+15,block:{id:"morning",type:"routine",title:"Wake up · morning routine",subtitle:examMode?"15 min · hydrate, wash and set today’s exam targets":"15 min · hydrate, wash and set your focus"}},
     {start:clamp(12*60+30,wake+60,sleep-180),end:clamp(13*60+15,wake+105,sleep-135),block:{id:"lunch",type:"meal",title:"Lunch + reset",subtitle:"Eat away from your desk"}},
@@ -202,10 +202,10 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
   const fillFree=(segmentStart:number,segmentEnd:number)=>{
     let p=segmentStart;
     while(p<segmentEnd){
-      const remaining=segmentEnd-p,need=targetStudy-studyMinutes,minStudyBlock=examMode?50:45;
+      const remaining=segmentEnd-p,need=targetStudy-studyMinutes,minStudyBlock=60;
       if(need>0&&remaining>=minStudyBlock&&weak.length>0){
-        const preferredLength=examMode?90:75;
-        const length=Math.min(preferredLength,Math.max(minStudyBlock,Math.min(need,remaining>=preferredLength+10?preferredLength:remaining)));
+        const preferredLength=180;
+        const length=Math.min(preferredLength,Math.max(minStudyBlock,Math.min(need,remaining>=preferredLength+20?preferredLength:remaining)));
         const item=chooseItem(weak,targets,allocated,usage);
         if(!item)break;
         const useKey=`${item.subjectName}::${item.topicName}`;
@@ -214,16 +214,17 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
         const examPractice=phasePaperPractice||(studyBlockIndex%3===2&&selectedPhase!=="Foundation");
         const type:PlanBlockType=shouldRecall&&!examPractice?"revision":"study";
         const classNote=item.classFocus?" · this week's class lesson":"";
-        plan.push(block(`study-${date.toDateString()}-${p}`,p,p+length,type,examPractice?`Exam practice · ${item.topicName}`:item.topicName,{subtitle:examPractice?`${item.subjectName} · timed questions / paper practice${classNote}`:shouldRecall?`${item.subjectName} · active recall${item.memoryHeavy?" · memory cycle":""}${classNote}`:`${item.subjectName} · lesson study${classNote}`,subjectName:item.subjectName,topicName:item.topicName,priority:item.score<50||item.reviewDue||item.classFocus?"high":"normal"}));
+        const longWindow=length>=150?" · long self-directed window":" · self-directed study";
+        plan.push(block(`study-${date.toDateString()}-${p}`,p,p+length,type,examPractice?`Exam practice · ${item.topicName}`:item.topicName,{subtitle:examPractice?`${item.subjectName} · timed questions / paper practice${classNote}${longWindow}`:shouldRecall?`${item.subjectName} · active recall${item.memoryHeavy?" · memory cycle":""}${classNote}${longWindow}`:`${item.subjectName} · lesson study${classNote}${longWindow}`,subjectName:item.subjectName,topicName:item.topicName,priority:item.score<50||item.reviewDue||item.classFocus?"high":"normal"}));
         studyMinutes+=length;studyBlockIndex++;p+=length;
         allocated[item.bucket]=(allocated[item.bucket]??0)+length;
         usage[useKey]=(usage[useKey]??0)+1;
-        if(segmentEnd-p>=10){const breakLength=Math.min(15,segmentEnd-p);plan.push(block(`break-${date.toDateString()}-${p}`,p,p+breakLength,"break","Recovery break",{subtitle:examMode?"Walk, hydrate and reset before the next exam block":"Move, drink water, rest your eyes"}));p+=breakLength;}
+        if(segmentEnd-p>=15){const breakLength=Math.min(20,segmentEnd-p);plan.push(block(`break-${date.toDateString()}-${p}`,p,p+breakLength,"break","Recovery break",{subtitle:"Step away, hydrate and reset before the next long work window"}));p+=breakLength;}
         continue;
       }
       const noCovered=weak.length===0;
       const focusEmpty=(mainExamMode||examMode)&&(activePhase.examSubjects?.length??0)>0;
-      plan.push(block(`free-${date.toDateString()}-${p}`,p,segmentEnd,"free",noCovered?"Flexible study time":examMode?"Recovery / overflow":"Flexible time",{subtitle:noCovered?(focusEmpty?"No manually covered topics match your selected exam focus. Update Study phase or coverage.":"Mark lessons you have personally covered to let Study Arc schedule them here."):studyMinutes>=targetStudy?(examMode?"Protect recovery or use only for unfinished priority work":"Rest, exercise, family or overflow work"):"Use as catch-up time if needed"}));
+      plan.push(block(`free-${date.toDateString()}-${p}`,p,segmentEnd,"free",noCovered?"Flexible study time":examMode?"Recovery / overflow":"Your own time",{subtitle:noCovered?(focusEmpty?"No manually covered topics match your selected exam focus. Update Study phase or coverage.":"Mark lessons you have personally covered to let Study Arc schedule them here."):studyMinutes>=targetStudy?(examMode?"Protect recovery or use only for unfinished priority work":"Your self-study target is covered. Keep this time for yourself, rest, exercise or optional work."):"Use this time freely or as catch-up if you want"}));
       p=segmentEnd;
     }
   };
