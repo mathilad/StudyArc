@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import { Platform } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import OfflineStatusBanner from "../components/OfflineStatusBanner";
 import { AuthProvider } from "../context/AuthContext";
 import { OfflineProvider } from "../context/OfflineContext";
@@ -23,6 +24,7 @@ export default function RootLayout() {
         <StudentProvider>
           <StudyProvider>
             <SocialProvider>
+              <StatusBar hidden />
               <Stack screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="login" />
