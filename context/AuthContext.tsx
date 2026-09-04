@@ -18,12 +18,10 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const messageFrom=(error:unknown)=>error instanceof Error?error.message:"Something went wrong. Please try again.";
-const AUTH_BRIDGE="https://mathilad.github.io/StudyArc/auth-callback.html";
-const authRedirect=(path:"/login"|"/reset-password",flow:"signup"|"recovery")=>{
-  if(Platform.OS==="web")return Linking.createURL(path);
-  const target=path==="/reset-password"?"reset-password":"login";
-  return `${AUTH_BRIDGE}?target=${target}&auth_flow=${flow}`;
-};
+const authRedirect=(path:"/login"|"/reset-password",flow:"signup"|"recovery")=>Linking.createURL(path,{
+  ...(Platform.OS!=="web"?{scheme:"studyarc"}:{}),
+  queryParams:{auth_flow:flow},
+});
 
 function parseUrlParams(url:string){
   const result:Record<string,string>={};
