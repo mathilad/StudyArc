@@ -1,6 +1,8 @@
 import { SUBJECTS, expandSubjectChoices, type SubjectName } from "../data/subjects";
 import type { ClassSchedule, StudentProfile, SubtopicCoverage, TopicProgress, TestMark } from "../context/StudentContext";
 import { getRuntimePhaseSettings } from "./phaseRuntime";
+import { localDateKey, weekStartKey } from "./scheduleAdjustments";
+import { getRuntimeScheduleAdjustments } from "./scheduleRuntime";
 import type { StudyPhase } from "./studyPhases";
 import { durationMinutes, minutesToTime, parseTime } from "./time";
 
@@ -64,19 +66,44 @@ export function weaknessQueue(profile:StudentProfile,progress:TopicProgress[],te
   return queue.sort((a,b)=>a.score-b.score);
 }
 
+function appendClassBlocks(result:FixedBlock[],c:ClassSchedule,startTime:string,endTime:string,idSuffix=""){
+  const start=parseTime(startTime),end=start+durationMinutes(startTime,endTime);
+  const travel=c.deliveryMode==="Physical"?Math.max(0,c.travelMinutes||90):0;
+  const review=Math.max(0,c.preReviewMinutes||30,c.classType==="Paper"?60:0),reviewStart=start-travel-review;
+  const suffix=idSuffix?`-${idSuffix}`:"";
+  if(review>0)result.push({start:reviewStart,end:reviewStart+review,block:{id:`review-${c.id}${suffix}`,type:"revision",title:c.classType==="Paper"?`Paper-class preparation · ${c.subjectName}`:`Pre-class review · ${c.subjectName}`,subtitle:c.classType==="Paper"?`${review} min targeted preparation before the paper class`:`${review} min active recall before ${c.classType.toLowerCase()} class`,subjectName:c.subjectName,priority:"high"}});
+  if(travel>0)result.push({start:start-travel,end:start,block:{id:`travel-out-${c.id}${suffix}`,type:"travel",title:"Travel to class",subtitle:`${c.subjectName} · 1 hr 30 min travel buffer`,subjectName:c.subjectName}});
+  result.push({start,end,block:{id:`class-${c.id}${suffix}`,type:"class",title:`${c.subjectName} · ${c.classType} class`,subtitle:idSuffix?`${c.deliveryMode} · make-up class for this week`:(c.deliveryMode==="Physical"?"Physical class":"Online class"),subjectName:c.subjectName}});
+  if(travel>0)result.push({start:end,end:end+travel,block:{id:`travel-home-${c.id}${suffix}`,type:"travel",title:"Travel home",subtitle:`${c.subjectName} · 1 hr 30 min travel + reset`,subjectName:c.subjectName}});
+}
+
 function classFixedBlocks(date:Date,classes:ClassSchedule[]):FixedBlock[]{
-  const relevant=classes.filter(c=>c.dayOfWeek===date.getDay());
   const result:FixedBlock[]=[];
-  relevant.forEach(c=>{
-    const start=parseTime(c.startTime),end=start+durationMinutes(c.startTime,c.endTime);
-    const travel=c.deliveryMode==="Physical"?Math.max(0,c.travelMinutes||90):0;
-    const review=Math.max(0,c.preReviewMinutes||30,c.classType==="Paper"?60:0),reviewStart=start-travel-review;
-    if(review>0)result.push({start:reviewStart,end:reviewStart+review,block:{id:`review-${c.id}`,type:"revision",title:c.classType==="Paper"?`Paper-class preparation · ${c.subjectName}`:`Pre-class review · ${c.subjectName}`,subtitle:c.classType==="Paper"?`${review} min targeted preparation before the paper class`:`${review} min active recall before ${c.classType.toLowerCase()} class`,subjectName:c.subjectName,priority:"high"}});
-    if(travel>0)result.push({start:start-travel,end:start,block:{id:`travel-out-${c.id}`,type:"travel",title:"Travel to class",subtitle:`${c.subjectName} · 1 hr 30 min travel buffer`,subjectName:c.subjectName}});
-    result.push({start,end,block:{id:`class-${c.id}`,type:"class",title:`${c.subjectName} · ${c.classType} class`,subtitle:c.deliveryMode==="Physical"?"Physical class":"Online class",subjectName:c.subjectName}});
-    if(travel>0)result.push({start:end,end:end+travel,block:{id:`travel-home-${c.id}`,type:"travel",title:"Travel home",subtitle:`${c.subjectName} · 1 hr 30 min travel + reset`,subjectName:c.subjectName}});
+  const {classWeekOverrides}=getRuntimeScheduleAdjustments();
+  const currentWeek=weekStartKey(date),todayKey=localDateKey(date);
+  classes.forEach(c=>{
+    const override=classWeekOverrides.find(x=>x.classId===c.id&&x.weekStart===currentWeek);
+    if(override){
+      if(override.status==="Rescheduled"&&override.rescheduledDate===todayKey&&override.startTime&&override.endTime){
+        appendClassBlocks(result,c,override.startTime,override.endTime,`makeup-${override.id}`);
+      }
+      return;
+    }
+    if(c.dayOfWeek===date.getDay())appendClassBlocks(result,c,c.startTime,c.endTime);
   });
   return result;
+}
+
+function protectedFixedBlocks(date:Date):FixedBlock[]{
+  const {protectedTimes}=getRuntimeScheduleAdjustments();
+  const todayKey=localDateKey(date);
+  return protectedTimes
+    .filter(item=>item.recurrence==="Weekly"?item.dayOfWeek===date.getDay():item.date===todayKey)
+    .map(item=>({
+      start:parseTime(item.startTime),
+      end:parseTime(item.startTime)+durationMinutes(item.startTime,item.endTime),
+      block:{id:`protected-${item.id}`,type:"free" as const,title:`Protected time · ${item.title}`,subtitle:"Unavailable for study · Study Arc keeps this time clear"},
+    }));
 }
 
 function bucketTargets(profile:StudentProfile,queue:QueueItem[]){
@@ -121,6 +148,7 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
     {start:clamp(19*60,wake+180,sleep-120),end:clamp(19*60+45,wake+225,sleep-75),block:{id:"dinner",type:"meal",title:"Dinner",subtitle:"Recharge before the final study block"}},
     {start:sleep-30,end:sleep,block:{id:"wind-down",type:"routine",title:"Wind down",subtitle:"Prepare for sleep · no heavy work"}},
     ...classFixedBlocks(date,classes),
+    ...protectedFixedBlocks(date),
   ];
   const safeFixed=mergeFixed(fixed.map(x=>({...x,start:Math.max(wake,x.start),end:Math.min(sleep,x.end)})));
   const weak=weaknessQueue(profile,progress,testMarks,coverage,activePhase);
