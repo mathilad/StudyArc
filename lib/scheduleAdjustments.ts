@@ -14,10 +14,11 @@ export type ClassWeekOverride = {
   id: string;
   classId: string;
   weekStart: string;
-  status: "Missed" | "Rescheduled";
+  status: "Scheduled" | "Missed" | "Rescheduled";
   rescheduledDate: string | null;
   startTime: string | null;
   endTime: string | null;
+  topicName: string | null;
 };
 
 export type ClassWeekOverrideInput = Omit<ClassWeekOverride, "id">;
