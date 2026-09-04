@@ -24,17 +24,28 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studyarc.app",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "UIStatusBarHidden": true,
+        "UIViewControllerBasedStatusBarAppearance": false
+      }
     },
 
     "android": {
       "package": "com.studyarc.app",
       "versionCode": 1,
       "predictiveBackGestureEnabled": false,
+      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#080D14"
       }
+    },
+
+    "androidStatusBar": {
+      "hidden": true,
+      "translucent": true,
+      "backgroundColor": "#080D14"
     },
 
     "web": {
