@@ -1,5 +1,6 @@
 import { SUBJECTS, expandSubjectChoices, type SubjectName } from "../data/subjects";
 import type { ClassSchedule, StudentProfile, SubtopicCoverage, TopicProgress, TestMark } from "../context/StudentContext";
+import { getRuntimePhaseSettings } from "./phaseRuntime";
 import type { StudyPhase } from "./studyPhases";
 import { durationMinutes, minutesToTime, parseTime } from "./time";
 
@@ -18,6 +19,7 @@ const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 const block=(id:string,start:number,end:number,type:PlanBlockType,title:string,extra:Partial<PlanBlock>={}):PlanBlock=>({id,start:minutesToTime(start),end:minutesToTime(end),type,title,...extra});
 const mergeFixed=(items:FixedBlock[])=>items.filter(x=>x.end>x.start).sort((a,b)=>a.start-b.start).reduce<FixedBlock[]>((acc,item)=>{const prev=acc[acc.length-1];if(!prev||item.start>=prev.end){acc.push(item);return acc;}if(item.end>prev.end)acc.push({...item,start:prev.end});return acc;},[]);
 const bucketFor=(subjectName:string)=>subjectName==="Pure Mathematics"||subjectName==="Applied Mathematics"?"Mathematics":subjectName;
+const resolvePhase=(phase:PlannerPhaseOptions):PlannerPhaseOptions=>Object.keys(phase).length?phase:getRuntimePhaseSettings() as PlannerPhaseOptions;
 
 function manuallyCoveredTopicSet(coverage: SubtopicCoverage[]) {
   return new Set(
@@ -39,6 +41,7 @@ function phaseAllows(subjectName:string,topicName:string,phase:PlannerPhaseOptio
 }
 
 export function weaknessQueue(profile:StudentProfile,progress:TopicProgress[],testMarks:TestMark[]=[],coverage:SubtopicCoverage[]=[],phase:PlannerPhaseOptions={}):QueueItem[]{
+  const activePhase=resolvePhase(phase);
   const subjects=expandSubjectChoices(profile.subjectChoices);
   const allowed=manuallyCoveredTopicSet(coverage);
   const queue:QueueItem[]=[];
@@ -47,7 +50,7 @@ export function weaknessQueue(profile:StudentProfile,progress:TopicProgress[],te
     const subject=SUBJECTS[subjectName];
     subject.topics.forEach(topic=>{
       if(!allowed.has(`${subjectName}::${topic.title}`)) return;
-      if(!phaseAllows(subjectName,topic.title,phase))return;
+      if(!phaseAllows(subjectName,topic.title,activePhase))return;
       const p=progress.find(row=>row.subjectName===subjectName&&row.topicName===topic.title);
       const weakHits=testMarks.filter(mark=>mark.subjectName===subjectName&&mark.weakTopics.includes(topic.title)).length;
       const reviewDue=Boolean(p?.nextRecallAt&&new Date(p.nextRecallAt).getTime()<=now);
@@ -102,8 +105,9 @@ function chooseItem(queue:QueueItem[],targets:Record<string,number>,allocated:Re
 }
 
 export function generateDailyPlan(date:Date,profile:StudentProfile,classes:ClassSchedule[],progress:TopicProgress[],testMarks:TestMark[]=[],coverage:SubtopicCoverage[]=[],phase:PlannerPhaseOptions={}):PlanBlock[]{
+  const activePhase=resolvePhase(phase);
   const wake=parseTime(profile.wakeTime||"06:00");let sleep=parseTime(profile.sleepTime||"22:30");if(sleep<=wake)sleep+=1440;
-  const selectedPhase=phase.phase??"Foundation";
+  const selectedPhase=activePhase.phase??"Foundation";
   const examMode=selectedPhase==="Exam Month";
   const mainExamMode=selectedPhase==="Main Exam Preparation";
   const paperMode=selectedPhase==="Paper Practice";
@@ -119,7 +123,7 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
     ...classFixedBlocks(date,classes),
   ];
   const safeFixed=mergeFixed(fixed.map(x=>({...x,start:Math.max(wake,x.start),end:Math.min(sleep,x.end)})));
-  const weak=weaknessQueue(profile,progress,testMarks,coverage,phase);
+  const weak=weaknessQueue(profile,progress,testMarks,coverage,activePhase);
   const targets=bucketTargets(profile,weak);
   const allocated:Record<string,number>={},usage:Record<string,number>={};
   let studyMinutes=0,studyBlockIndex=0;const plan:PlanBlock[]=[];let cursor=wake;
@@ -144,7 +148,7 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
         if(segmentEnd-p>=10){const breakLength=Math.min(15,segmentEnd-p);plan.push(block(`break-${date.toDateString()}-${p}`,p,p+breakLength,"break","Recovery break",{subtitle:examMode?"Walk, hydrate and reset before the next exam block":"Move, drink water, rest your eyes"}));p+=breakLength;}continue;
       }
       const noCovered=weak.length===0;
-      const focusEmpty=(mainExamMode||examMode)&&(phase.examSubjects?.length??0)>0;
+      const focusEmpty=(mainExamMode||examMode)&&(activePhase.examSubjects?.length??0)>0;
       plan.push(block(`free-${date.toDateString()}-${p}`,p,segmentEnd,"free",noCovered?"Flexible study time":examMode?"Recovery / overflow":"Flexible time",{subtitle:noCovered?(focusEmpty?"No manually covered topics match your selected exam focus. Update Study phase or coverage.":"Mark lessons you have personally covered to let Study Arc schedule them here."):studyMinutes>=targetStudy?(examMode?"Protect recovery or use only for unfinished priority work":"Rest, exercise, family or overflow work"):"Use as catch-up time if needed"}));p=segmentEnd;
     }
   };
