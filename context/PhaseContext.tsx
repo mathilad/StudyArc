@@ -15,6 +15,7 @@ const PhaseContext = createContext<{
 } | null>(null);
 
 const keyFor = (userId: string) => `@study-arc/phase-settings/v1/${userId}`;
+const dirtyKeyFor = (userId: string) => `@study-arc/phase-settings-dirty/v1/${userId}`;
 const reminderKey = (userId: string) => `@study-arc/phase-reminder/${userId}/${new Date().toISOString().slice(0,10)}`;
 
 const normalize = (value: Partial<PhaseSettings> | null | undefined): PhaseSettings => ({
@@ -25,6 +26,15 @@ const normalize = (value: Partial<PhaseSettings> | null | undefined): PhaseSetti
   doneSubjects: Array.isArray(value?.doneSubjects) ? value!.doneSubjects! : [],
 });
 
+const remoteFrom = (data: any) => normalize({
+  phase: data.phase,
+  examName: data.exam_name,
+  examSubjects: data.exam_subjects ?? [],
+  examTopics: data.exam_topics ?? {},
+  doneSubjects: data.done_subjects ?? [],
+  updatedAt: data.updated_at,
+});
+
 export function PhaseProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { isOnline } = useOffline();
@@ -33,56 +43,13 @@ export function PhaseProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [dirty, setDirty] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      if (!user) {
-        if (active) {
-          setSettings(DEFAULT_PHASE_SETTINGS);
-          setLoading(false);
-          setDirty(false);
-        }
-        return;
-      }
-      setLoading(true);
-      let local = DEFAULT_PHASE_SETTINGS;
-      try {
-        const raw = await AsyncStorage.getItem(keyFor(user.id));
-        if (raw) local = normalize(JSON.parse(raw));
-      } catch {}
-      if (active) setSettings(local);
-      if (isOnline) {
-        try {
-          const { data, error } = await supabase.from("study_phase_settings").select("*").eq("user_id", user.id).maybeSingle();
-          if (error) throw error;
-          if (data) {
-            const remote = normalize({
-              phase: data.phase,
-              examName: data.exam_name,
-              examSubjects: data.exam_subjects ?? [],
-              examTopics: data.exam_topics ?? {},
-              doneSubjects: data.done_subjects ?? [],
-              updatedAt: data.updated_at,
-            });
-            if (active) setSettings(remote);
-            await AsyncStorage.setItem(keyFor(user.id), JSON.stringify(remote));
-            if (active) setDirty(false);
-          }
-        } catch {}
-      }
-      if (active) setLoading(false);
-    };
-    load();
-    return () => { active = false; };
-  }, [isOnline, user?.id]);
-
-  const savePhaseSettings = useCallback(async (updates: Partial<PhaseSettings>) => {
-    if (!user) return;
-    const next = normalize({ ...settings, ...updates, updatedAt: new Date().toISOString() });
+  const apply = useCallback((next: PhaseSettings) => {
+    setRuntimePhaseSettings(next);
     setSettings(next);
-    setDirty(true);
-    await AsyncStorage.setItem(keyFor(user.id), JSON.stringify(next));
-    if (!isOnline) return;
+  }, []);
+
+  const pushRemote = useCallback(async (next: PhaseSettings) => {
+    if (!user || !isOnline) return false;
     const { error } = await supabase.from("study_phase_settings").upsert({
       user_id: user.id,
       phase: next.phase,
@@ -92,12 +59,85 @@ export function PhaseProvider({ children }: { children: React.ReactNode }) {
       done_subjects: next.doneSubjects,
       updated_at: next.updatedAt,
     }, { onConflict: "user_id" });
-    if (!error) setDirty(false);
-  }, [isOnline, settings, user]);
+    return !error;
+  }, [isOnline, user]);
 
   useEffect(() => {
-    setRuntimePhaseSettings(settings);
-  }, [settings]);
+    let active = true;
+    const load = async () => {
+      if (!user) {
+        if (active) {
+          apply(DEFAULT_PHASE_SETTINGS);
+          setDirty(false);
+          setLoading(false);
+        }
+        return;
+      }
+      setLoading(true);
+      let local = DEFAULT_PHASE_SETTINGS;
+      let localDirty = false;
+      try {
+        const [raw, dirtyRaw] = await Promise.all([
+          AsyncStorage.getItem(keyFor(user.id)),
+          AsyncStorage.getItem(dirtyKeyFor(user.id)),
+        ]);
+        if (raw) local = normalize(JSON.parse(raw));
+        localDirty = dirtyRaw === "1";
+      } catch {}
+      if (!active) return;
+      apply(local);
+      setDirty(localDirty);
+
+      if (isOnline) {
+        if (localDirty) {
+          const ok = await pushRemote(local);
+          if (ok && active) {
+            setDirty(false);
+            await AsyncStorage.removeItem(dirtyKeyFor(user.id));
+          }
+        } else {
+          try {
+            const { data, error } = await supabase.from("study_phase_settings").select("*").eq("user_id", user.id).maybeSingle();
+            if (error) throw error;
+            if (data && active) {
+              const remote = remoteFrom(data);
+              apply(remote);
+              await AsyncStorage.setItem(keyFor(user.id), JSON.stringify(remote));
+            }
+          } catch {}
+        }
+      }
+      if (active) setLoading(false);
+    };
+    load();
+    return () => { active = false; };
+  }, [apply, pushRemote, user?.id]);
+
+  const savePhaseSettings = useCallback(async (updates: Partial<PhaseSettings>) => {
+    if (!user) return;
+    const next = normalize({ ...settings, ...updates, updatedAt: new Date().toISOString() });
+    apply(next);
+    setDirty(true);
+    await Promise.all([
+      AsyncStorage.setItem(keyFor(user.id), JSON.stringify(next)),
+      AsyncStorage.setItem(dirtyKeyFor(user.id), "1"),
+    ]);
+    if (!isOnline) return;
+    const ok = await pushRemote(next);
+    if (ok) {
+      setDirty(false);
+      await AsyncStorage.removeItem(dirtyKeyFor(user.id));
+    }
+  }, [apply, isOnline, pushRemote, settings, user]);
+
+  useEffect(() => {
+    if (!user || !isOnline || !dirty) return;
+    pushRemote(settings).then(async ok => {
+      if (!ok) return;
+      setDirty(false);
+      await AsyncStorage.removeItem(dirtyKeyFor(user.id));
+    }).catch(() => undefined);
+  }, [dirty, isOnline, pushRemote, settings, user]);
 
   useEffect(() => {
     if (!user || loading || Platform.OS === "web") return;
@@ -122,11 +162,6 @@ export function PhaseProvider({ children }: { children: React.ReactNode }) {
     };
     remind();
   }, [loading, profile.examYear, settings.phase, user]);
-
-  useEffect(() => {
-    if (!user || !isOnline || !dirty) return;
-    savePhaseSettings({}).catch(() => undefined);
-  }, [dirty, isOnline, savePhaseSettings, user]);
 
   const value = useMemo(() => ({ settings, loading, savePhaseSettings }), [settings, loading, savePhaseSettings]);
   return <PhaseContext.Provider value={value}>{children}</PhaseContext.Provider>;
