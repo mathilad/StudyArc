@@ -1,14 +1,15 @@
 import { Platform } from "react-native";
 import type { ClassSchedule, StudentProfile, TopicProgress } from "../context/StudentContext";
+import { expandSubjectChoices } from "../data/subjects";
 import { daysUntilExam } from "./exams";
 import { getRuntimePhaseSettings } from "./phaseRuntime";
-import type { PlanBlock } from "./planner";
+import { planningBucketFor, type PlanBlock } from "./planner";
 import { suggestedPhase } from "./studyPhases";
 import { format12Hour, parseTime } from "./time";
 
 export type InAppNotification = {
   id: string;
-  kind: "study" | "revision" | "class" | "class_complete" | "exam" | "phase" | "memory" | "daily_review" | "protected";
+  kind: "study" | "revision" | "class" | "class_complete" | "exam" | "phase" | "memory" | "daily_review" | "protected" | "balance";
   title: string;
   body: string;
   whenLabel: string;
@@ -17,8 +18,41 @@ export type InAppNotification = {
   priority: "high" | "normal";
 };
 
+type StudySessionLite = { subjectName: string; durationSeconds: number; startedAt: string };
+
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const atPlanTime=(date:Date,time:string)=>{const mins=parseTime(time);return new Date(date.getFullYear(),date.getMonth(),date.getDate(),Math.floor(mins/60),mins%60,0)};
+const weekKey=(date:Date)=>{const d=new Date(date);d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`};
+
+function balanceWarning(profile:StudentProfile,sessions:StudySessionLite[],now:Date):InAppNotification|null{
+  const selectedBuckets=[...new Set(expandSubjectChoices(profile.subjectChoices).map(planningBucketFor))];
+  if(selectedBuckets.length<2)return null;
+  const since=now.getTime()-7*86400000;
+  const totals:Record<string,number>={};
+  sessions.forEach(session=>{
+    const started=new Date(session.startedAt).getTime();
+    if(!Number.isFinite(started)||started<since||session.durationSeconds<=0)return;
+    const bucket=planningBucketFor(session.subjectName);
+    if(!selectedBuckets.includes(bucket))return;
+    totals[bucket]=(totals[bucket]??0)+session.durationSeconds;
+  });
+  const total=Object.values(totals).reduce((a,b)=>a+b,0);
+  if(total<6*3600)return null;
+  const entries=selectedBuckets.map(bucket=>({bucket,seconds:totals[bucket]??0})).sort((a,b)=>b.seconds-a.seconds);
+  const top=entries[0];
+  const share=top.seconds/total;
+  const threshold=selectedBuckets.length>=3?.55:.7;
+  if(share<=threshold)return null;
+  const hours=Math.round(top.seconds/360)/10;
+  return {
+    id:`balance-${top.bucket}-${weekKey(now)}`,
+    kind:"balance",
+    title:`Check your ${top.bucket} balance`,
+    body:`${top.bucket} is ${Math.round(share*100)}% of your recorded self-study in the last 7 days (${hours}h). You still control the plan, but consider redistributing time if this is not intentional.`,
+    whenLabel:"BALANCE",
+    priority:"high",
+  };
+}
 
 export function buildNotificationFeed(
   date: Date,
@@ -27,9 +61,13 @@ export function buildNotificationFeed(
   progress: TopicProgress[],
   classes: ClassSchedule[],
   hasDailyReview = false,
+  sessions: StudySessionLite[] = [],
 ): InAppNotification[] {
   const items: InAppNotification[] = [];
   const now = new Date();
+
+  const balance=balanceWarning(profile,sessions,now);
+  if(balance)items.unshift(balance);
 
   const currentPhase = getRuntimePhaseSettings().phase ?? "Foundation";
   const recommended = suggestedPhase(profile.examYear, now);
