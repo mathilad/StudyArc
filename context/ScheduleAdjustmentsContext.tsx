@@ -36,6 +36,17 @@ export function ScheduleAdjustmentsProvider({ children }: { children: React.Reac
     await writeJson(cacheKey(user.id, "schedule-adjustments"), { protectedTimes: nextProtected, classWeekOverrides: nextOverrides } satisfies Cache);
   }, [user]);
 
+  const normalizeOverride = (x: any): ClassWeekOverride => ({
+    id: x.id,
+    classId: x.classId ?? x.class_id,
+    weekStart: x.weekStart ?? x.week_start,
+    status: x.status === "Missed" ? "Missed" : x.status === "Rescheduled" ? "Rescheduled" : "Scheduled",
+    rescheduledDate: x.rescheduledDate ?? x.rescheduled_date ?? null,
+    startTime: x.startTime ?? (x.start_time ? String(x.start_time).slice(0, 5) : null),
+    endTime: x.endTime ?? (x.end_time ? String(x.end_time).slice(0, 5) : null),
+    topicName: x.topicName ?? x.topic_name ?? null,
+  });
+
   const loadCache = useCallback(async () => {
     if (!user) {
       setProtectedTimes([]);
@@ -45,7 +56,7 @@ export function ScheduleAdjustmentsProvider({ children }: { children: React.Reac
     }
     const cached = await readJson<Cache>(cacheKey(user.id, "schedule-adjustments"), EMPTY);
     setProtectedTimes(cached.protectedTimes ?? []);
-    setClassWeekOverrides(cached.classWeekOverrides ?? []);
+    setClassWeekOverrides((cached.classWeekOverrides ?? []).map(normalizeOverride));
     setLoading(false);
   }, [user]);
 
@@ -90,15 +101,7 @@ export function ScheduleAdjustmentsProvider({ children }: { children: React.Reac
         startTime: String(r.start_time).slice(0, 5),
         endTime: String(r.end_time).slice(0, 5),
       }));
-      const nextOverrides: ClassWeekOverride[] = (co.data ?? []).map((r: any) => ({
-        id: r.id,
-        classId: r.class_id,
-        weekStart: r.week_start,
-        status: r.status === "Rescheduled" ? "Rescheduled" : "Missed",
-        rescheduledDate: r.rescheduled_date ?? null,
-        startTime: r.start_time ? String(r.start_time).slice(0, 5) : null,
-        endTime: r.end_time ? String(r.end_time).slice(0, 5) : null,
-      }));
+      const nextOverrides: ClassWeekOverride[] = (co.data ?? []).map(normalizeOverride);
       setProtectedTimes(nextProtected);
       setClassWeekOverrides(nextOverrides);
       await persist(nextProtected, nextOverrides);
@@ -167,6 +170,7 @@ export function ScheduleAdjustmentsProvider({ children }: { children: React.Reac
       rescheduled_date: local.rescheduledDate,
       start_time: local.startTime,
       end_time: local.endTime,
+      topic_name: local.topicName,
       updated_at: new Date().toISOString(),
     }});
     if (isOnline) syncQueue().catch(() => undefined);
