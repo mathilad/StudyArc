@@ -103,6 +103,25 @@ alter table public.class_schedules
   check (class_type in ('Theory', 'Revision', 'Paper', 'Extra Class'));
 
 -- ============================================================
+-- CLASS LEARNING HISTORY
+-- Class-taught material is intentionally separate from manual syllabus coverage.
+-- A teacher touching part of a subtopic must not mark that subtopic or lesson self-covered.
+-- ============================================================
+create table if not exists public.class_learning_records (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  occurrence_key text not null,
+  class_id uuid references public.class_schedules(id) on delete set null,
+  occurrence_date date not null default current_date,
+  subject_name text not null,
+  topic_name text not null,
+  subtopic_names text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, occurrence_key)
+);
+
+-- ============================================================
 -- TEST MARKS (MCQ + Essay stored separately)
 -- ============================================================
 create table if not exists public.test_marks (
@@ -185,6 +204,7 @@ create table if not exists public.past_paper_history (
 create index if not exists study_sessions_user_started_idx on public.study_sessions(user_id, started_at desc);
 create index if not exists study_laps_session_number_idx on public.study_laps(session_id, lap_number);
 create index if not exists class_schedules_user_day_idx on public.class_schedules(user_id, day_of_week, start_time);
+create index if not exists class_learning_records_user_date_idx on public.class_learning_records(user_id, occurrence_date desc, updated_at desc);
 create index if not exists test_marks_user_date_idx on public.test_marks(user_id, test_date desc);
 create index if not exists topic_progress_user_subject_idx on public.topic_progress(user_id, subject_name);
 create index if not exists syllabus_coverage_user_subject_idx on public.syllabus_coverage(user_id, subject_name, topic_name);
@@ -197,6 +217,7 @@ alter table public.study_sessions enable row level security;
 alter table public.study_laps enable row level security;
 alter table public.student_profiles enable row level security;
 alter table public.class_schedules enable row level security;
+alter table public.class_learning_records enable row level security;
 alter table public.test_marks enable row level security;
 alter table public.topic_progress enable row level security;
 alter table public.syllabus_coverage enable row level security;
@@ -206,7 +227,7 @@ do $$
 declare
   tbl text;
 begin
-  foreach tbl in array array['study_sessions','study_laps','class_schedules','test_marks','topic_progress','syllabus_coverage','past_paper_history'] loop
+  foreach tbl in array array['study_sessions','study_laps','class_schedules','class_learning_records','test_marks','topic_progress','syllabus_coverage','past_paper_history'] loop
     execute format('drop policy if exists "read own %s" on public.%I', tbl, tbl);
     execute format('create policy "read own %s" on public.%I for select to authenticated using ((select auth.uid()) = user_id)', tbl, tbl);
     execute format('drop policy if exists "insert own %s" on public.%I', tbl, tbl);
