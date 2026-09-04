@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { findTopic, type SubjectName } from "../data/subjects";
+import { findTopic, type StudyMedium, type SubjectName } from "../data/subjects";
 import { cacheKey, enqueueMutation, makeUuid, queuedMutationsFor, readJson, removeQueuedMutation, writeJson } from "../lib/offlineStore";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
@@ -15,6 +15,7 @@ export type StudentProfile = {
   sleepTime: string;
   selfStudyHours: number;
   subjectChoices: string[];
+  medium: StudyMedium;
   avatarUrl: string | null;
   onboardingComplete: boolean;
 };
@@ -93,6 +94,7 @@ const DEFAULT_PROFILE: StudentProfile = {
   sleepTime: "22:30",
   selfStudyHours: 3,
   subjectChoices: [],
+  medium: "English",
   avatarUrl: null,
   onboardingComplete: false,
 };
@@ -145,6 +147,7 @@ const KINDS = [
 
 const dateKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const percent = (score: number | null, total: number | null) => score == null || total == null || total <= 0 ? null : Math.max(0, Math.min(100, score / total * 100));
+const mediumFrom = (value: unknown): StudyMedium => value === "Sinhala" ? "Sinhala" : "English";
 const mapProfile = (r: any): StudentProfile => ({
   fullName: r?.full_name ?? "",
   school: r?.school ?? "",
@@ -154,6 +157,7 @@ const mapProfile = (r: any): StudentProfile => ({
   sleepTime: r?.sleep_time ?? "22:30",
   selfStudyHours: Number(r?.self_study_hours ?? 3),
   subjectChoices: r?.subject_choices ?? [],
+  medium: mediumFrom(r?.medium),
   avatarUrl: r?.avatar_url ?? null,
   onboardingComplete: Boolean(r?.onboarding_complete),
 });
@@ -199,7 +203,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
       subtopicCoverage: [],
       dailyReviews: [],
     });
-    setProfile(x.profile ?? DEFAULT_PROFILE);
+    setProfile({ ...DEFAULT_PROFILE, ...(x.profile ?? {}) });
     setClasses(x.classes ?? []);
     setTestMarks(x.testMarks ?? []);
     setTopicProgress(x.topicProgress ?? []);
@@ -240,11 +244,19 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
       if (scr.error) throw scr.error;
       if (rr.error) throw rr.error;
 
-      let nextProfile = pr.data ? mapProfile(pr.data) : DEFAULT_PROFILE;
+      const metadataName = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim() : "";
+      let nextProfile = pr.data ? mapProfile(pr.data) : { ...DEFAULT_PROFILE, fullName: metadataName };
       if (!pr.data) {
-        const { data, error: e } = await supabase.from("student_profiles").insert({ user_id: user.id }).select("*").single();
+        const { data, error: e } = await supabase.from("student_profiles").insert({
+          user_id: user.id,
+          full_name: metadataName,
+          medium: "English",
+        }).select("*").single();
         if (e) throw e;
         nextProfile = mapProfile(data);
+      } else if (!nextProfile.fullName && metadataName) {
+        nextProfile = { ...nextProfile, fullName: metadataName };
+        await supabase.from("student_profiles").update({ full_name: metadataName }).eq("user_id", user.id);
       }
 
       const nextClasses: ClassSchedule[] = (cr.data ?? []).map((r: any) => ({
@@ -384,6 +396,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
         sleep_time: merged.sleepTime,
         self_study_hours: merged.selfStudyHours,
         subject_choices: merged.subjectChoices,
+        medium: merged.medium,
         avatar_url: merged.avatarUrl,
         onboarding_complete: merged.onboardingComplete,
         updated_at: new Date().toISOString(),
@@ -622,8 +635,12 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     const response = await fetch(asset.uri);
     const bytes = await response.arrayBuffer();
     const ext = asset.fileName?.split(".").pop()?.toLowerCase() || "jpg";
-    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-    const { error: e } = await supabase.storage.from("avatars").upload(path, bytes, { contentType: asset.mimeType ?? "image/jpeg", upsert: true });
+    const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
+    const path = `${user.id}/avatar-${Date.now()}.${safeExt}`;
+    const { error: e } = await supabase.storage.from("avatars").upload(path, bytes, {
+      contentType: asset.mimeType ?? "image/jpeg",
+      upsert: false,
+    });
     if (e) throw e;
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
     await saveProfile({ avatarUrl: data.publicUrl });
