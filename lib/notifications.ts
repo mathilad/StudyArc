@@ -1,12 +1,14 @@
 import { Platform } from "react-native";
 import type { ClassSchedule, StudentProfile, TopicProgress } from "../context/StudentContext";
 import { daysUntilExam, isFullWorkMode } from "./exams";
+import { getRuntimePhaseSettings } from "./phaseRuntime";
 import type { PlanBlock } from "./planner";
+import { suggestedPhase } from "./studyPhases";
 import { format12Hour, parseTime } from "./time";
 
 export type InAppNotification = {
   id: string;
-  kind: "study" | "revision" | "class" | "class_complete" | "exam" | "memory" | "daily_review";
+  kind: "study" | "revision" | "class" | "class_complete" | "exam" | "phase" | "memory" | "daily_review";
   title: string;
   body: string;
   whenLabel: string;
@@ -27,6 +29,19 @@ export function buildNotificationFeed(
 ): InAppNotification[] {
   const items: InAppNotification[] = [];
   const now = new Date();
+
+  const currentPhase = getRuntimePhaseSettings().phase ?? "Foundation";
+  const recommended = suggestedPhase(profile.examYear, now);
+  if (recommended !== currentPhase) {
+    items.unshift({
+      id: `phase-${recommended}-${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`,
+      kind: "phase",
+      title: `Study phase suggestion · ${recommended}`,
+      body: `You are currently in ${currentPhase}. Study Arc recommends checking ${recommended}, but it will never change your phase without you.`,
+      whenLabel: "YOUR CHOICE",
+      priority: "high",
+    });
+  }
 
   progress.forEach((topic) => {
     if (!topic.nextRecallAt) return;
@@ -64,7 +79,6 @@ export function buildNotificationFeed(
     }
   });
 
-
   const [sleepHour, sleepMinute] = profile.sleepTime.split(":").map(Number);
   const reviewAt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sleepHour, sleepMinute, 0);
   reviewAt.setMinutes(reviewAt.getMinutes() - 60);
@@ -85,9 +99,9 @@ export function buildNotificationFeed(
       items.unshift({
         id: `exam-${profile.examYear}`,
         kind: "exam",
-        title: "Full Work Mode active",
-        body: `${days} day${days === 1 ? "" : "s"} to G.C.E. A/L ${profile.examYear}. Your timetable now prioritizes recall, timed work and weak topics.`,
-        whenLabel: "Exam phase",
+        title: "Exam Month phase active",
+        body: `${days} day${days === 1 ? "" : "s"} to G.C.E. A/L ${profile.examYear}. You selected Exam Month, so your timetable prioritizes recall, timed work and unfinished exam subjects.`,
+        whenLabel: "MANUAL PHASE",
         priority: "high",
       });
     }
@@ -164,7 +178,6 @@ export async function scheduleStudyReminders(date: Date, blocks: PlanBlock[]) {
     });
   }
 
-
   for (const item of blocks.filter((x) => x.type === "class")) {
     const mins = parseTime(item.end);
     const when = new Date(date.getFullYear(), date.getMonth(), date.getDate(), Math.floor(mins / 60), mins % 60, 0);
@@ -179,7 +192,6 @@ export async function scheduleStudyReminders(date: Date, blocks: PlanBlock[]) {
     });
   }
 }
-
 
 export async function scheduleDailyReviewReminder(profile: StudentProfile) {
   if (Platform.OS === "web") return;
