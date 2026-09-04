@@ -64,11 +64,18 @@ create table if not exists public.student_profiles (
   sleep_time text not null default '22:30',
   self_study_hours numeric(4,1) not null default 3.0,
   subject_choices text[] not null default '{}',
+  medium text not null default 'English',
   avatar_url text,
   onboarding_complete boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Upgrade existing projects that were created before study-medium support.
+alter table public.student_profiles add column if not exists medium text not null default 'English';
+alter table public.student_profiles drop constraint if exists student_profiles_medium_check;
+alter table public.student_profiles add constraint student_profiles_medium_check
+  check (medium in ('English', 'Sinhala'));
 
 -- ============================================================
 -- WEEKLY CLASSES
@@ -90,7 +97,6 @@ create table if not exists public.class_schedules (
   created_at timestamptz not null default now()
 );
 
--- Keep the class-type constraint current when this schema is re-run on an existing project.
 alter table public.class_schedules drop constraint if exists class_schedules_class_type_check;
 alter table public.class_schedules
   add constraint class_schedules_class_type_check
@@ -118,17 +124,11 @@ alter table public.test_marks add column if not exists essay_total numeric(10,2)
 
 alter table public.test_marks drop constraint if exists test_marks_mcq_raw_check;
 alter table public.test_marks add constraint test_marks_mcq_raw_check
-  check (
-    (mcq_score is null and mcq_total is null)
-    or (mcq_score >= 0 and mcq_total > 0 and mcq_score <= mcq_total)
-  );
+  check ((mcq_score is null and mcq_total is null) or (mcq_score >= 0 and mcq_total > 0 and mcq_score <= mcq_total));
 
 alter table public.test_marks drop constraint if exists test_marks_essay_raw_check;
 alter table public.test_marks add constraint test_marks_essay_raw_check
-  check (
-    (essay_score is null and essay_total is null)
-    or (essay_score >= 0 and essay_total > 0 and essay_score <= essay_total)
-  );
+  check ((essay_score is null and essay_total is null) or (essay_score >= 0 and essay_total > 0 and essay_score <= essay_total));
 
 -- ============================================================
 -- TOPIC MASTERY / RECALL SCHEDULE
@@ -148,11 +148,8 @@ create table if not exists public.topic_progress (
   unique (user_id, subject_name, topic_name)
 );
 
-
 -- ============================================================
 -- MANUAL SYLLABUS / SUBTOPIC COVERAGE
--- The learner explicitly marks subtopics as covered or not covered.
--- source records whether the change came from the lesson screen or class-end flow.
 -- ============================================================
 create table if not exists public.syllabus_coverage (
   id uuid primary key default gen_random_uuid(),
@@ -167,12 +164,8 @@ create table if not exists public.syllabus_coverage (
   unique (user_id, subject_name, topic_name, subtopic_name)
 );
 
-
-
 -- ============================================================
 -- PAST-PAPER HISTORY ENTERED MANUALLY
--- Lets students record papers completed before installing the app.
--- New stopwatch attempts remain separate study_sessions rows.
 -- ============================================================
 create table if not exists public.past_paper_history (
   id uuid primary key default gen_random_uuid(),
@@ -209,7 +202,6 @@ alter table public.topic_progress enable row level security;
 alter table public.syllabus_coverage enable row level security;
 alter table public.past_paper_history enable row level security;
 
--- helper pattern: each authenticated user can CRUD only rows they own.
 do $$
 declare
   tbl text;
@@ -226,7 +218,6 @@ begin
   end loop;
 end $$;
 
--- Profiles use user_id as the primary key.
 drop policy if exists "read own profile" on public.student_profiles;
 create policy "read own profile" on public.student_profiles for select to authenticated using ((select auth.uid()) = user_id);
 drop policy if exists "insert own profile" on public.student_profiles;
@@ -237,10 +228,7 @@ create policy "update own profile" on public.student_profiles for update to auth
 -- Extra integrity for lap insert: lap must point at one of the user's sessions.
 drop policy if exists "insert own study_laps" on public.study_laps;
 create policy "insert own study_laps" on public.study_laps for insert to authenticated
-with check (
-  (select auth.uid()) = user_id
-  and exists (select 1 from public.study_sessions s where s.id = session_id and s.user_id = (select auth.uid()))
-);
+with check ((select auth.uid()) = user_id and exists (select 1 from public.study_sessions s where s.id = session_id and s.user_id = (select auth.uid())));
 
 -- ============================================================
 -- PROFILE AVATARS (Supabase Storage)
@@ -267,8 +255,6 @@ using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.ui
 
 -- ============================================================
 -- SOCIAL PROFILE / DAILY STUDY RANKING
--- Public social data is intentionally minimal: name, avatar, friend code,
--- daily study total, and studying-now presence. Private sessions/marks stay private.
 -- ============================================================
 create table if not exists public.social_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -314,8 +300,7 @@ create table if not exists public.contact_messages (
   created_at timestamptz not null default now()
 );
 
-create index if not exists daily_study_rankings_date_seconds_idx
-  on public.daily_study_rankings(study_date, study_seconds desc);
+create index if not exists daily_study_rankings_date_seconds_idx on public.daily_study_rankings(study_date, study_seconds desc);
 create index if not exists friendships_requester_idx on public.friendships(requester_id, status);
 create index if not exists friendships_addressee_idx on public.friendships(addressee_id, status);
 create unique index if not exists friendships_pair_unique_idx on public.friendships (least(requester_id, addressee_id), greatest(requester_id, addressee_id));
@@ -328,84 +313,53 @@ alter table public.friendships enable row level security;
 alter table public.study_presence enable row level security;
 alter table public.contact_messages enable row level security;
 
--- Authenticated students can see the minimal public profile needed by ranking/friends.
 drop policy if exists "read social profiles" on public.social_profiles;
-create policy "read social profiles" on public.social_profiles
-for select to authenticated using (true);
+create policy "read social profiles" on public.social_profiles for select to authenticated using (true);
 drop policy if exists "insert own social profile" on public.social_profiles;
-create policy "insert own social profile" on public.social_profiles
-for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "insert own social profile" on public.social_profiles for insert to authenticated with check ((select auth.uid()) = user_id);
 drop policy if exists "update own social profile" on public.social_profiles;
-create policy "update own social profile" on public.social_profiles
-for update to authenticated using ((select auth.uid()) = user_id)
-with check ((select auth.uid()) = user_id);
+create policy "update own social profile" on public.social_profiles for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
--- Daily leaderboard is visible to signed-in users, but each user can only write their own total.
 drop policy if exists "read daily rankings" on public.daily_study_rankings;
-create policy "read daily rankings" on public.daily_study_rankings
-for select to authenticated using (true);
+create policy "read daily rankings" on public.daily_study_rankings for select to authenticated using (true);
 drop policy if exists "insert own daily ranking" on public.daily_study_rankings;
-create policy "insert own daily ranking" on public.daily_study_rankings
-for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "insert own daily ranking" on public.daily_study_rankings for insert to authenticated with check ((select auth.uid()) = user_id);
 drop policy if exists "update own daily ranking" on public.daily_study_rankings;
-create policy "update own daily ranking" on public.daily_study_rankings
-for update to authenticated using ((select auth.uid()) = user_id)
-with check ((select auth.uid()) = user_id);
+create policy "update own daily ranking" on public.daily_study_rankings for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
--- Friend rows are visible only to either side of the relationship.
 drop policy if exists "read own friendships" on public.friendships;
-create policy "read own friendships" on public.friendships
-for select to authenticated using ((select auth.uid()) = requester_id or (select auth.uid()) = addressee_id);
+create policy "read own friendships" on public.friendships for select to authenticated using ((select auth.uid()) = requester_id or (select auth.uid()) = addressee_id);
 drop policy if exists "request friendship" on public.friendships;
-create policy "request friendship" on public.friendships
-for insert to authenticated with check ((select auth.uid()) = requester_id and requester_id <> addressee_id);
+create policy "request friendship" on public.friendships for insert to authenticated with check ((select auth.uid()) = requester_id and requester_id <> addressee_id);
 drop policy if exists "recipient updates friendship" on public.friendships;
-create policy "recipient updates friendship" on public.friendships
-for update to authenticated using ((select auth.uid()) = addressee_id)
-with check ((select auth.uid()) = addressee_id);
+create policy "recipient updates friendship" on public.friendships for update to authenticated using ((select auth.uid()) = addressee_id) with check ((select auth.uid()) = addressee_id);
 drop policy if exists "either side deletes friendship" on public.friendships;
-create policy "either side deletes friendship" on public.friendships
-for delete to authenticated using ((select auth.uid()) = requester_id or (select auth.uid()) = addressee_id);
+create policy "either side deletes friendship" on public.friendships for delete to authenticated using ((select auth.uid()) = requester_id or (select auth.uid()) = addressee_id);
 
--- Presence can be read by signed-in users; the app only surfaces it for accepted friends.
 drop policy if exists "read study presence" on public.study_presence;
-create policy "read study presence" on public.study_presence
-for select to authenticated using (true);
+create policy "read study presence" on public.study_presence for select to authenticated using (true);
 drop policy if exists "insert own study presence" on public.study_presence;
-create policy "insert own study presence" on public.study_presence
-for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "insert own study presence" on public.study_presence for insert to authenticated with check ((select auth.uid()) = user_id);
 drop policy if exists "update own study presence" on public.study_presence;
-create policy "update own study presence" on public.study_presence
-for update to authenticated using ((select auth.uid()) = user_id)
-with check ((select auth.uid()) = user_id);
+create policy "update own study presence" on public.study_presence for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
--- Support messages are private to the sender. Dashboard admins can access them with service-role tooling.
 drop policy if exists "insert own contact message" on public.contact_messages;
-create policy "insert own contact message" on public.contact_messages
-for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "insert own contact message" on public.contact_messages for insert to authenticated with check ((select auth.uid()) = user_id);
 drop policy if exists "read own contact messages" on public.contact_messages;
-create policy "read own contact messages" on public.contact_messages
-for select to authenticated using ((select auth.uid()) = user_id);
+create policy "read own contact messages" on public.contact_messages for select to authenticated using ((select auth.uid()) = user_id);
 
--- Add realtime tables idempotently. Supabase's default realtime publication is supabase_realtime.
+-- Add realtime tables idempotently.
 do $$
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='daily_study_rankings') then
-      alter publication supabase_realtime add table public.daily_study_rankings;
-    end if;
-    if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='friendships') then
-      alter publication supabase_realtime add table public.friendships;
-    end if;
-    if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='study_presence') then
-      alter publication supabase_realtime add table public.study_presence;
-    end if;
+    if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='daily_study_rankings') then alter publication supabase_realtime add table public.daily_study_rankings; end if;
+    if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='friendships') then alter publication supabase_realtime add table public.friendships; end if;
+    if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='study_presence') then alter publication supabase_realtime add table public.study_presence; end if;
   end if;
 end $$;
 
 -- ============================================================
 -- DAILY END-OF-DAY REVIEWS
--- Offline-first: the app caches these locally and syncs later.
 -- ============================================================
 create table if not exists public.daily_reviews (
   id uuid primary key default gen_random_uuid(),
