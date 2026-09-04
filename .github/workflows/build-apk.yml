@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: study-arc-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-apk:
     name: Build Android APK
