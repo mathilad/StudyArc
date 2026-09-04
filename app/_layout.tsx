@@ -45,6 +45,7 @@ export default function RootLayout() {
                         <Stack.Screen name="subject" />
                         <Stack.Screen name="topic" />
                         <Stack.Screen name="stopwatch" />
+                        <Stack.Screen name="manual-session" />
                         <Stack.Screen name="session-complete" />
                         <Stack.Screen name="past-paper" />
                         <Stack.Screen name="revision" />
