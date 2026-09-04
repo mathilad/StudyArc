@@ -1,5 +1,5 @@
--- Study Arc protected time + one-week class adjustments
--- Run once in Supabase SQL Editor. Safe to rerun.
+-- Study Arc protected time + one-week class adjustments + weekly lesson focus
+-- Safe to rerun in Supabase SQL Editor.
 
 create table if not exists public.protected_times (
   id uuid primary key,
@@ -11,79 +11,70 @@ create table if not exists public.protected_times (
   start_time time not null,
   end_time time not null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint protected_times_recurrence_check check (recurrence in ('Weekly','This Week')),
-  constraint protected_times_valid_time check (end_time > start_time)
+  updated_at timestamptz not null default now()
 );
+
+alter table public.protected_times drop constraint if exists protected_times_recurrence_check;
+alter table public.protected_times add constraint protected_times_recurrence_check
+  check (recurrence in ('Weekly','This Week'));
+alter table public.protected_times drop constraint if exists protected_times_valid_time;
+alter table public.protected_times add constraint protected_times_valid_time
+  check (end_time > start_time);
 
 create index if not exists protected_times_user_day_idx
   on public.protected_times (user_id, day_of_week, start_time);
+create index if not exists protected_times_user_date_idx
+  on public.protected_times (user_id, event_date);
 
 alter table public.protected_times enable row level security;
-
 drop policy if exists "read own protected times" on public.protected_times;
-create policy "read own protected times" on public.protected_times
-for select to authenticated
-using ((select auth.uid()) = user_id);
-
+create policy "read own protected times" on public.protected_times for select to authenticated using ((select auth.uid()) = user_id);
 drop policy if exists "insert own protected times" on public.protected_times;
-create policy "insert own protected times" on public.protected_times
-for insert to authenticated
-with check ((select auth.uid()) = user_id);
-
+create policy "insert own protected times" on public.protected_times for insert to authenticated with check ((select auth.uid()) = user_id);
 drop policy if exists "update own protected times" on public.protected_times;
-create policy "update own protected times" on public.protected_times
-for update to authenticated
-using ((select auth.uid()) = user_id)
-with check ((select auth.uid()) = user_id);
-
+create policy "update own protected times" on public.protected_times for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 drop policy if exists "delete own protected times" on public.protected_times;
-create policy "delete own protected times" on public.protected_times
-for delete to authenticated
-using ((select auth.uid()) = user_id);
+create policy "delete own protected times" on public.protected_times for delete to authenticated using ((select auth.uid()) = user_id);
 
 create table if not exists public.class_week_overrides (
   id uuid primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
   class_id uuid not null references public.class_schedules(id) on delete cascade,
   week_start date not null,
-  status text not null,
+  status text not null default 'Scheduled',
   rescheduled_date date,
   start_time time,
   end_time time,
+  topic_name text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint class_week_overrides_status_check check (status in ('Missed','Rescheduled')),
-  constraint class_week_overrides_reschedule_fields check (
-    (status = 'Missed' and rescheduled_date is null and start_time is null and end_time is null)
-    or
-    (status = 'Rescheduled' and rescheduled_date is not null and start_time is not null and end_time is not null and end_time > start_time)
-  ),
   unique (user_id, class_id, week_start)
 );
 
+-- Upgrade databases created by an earlier Study Arc schedule-adjustment migration.
+alter table public.class_week_overrides add column if not exists topic_name text;
+alter table public.class_week_overrides alter column status set default 'Scheduled';
+alter table public.class_week_overrides drop constraint if exists class_week_overrides_status_check;
+alter table public.class_week_overrides add constraint class_week_overrides_status_check
+  check (status in ('Scheduled','Missed','Rescheduled'));
+alter table public.class_week_overrides drop constraint if exists class_week_overrides_reschedule_fields;
+alter table public.class_week_overrides add constraint class_week_overrides_reschedule_fields check (
+  (status in ('Scheduled','Missed') and rescheduled_date is null and start_time is null and end_time is null)
+  or
+  (status = 'Rescheduled' and rescheduled_date is not null and start_time is not null and end_time is not null and end_time > start_time)
+);
+
 create index if not exists class_week_overrides_user_week_idx
-  on public.class_week_overrides (user_id, week_start);
+  on public.class_week_overrides (user_id, week_start desc);
+create index if not exists class_week_overrides_class_week_idx
+  on public.class_week_overrides (class_id, week_start desc);
 
 alter table public.class_week_overrides enable row level security;
-
 drop policy if exists "read own class week overrides" on public.class_week_overrides;
-create policy "read own class week overrides" on public.class_week_overrides
-for select to authenticated
-using ((select auth.uid()) = user_id);
-
+create policy "read own class week overrides" on public.class_week_overrides for select to authenticated using ((select auth.uid()) = user_id);
 drop policy if exists "insert own class week overrides" on public.class_week_overrides;
-create policy "insert own class week overrides" on public.class_week_overrides
-for insert to authenticated
-with check ((select auth.uid()) = user_id);
-
+create policy "insert own class week overrides" on public.class_week_overrides for insert to authenticated with check ((select auth.uid()) = user_id);
 drop policy if exists "update own class week overrides" on public.class_week_overrides;
-create policy "update own class week overrides" on public.class_week_overrides
-for update to authenticated
-using ((select auth.uid()) = user_id)
-with check ((select auth.uid()) = user_id);
-
+create policy "update own class week overrides" on public.class_week_overrides for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 drop policy if exists "delete own class week overrides" on public.class_week_overrides;
-create policy "delete own class week overrides" on public.class_week_overrides
-for delete to authenticated
-using ((select auth.uid()) = user_id);
+create policy "delete own class week overrides" on public.class_week_overrides for delete to authenticated using ((select auth.uid()) = user_id);
