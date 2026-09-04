@@ -178,6 +178,7 @@ export function buildNotificationFeed(
 export async function scheduleStudyReminders(date: Date, blocks: PlanBlock[]) {
   if (Platform.OS === "web") return;
   const Notifications = await import("expo-notifications");
+  const dateTrigger = (when: Date) => ({ type: Notifications.SchedulableTriggerInputTypes.DATE, date: when });
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldPlaySound: true,
@@ -207,7 +208,7 @@ export async function scheduleStudyReminders(date: Date, blocks: PlanBlock[]) {
         body: `${item.title}${item.subjectName ? ` · ${item.subjectName}` : ""}`,
         data: { kind: "study-plan", subjectName: item.subjectName, topicName: item.topicName, planType: item.type },
       },
-      trigger: when,
+      trigger: dateTrigger(when),
     });
   }
 
@@ -221,7 +222,7 @@ export async function scheduleStudyReminders(date: Date, blocks: PlanBlock[]) {
         body:`${item.title.replace(/^Protected time · /,"")} starts in 10 minutes. Study Arc has kept this time clear.`,
         data:{kind:"protected-time",route:"/classes"},
       },
-      trigger:remindAt,
+      trigger:dateTrigger(remindAt),
     });
   }
 
@@ -234,7 +235,7 @@ export async function scheduleStudyReminders(date: Date, blocks: PlanBlock[]) {
         body: `${item.subjectName ?? "Class"} · record what the class worked on. It will not mark the lesson as self-covered.`,
         data: { kind: "class-complete", subjectName: item.subjectName },
       },
-      trigger: when,
+      trigger: dateTrigger(when),
     });
   }
 }
@@ -254,6 +255,6 @@ export async function scheduleDailyReviewReminder(profile: StudentProfile) {
   if (when.getTime() <= Date.now()) return;
   await Notifications.scheduleNotificationAsync({
     content: { title: "Review your day", body: "How many pages did you study and revise today? Close the day in Study Arc.", data: { kind: "daily-review" } },
-    trigger: when,
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
   });
 }
