@@ -7,6 +7,7 @@ import ClassFormModal from "../components/ClassFormModal";
 import ClockTimePicker from "../components/ClockTimePicker";
 import { useAuth } from "../context/AuthContext";
 import { usePhase } from "../context/PhaseContext";
+import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
 import { useSocial } from "../context/SocialContext";
 import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
@@ -18,7 +19,7 @@ const fmt=(sec:number)=>{const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60
 const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 export default function MoreScreen(){
- const router=useRouter();const{user,signOut}=useAuth();const{settings:phaseSettings}=usePhase();const{profile,classes,addClass,deleteClass,saveProfile,uploadAvatar,refreshStudentData}=useStudent();const{totalSeconds,sessions,refreshSessions}=useStudy();const{myRank,friends,friendCode,refreshSocial}=useSocial();
+ const router=useRouter();const{user,signOut}=useAuth();const{settings:phaseSettings}=usePhase();const{protectedTimes,classWeekOverrides}=useScheduleAdjustments();const{profile,classes,addClass,saveProfile,uploadAvatar,refreshStudentData}=useStudent();const{totalSeconds,sessions,refreshSessions}=useStudy();const{myRank,friends,friendCode,refreshSocial}=useSocial();
  const[classOpen,setClassOpen]=useState(false);const[clock,setClock]=useState<"wake"|"sleep"|null>(null);const[busy,setBusy]=useState(false);const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
  const changeTime=async(kind:"wake"|"sleep",value:string)=>{await saveProfile(kind==="wake"?{wakeTime:value}:{sleepTime:value})};
  const sync=async()=>{setBusy(true);try{await Promise.all([refreshStudentData(),refreshSessions(),refreshSocial()])}finally{setBusy(false)}};
@@ -31,6 +32,7 @@ export default function MoreScreen(){
 
   <Text style={s.section}>STUDY PLAN</Text>
   <Pressable style={s.row} onPress={()=>router.push("/study-phase")}><View style={[s.rowIcon,{backgroundColor:"#B784FF18"}]}><Ionicons name="flag-outline" size={21} color="#C6A0F4"/></View><View style={s.rowText}><Text style={s.rowTitle}>Study phase</Text><Text style={s.rowSub}>{phaseSettings.phase} · You decide when to change; Study Arc only suggests.</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
+  <Pressable style={s.row} onPress={()=>router.push("/classes")}><View style={[s.rowIcon,{backgroundColor:"#8E9CFF18"}]}><Ionicons name="calendar-number-outline" size={21} color="#AEB8FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Classes & protected time</Text><Text style={s.rowSub}>{classes.length} weekly classes · {protectedTimes.length} protected blocks · {classWeekOverrides.length} week changes</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
 
   <Text style={s.section}>SOCIAL STUDY</Text>
   <Pressable style={s.row} onPress={()=>router.push("/leaderboard")}><View style={[s.rowIcon,{backgroundColor:"#F0C96C16"}]}><Ionicons name="trophy-outline" size={21} color="#F0C96C"/></View><View style={s.rowText}><Text style={s.rowTitle}>Daily leaderboard</Text><Text style={s.rowSub}>Ranked by study time recorded today</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
@@ -42,8 +44,8 @@ export default function MoreScreen(){
 
   <Text style={s.section}>WEEKLY CLASSES</Text>
   <View style={s.classIntro}><View style={{flex:1}}><Text style={s.classIntroTitle}>Classes + travel + review</Text><Text style={s.classIntroSub}>Add Theory, Revision, Paper or Extra Class sessions. Paper classes receive at least 60 minutes preparation; physical classes reserve 1 hr 30 min travel before and after.</Text></View><Pressable style={s.addClass} onPress={()=>setClassOpen(true)}><Ionicons name="add" size={18} color="#150C1E"/><Text style={s.addClassText}>Add Class</Text></Pressable></View>
-  {classes.length===0?<View style={s.empty}><Ionicons name="calendar-outline" size={27} color="#5F6C7C"/><Text style={s.emptyText}>No weekly classes added yet.</Text></View>:classes.slice(0,5).map(c=><View key={c.id} style={s.classRow}><View style={s.classDay}><Text style={s.classDayText}>{DAYS[c.dayOfWeek]}</Text></View><View style={{flex:1}}><Text style={s.rowTitle}>{c.subjectName} · {c.classType}</Text><Text style={s.rowSub}>{format12Hour(c.startTime)}–{format12Hour(c.endTime)} · {c.deliveryMode} · {Math.max(c.preReviewMinutes,c.classType==="Paper"?60:0)}m prep/review{c.deliveryMode==="Physical"?" · 90m travel each way":""}</Text></View><Pressable onPress={()=>Alert.alert("Remove class?",c.title,[{text:"Cancel",style:"cancel"},{text:"Remove",style:"destructive",onPress:()=>deleteClass(c.id)}])}><Ionicons name="trash-outline" size={18} color="#976E79"/></Pressable></View>)}
-  {classes.length>5&&<Pressable onPress={()=>router.push("/classes")}><Text style={s.manage}>View all {classes.length} classes</Text></Pressable>}
+  {classes.length===0?<View style={s.empty}><Ionicons name="calendar-outline" size={27} color="#5F6C7C"/><Text style={s.emptyText}>No weekly classes added yet.</Text></View>:classes.slice(0,5).map(c=><Pressable key={c.id} onPress={()=>router.push("/classes")} style={s.classRow}><View style={s.classDay}><Text style={s.classDayText}>{DAYS[c.dayOfWeek]}</Text></View><View style={{flex:1}}><Text style={s.rowTitle}>{c.subjectName} · {c.classType}</Text><Text style={s.rowSub}>{format12Hour(c.startTime)}–{format12Hour(c.endTime)} · {c.deliveryMode} · {Math.max(c.preReviewMinutes,c.classType==="Paper"?60:0)}m prep/review{c.deliveryMode==="Physical"?" · 90m travel each way":""}</Text></View><Ionicons name="chevron-forward" size={18} color="#657286"/></Pressable>)}
+  <Pressable onPress={()=>router.push("/classes")}><Text style={s.manage}>Manage classes, missed weeks & protected time</Text></Pressable>
 
   <Text style={s.section}>STUDY DATA</Text>
   <Pressable style={s.row} onPress={()=>router.push("/test-mark")}><View style={s.rowIcon}><Ionicons name="stats-chart-outline" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Add test marks</Text><Text style={s.rowSub}>Track MCQ, essay and weak topics</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
