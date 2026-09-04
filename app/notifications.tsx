@@ -9,7 +9,7 @@ import { useStudent } from "../context/StudentContext";
 import { buildNotificationFeed } from "../lib/notifications";
 import { generateDailyPlan } from "../lib/planner";
 
-const iconFor = (kind: string): keyof typeof Ionicons.glyphMap => kind === "revision" || kind === "memory" ? "refresh-outline" : kind === "class_complete" ? "checkmark-done-outline" : kind === "class" ? "school-outline" : kind === "exam" || kind === "phase" ? "flag-outline" : "timer-outline";
+const iconFor = (kind: string): keyof typeof Ionicons.glyphMap => kind === "revision" || kind === "memory" ? "refresh-outline" : kind === "class_complete" ? "checkmark-done-outline" : kind === "class" ? "school-outline" : kind === "protected" ? "shield-checkmark-outline" : kind === "exam" || kind === "phase" ? "flag-outline" : "timer-outline";
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -22,6 +22,7 @@ export default function NotificationsScreen() {
 
   const openItem = (item: (typeof items)[number]) => {
     if (item.kind === "phase" || item.kind === "exam") { router.push("/study-phase"); return; }
+    if (item.kind === "protected") { router.push("/classes"); return; }
     if ((item.kind === "revision" || item.kind === "memory") && item.subjectName && item.topicName) {
       router.push({ pathname: "/stopwatch", params: { subjectName: item.subjectName, topicName: item.topicName, studyType: "Revision" } });
       return;
@@ -39,7 +40,7 @@ export default function NotificationsScreen() {
     <LinearGradient colors={["#151020", "#080D14", "#080D14"]} style={StyleSheet.absoluteFill} />
     <View style={s.header}><Pressable style={s.back} onPress={() => router.back()}><Ionicons name="arrow-back" size={21} color="#FFF" /></Pressable><View style={{ flex: 1 }}><Text style={s.kicker}>STUDY ARC</Text><Text style={s.title}>Notifications</Text></View><View style={s.count}><Text style={s.countText}>{items.length + pendingRequests.length}</Text></View></View>
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-      <Text style={s.sub}>Today’s study reminders, phase suggestions, recall-due topics, classes, friend requests and exam alerts.</Text>
+      <Text style={s.sub}>Study reminders, protected commitments, phase suggestions, recall-due topics, classes, friend requests and exam alerts.</Text>
       {pendingRequests.map((request) => <Pressable key={`friend-${request.friendshipId}`} onPress={() => router.push("/friends")} style={[s.card, s.cardHigh]}><View style={[s.icon, s.iconHigh]}><Ionicons name="person-add-outline" size={21} color="#E6C8FF" /></View><View style={{flex:1}}><View style={s.topLine}><Text style={s.itemTitle}>Friend request</Text><Text style={s.when}>SOCIAL</Text></View><Text style={s.body}>{request.displayName} wants to connect with you.</Text></View><Ionicons name="chevron-forward" size={17} color="#596779"/></Pressable>)}
       {items.length === 0 && pendingRequests.length === 0 ? <View style={s.empty}><Ionicons name="checkmark-circle-outline" size={42} color="#65D79A" /><Text style={s.emptyTitle}>All caught up</Text><Text style={s.emptyText}>There are no active reminders right now.</Text></View> : items.map((item) => <Pressable key={item.id} onPress={() => openItem(item)} style={[s.card, item.priority === "high" && s.cardHigh]}>
         <View style={[s.icon, item.priority === "high" && s.iconHigh]}><Ionicons name={iconFor(item.kind)} size={21} color={item.priority === "high" ? "#E6C8FF" : "#8FA0B4"} /></View>
