@@ -22,7 +22,7 @@ export default function NotificationsScreen() {
 
   const openItem = (item: (typeof items)[number]) => {
     if (item.kind === "phase" || item.kind === "exam") { router.push("/study-phase"); return; }
-    if (item.kind === "protected") { router.push("/classes"); return; }
+    if (item.kind === "protected" || item.kind === "class") { router.push("/classes"); return; }
     if ((item.kind === "revision" || item.kind === "memory") && item.subjectName && item.topicName) {
       router.push({ pathname: "/stopwatch", params: { subjectName: item.subjectName, topicName: item.topicName, studyType: "Revision" } });
       return;
@@ -32,7 +32,6 @@ export default function NotificationsScreen() {
       return;
     }
     if (item.kind === "class_complete") { router.push({ pathname: "/class-complete", params: { subjectName: item.subjectName } }); return; }
-    if (item.kind === "class") router.push("/(tabs)/plan");
     if (item.kind === "daily_review") router.push("/daily-review");
   };
 
