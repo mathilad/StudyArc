@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#080D14" />
+  <title>Return to Study Arc</title>
+  <style>
+    :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#080D14;color:#F4F5F7;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:24px}.card{width:min(100%,460px);background:#101720;border:1px solid #293646;border-radius:24px;padding:28px;box-shadow:0 20px 70px rgba(0,0,0,.32)}.brand{font-size:27px;font-weight:900;margin-bottom:24px}.brand span{color:#B784FF}.icon{width:62px;height:62px;border-radius:20px;background:#21172E;border:1px solid #4D3765;display:grid;place-items:center;font-size:27px;margin-bottom:18px}h1{font-size:28px;line-height:1.15;margin:0 0 10px}p{color:#8E98A7;line-height:1.6;margin:0}.button{display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;margin-top:22px;border:0;border-radius:16px;background:#B784FF;color:#160C20;font-size:14px;font-weight:900;text-decoration:none}.small{font-size:12px;margin-top:16px;text-align:center}.status{margin-top:16px;padding:13px;border-radius:14px;background:#0C121A;border:1px solid #222E3B;color:#718092;font-size:12px;line-height:1.55}</style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">Study <span>Arc</span></div>
+    <div class="icon">↗</div>
+    <h1 id="title">Returning to Study Arc…</h1>
+    <p id="message">Your email action is complete. Study Arc should open automatically.</p>
+    <a id="openButton" class="button" href="studyarc://login">OPEN STUDY ARC</a>
+    <div class="status" id="status">If the app does not open automatically, tap the button above. This page does not store your password or authentication token.</div>
+    <p class="small">You can close this browser tab after Study Arc opens.</p>
+  </main>
+  <script>
+    (function(){
+      var params=new URLSearchParams(window.location.search);
+      var target=params.get('target')==='reset-password'?'reset-password':'login';
+      params.delete('target');
+      var query=params.toString();
+      var deep='studyarc://'+target+(query?'?'+query:'')+(window.location.hash||'');
+      var button=document.getElementById('openButton');
+      button.href=deep;
+      if(target==='reset-password'){
+        document.getElementById('title').textContent='Continue password reset';
+        document.getElementById('message').textContent='Your secure reset link is ready. Return to Study Arc to choose your new password.';
+        button.textContent='OPEN PASSWORD RESET';
+      }else{
+        document.getElementById('title').textContent='Email confirmed';
+        document.getElementById('message').textContent='Your Study Arc email action completed successfully. Return to the app to continue.';
+      }
+      setTimeout(function(){ window.location.href=deep; },350);
+    })();
+  </script>
+</body>
+</html>
