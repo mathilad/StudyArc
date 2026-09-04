@@ -2,7 +2,7 @@
   "expo": {
     "name": "Study Arc",
     "slug": "study-arc",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "default",
     "scheme": "studyarc",
     "userInterfaceStyle": "dark",
@@ -33,7 +33,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studyarc.app",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "UIStatusBarHidden": true,
         "UIViewControllerBasedStatusBarAppearance": false
@@ -42,7 +42,7 @@
 
     "android": {
       "package": "com.studyarc.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "predictiveBackGestureEnabled": false,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
