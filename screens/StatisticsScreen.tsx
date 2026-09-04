@@ -162,7 +162,7 @@ export default function StatisticsScreen() {
             onOpenRevision={() => router.push("/revision")}
             onOpenPapers={() => router.push({ pathname: "/past-paper", params: { subjectName: name } })}
             onOpenMarks={() => router.push("/test-mark")}
-            onOpenTopic={(topicName) => router.push({ pathname: "/topic", params: { subjectName: name, topicName } })}
+            onOpenTopic={(topicName: string) => router.push({ pathname: "/topic", params: { subjectName: name, topicName } })}
           />
         ))}
       </ScrollView>
@@ -193,7 +193,7 @@ function SubjectAnalytics({
   const due = topicProgress.filter((row: any) => row.nextRecallAt && new Date(row.nextRecallAt) <= new Date()).length;
   const papers = sessions.filter((row: StudySession) => row.studyType === "Past Papers").length;
   const totalSubtopics = config.topics.reduce((sum, topic) => sum + topic.subtopics.length, 0);
-  const coveredSubtopics = config.topics.reduce((sum, topic) => sum + topic.subtopics.filter((sub) => subtopicCoverage.some((row: any) => row.subjectName === name && row.topicName === topic.title && row.subtopicName === sub && row.covered)).length, 0);
+  const coveredSubtopics = config.topics.reduce((sum, topic) => sum + topic.subtopics.filter((sub) => subtopicCoverage.some((row: any) => row.subjectName === name && row.topicName === topic.title && row.subtopicName === sub && row.covered && row.source === "Manual")).length, 0);
 
   const days = Array.from({ length: 14 }, (_, i) => new Date(startDay(new Date()).getTime() - (13 - i) * 86400000));
   const dayMinutes = days.map((day) => sessions
@@ -247,7 +247,7 @@ function SubjectAnalytics({
         <Metric label="Avg focus" value={focus == null ? "—" : `${focus.toFixed(1)}/5`} onPress={onOpenSessions} />
         <Metric label="Understanding" value={understanding == null ? "—" : `${understanding.toFixed(1)}/5`} onPress={onOpenSessions} />
         <Metric label="Weekly class schedule" value={fmtSeconds(classMinutes * 60)} onPress={onOpenClasses} />
-        <Metric label="Syllabus covered" value={`${coveredSubtopics}/${totalSubtopics}`} onPress={onOpenSubject} />
+        <Metric label="Syllabus self-covered" value={`${coveredSubtopics}/${totalSubtopics}`} onPress={onOpenSubject} />
         <Metric label="Memory due" value={String(due)} onPress={onOpenRevision} />
         <Metric label="Past-paper attempts" value={String(papers)} onPress={onOpenPapers} />
       </View>
@@ -500,7 +500,6 @@ const s = StyleSheet.create({
   cardTitle: { color: "#E9EDF2", fontSize: 14, fontWeight: "900" },
   cardSub: { color: "#697789", fontSize: 9, marginTop: 3 },
   chartSplit: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 15 },
-
   studyUsageLayout: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 20 },
   studyUsageChart: { width: 175, minHeight: 175, alignItems: "center", justifyContent: "center" },
   studyUsageBreakdown: { flex: 1, minWidth: 220, gap: 8 },
