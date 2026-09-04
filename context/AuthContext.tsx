@@ -18,7 +18,12 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const messageFrom=(error:unknown)=>error instanceof Error?error.message:"Something went wrong. Please try again.";
-const authRedirect=(path:"/login"|"/reset-password")=>Platform.OS==="web"?Linking.createURL(path):Linking.createURL(path,{scheme:"studyarc"});
+const AUTH_BRIDGE="https://mathilad.github.io/StudyArc/auth-callback.html";
+const authRedirect=(path:"/login"|"/reset-password",flow:"signup"|"recovery")=>{
+  if(Platform.OS==="web")return Linking.createURL(path);
+  const target=path==="/reset-password"?"reset-password":"login";
+  return `${AUTH_BRIDGE}?target=${target}&auth_flow=${flow}`;
+};
 
 function parseUrlParams(url:string){
   const result:Record<string,string>={};
@@ -38,7 +43,7 @@ export function AuthProvider({children}:{children:React.ReactNode}){
       if(!url)return;
       try{
         const params=parseUrlParams(url);
-        const requireFreshLogin=params.type==="signup";
+        const requireFreshLogin=params.type==="signup"||params.auth_flow==="signup";
         if(params.access_token&&params.refresh_token){
           const{data,error}=await supabase.auth.setSession({access_token:params.access_token,refresh_token:params.refresh_token});
           if(error)throw error;
@@ -67,8 +72,8 @@ export function AuthProvider({children}:{children:React.ReactNode}){
   },[]);
 
   const signIn=useCallback(async(email:string,password:string):Promise<AuthResult>=>{try{const{error}=await supabase.auth.signInWithPassword({email:email.trim().toLowerCase(),password});if(error)throw error;return{error:null}}catch(error){return{error:messageFrom(error)}}},[]);
-  const signUp=useCallback(async(email:string,password:string,fullName:string):Promise<AuthResult>=>{try{const{data,error}=await supabase.auth.signUp({email:email.trim().toLowerCase(),password,options:{emailRedirectTo:authRedirect("/login"),data:{full_name:fullName.trim()}}});if(error)throw error;return{error:null,needsEmailConfirmation:!data.session}}catch(error){return{error:messageFrom(error)}}},[]);
-  const sendPasswordReset=useCallback(async(email:string):Promise<AuthResult>=>{try{const{error}=await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(),{redirectTo:authRedirect("/reset-password")});if(error)throw error;return{error:null}}catch(error){return{error:messageFrom(error)}}},[]);
+  const signUp=useCallback(async(email:string,password:string,fullName:string):Promise<AuthResult>=>{try{const{data,error}=await supabase.auth.signUp({email:email.trim().toLowerCase(),password,options:{emailRedirectTo:authRedirect("/login","signup"),data:{full_name:fullName.trim()}}});if(error)throw error;return{error:null,needsEmailConfirmation:!data.session}}catch(error){return{error:messageFrom(error)}}},[]);
+  const sendPasswordReset=useCallback(async(email:string):Promise<AuthResult>=>{try{const{error}=await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(),{redirectTo:authRedirect("/reset-password","recovery")});if(error)throw error;return{error:null}}catch(error){return{error:messageFrom(error)}}},[]);
   const updatePassword=useCallback(async(password:string):Promise<AuthResult>=>{try{const{error}=await supabase.auth.updateUser({password});if(error)throw error;return{error:null}}catch(error){return{error:messageFrom(error)}}},[]);
   const signOut=useCallback(async():Promise<AuthResult>=>{try{const{error}=await supabase.auth.signOut();if(error)throw error;return{error:null}}catch(error){return{error:messageFrom(error)}}},[]);
   const value=useMemo<AuthContextValue>(()=>({session,user:session?.user??null,loading,signIn,signUp,sendPasswordReset,updatePassword,signOut}),[session,loading,signIn,signUp,sendPasswordReset,updatePassword,signOut]);
