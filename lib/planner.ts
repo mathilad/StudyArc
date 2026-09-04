@@ -15,7 +15,7 @@ export type PlannerPhaseOptions = {
   doneSubjects?: string[];
 };
 type FixedBlock = { start:number; end:number; block:Omit<PlanBlock,"start"|"end"> };
-type QueueItem = { subjectName:SubjectName; topicName:string; score:number; reviewDue:boolean; memoryHeavy:boolean; bucket:string };
+type QueueItem = { subjectName:SubjectName; topicName:string; score:number; reviewDue:boolean; memoryHeavy:boolean; bucket:string; classFocus:boolean };
 
 const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 const block=(id:string,start:number,end:number,type:PlanBlockType,title:string,extra:Partial<PlanBlock>={}):PlanBlock=>({id,start:minutesToTime(start),end:minutesToTime(end),type,title,...extra});
@@ -50,8 +50,9 @@ export function weaknessQueue(profile:StudentProfile,progress:TopicProgress[],te
   const now=Date.now();
   subjects.forEach(subjectName=>{
     const subject=SUBJECTS[subjectName];
+    if(!subject)return;
     subject.topics.forEach(topic=>{
-      if(!allowed.has(`${subjectName}::${topic.title}`)) return;
+      if(!allowed.has(`${subjectName}::${topic.title}`))return;
       if(!phaseAllows(subjectName,topic.title,activePhase))return;
       const p=progress.find(row=>row.subjectName===subjectName&&row.topicName===topic.title);
       const weakHits=testMarks.filter(mark=>mark.subjectName===subjectName&&mark.weakTopics.includes(topic.title)).length;
@@ -60,7 +61,7 @@ export function weaknessQueue(profile:StudentProfile,progress:TopicProgress[],te
       const knowledge=p?.knowledge??0,memory=p?.memory??0,performance=p?.performance??0;
       const base=memoryHeavy?knowledge*.25+memory*.5+performance*.25:knowledge*.35+memory*.35+performance*.3;
       const duePenalty=reviewDue?(memoryHeavy?28:20):0;
-      queue.push({subjectName,topicName:topic.title,score:Math.max(0,base-Math.min(36,weakHits*12)-duePenalty),reviewDue,memoryHeavy,bucket:bucketFor(subjectName)});
+      queue.push({subjectName,topicName:topic.title,score:base-Math.min(36,weakHits*12)-duePenalty,reviewDue,memoryHeavy,bucket:bucketFor(subjectName),classFocus:false});
     });
   });
   return queue.sort((a,b)=>a.score-b.score);
@@ -69,7 +70,7 @@ export function weaknessQueue(profile:StudentProfile,progress:TopicProgress[],te
 function appendClassBlocks(result:FixedBlock[],c:ClassSchedule,startTime:string,endTime:string,idSuffix=""){
   const start=parseTime(startTime),end=start+durationMinutes(startTime,endTime);
   const travel=c.deliveryMode==="Physical"?Math.max(0,c.travelMinutes||90):0;
-  const review=Math.max(0,c.preReviewMinutes||30,c.classType==="Paper"?60:0),reviewStart=start-travel-review;
+  const review=Math.max(0,c.preReviewMinutes||30,c.classType==="Paper"?90:0),reviewStart=start-travel-review;
   const suffix=idSuffix?`-${idSuffix}`:"";
   if(review>0)result.push({start:reviewStart,end:reviewStart+review,block:{id:`review-${c.id}${suffix}`,type:"revision",title:c.classType==="Paper"?`Paper-class preparation · ${c.subjectName}`:`Pre-class review · ${c.subjectName}`,subtitle:c.classType==="Paper"?`${review} min targeted preparation before the paper class`:`${review} min active recall before ${c.classType.toLowerCase()} class`,subjectName:c.subjectName,priority:"high"}});
   if(travel>0)result.push({start:start-travel,end:start,block:{id:`travel-out-${c.id}${suffix}`,type:"travel",title:"Travel to class",subtitle:`${c.subjectName} · 1 hr 30 min travel buffer`,subjectName:c.subjectName}});
@@ -83,10 +84,9 @@ function classFixedBlocks(date:Date,classes:ClassSchedule[]):FixedBlock[]{
   const currentWeek=weekStartKey(date),todayKey=localDateKey(date);
   classes.forEach(c=>{
     const override=classWeekOverrides.find(x=>x.classId===c.id&&x.weekStart===currentWeek);
-    if(override){
-      if(override.status==="Rescheduled"&&override.rescheduledDate===todayKey&&override.startTime&&override.endTime){
-        appendClassBlocks(result,c,override.startTime,override.endTime,`makeup-${override.id}`);
-      }
+    if(override?.status==="Missed")return;
+    if(override?.status==="Rescheduled"){
+      if(override.rescheduledDate===todayKey&&override.startTime&&override.endTime)appendClassBlocks(result,c,override.startTime,override.endTime,`makeup-${override.id}`);
       return;
     }
     if(c.dayOfWeek===date.getDay())appendClassBlocks(result,c,c.startTime,c.endTime);
@@ -102,20 +102,63 @@ function protectedFixedBlocks(date:Date):FixedBlock[]{
     .map(item=>({
       start:parseTime(item.startTime),
       end:parseTime(item.startTime)+durationMinutes(item.startTime,item.endTime),
-      block:{id:`protected-${item.id}`,type:"free" as const,title:`Protected time · ${item.title}`,subtitle:"Unavailable for study · Study Arc keeps this time clear"},
+      block:{id:`protected-${item.id}`,type:"free" as const,title:`Protected time · ${item.title}`,subtitle:"Must-attend / unavailable time · never filled with study"},
     }));
+}
+
+function dayDifference(from:Date,toIso:string){
+  const a=new Date(from.getFullYear(),from.getMonth(),from.getDate()).getTime();
+  const b=new Date(`${toIso}T00:00:00`).getTime();
+  return Math.round((b-a)/86400000);
+}
+
+function currentWeekOverride(classId:string,date:Date){
+  return getRuntimeScheduleAdjustments().classWeekOverrides.find(x=>x.classId===classId&&x.weekStart===weekStartKey(date));
+}
+
+function recentTopicFocus(classId:string,date:Date){
+  const target=new Date(`${weekStartKey(date)}T00:00:00`).getTime();
+  return getRuntimeScheduleAdjustments().classWeekOverrides
+    .filter(x=>x.classId===classId&&x.topicName)
+    .map(x=>({x,time:new Date(`${x.weekStart}T00:00:00`).getTime()}))
+    .filter(x=>x.time<=target&&target-x.time<=14*86400000)
+    .sort((a,b)=>b.time-a.time)[0]?.x;
+}
+
+function daysUntilClass(date:Date,c:ClassSchedule){
+  const override=currentWeekOverride(c.id,date);
+  if(override?.status==="Missed")return Number.POSITIVE_INFINITY;
+  if(override?.status==="Rescheduled"&&override.rescheduledDate){
+    const diff=dayDifference(date,override.rescheduledDate);
+    if(diff>=0)return diff;
+  }
+  return (c.dayOfWeek-date.getDay()+7)%7;
+}
+
+function applyClassPriorities(queue:QueueItem[],date:Date,classes:ClassSchedule[]){
+  return queue.map(item=>{
+    let score=item.score;
+    let classFocus=false;
+    classes.filter(c=>c.subjectName===item.subjectName).forEach(c=>{
+      const current=currentWeekOverride(c.id,date);
+      const focus=current?.topicName?current:recentTopicFocus(c.id,date);
+      if(focus?.topicName===item.topicName){score-=30;classFocus=true;}
+      const until=daysUntilClass(date,c);
+      if(until<=7)score-=5;
+      if(c.classType==="Paper"&&until<=2)score-=14;
+    });
+    return {...item,score,classFocus};
+  }).sort((a,b)=>a.score-b.score);
 }
 
 function bucketTargets(profile:StudentProfile,queue:QueueItem[]){
   const buckets=[...new Set(queue.map(x=>x.bucket))];
   if(!buckets.length)return {} as Record<string,number>;
   const weekly=Math.max(7*180,Math.round((profile.selfStudyHours||3)*7*60));
-  const bonuses:Record<string,number>={Physics:180,Chemistry:30,Mathematics:0};
   const usePriority=buckets.includes("Physics")&&buckets.includes("Chemistry")&&buckets.includes("Mathematics");
   if(!usePriority){const even=weekly/buckets.length;return Object.fromEntries(buckets.map(x=>[x,even]));}
-  const bonusTotal=buckets.reduce((sum,b)=>sum+(bonuses[b]??0),0);
-  const base=Math.max(60,(weekly-bonusTotal)/buckets.length);
-  return Object.fromEntries(buckets.map(b=>[b,base+(bonuses[b]??0)]));
+  const base=Math.max(60,(weekly-210)/3);
+  return {Physics:base+180,Chemistry:base+30,Mathematics:base};
 }
 
 function chooseItem(queue:QueueItem[],targets:Record<string,number>,allocated:Record<string,number>,usage:Record<string,number>){
@@ -151,10 +194,11 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
     ...protectedFixedBlocks(date),
   ];
   const safeFixed=mergeFixed(fixed.map(x=>({...x,start:Math.max(wake,x.start),end:Math.min(sleep,x.end)})));
-  const weak=weaknessQueue(profile,progress,testMarks,coverage,activePhase);
+  const weak=applyClassPriorities(weaknessQueue(profile,progress,testMarks,coverage,activePhase),date,classes);
   const targets=bucketTargets(profile,weak);
   const allocated:Record<string,number>={},usage:Record<string,number>={};
   let studyMinutes=0,studyBlockIndex=0;const plan:PlanBlock[]=[];let cursor=wake;
+
   const fillFree=(segmentStart:number,segmentEnd:number)=>{
     let p=segmentStart;
     while(p<segmentEnd){
@@ -169,22 +213,49 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
         const phasePaperPractice=examMode||paperMode||(mainExamMode&&studyBlockIndex%2===0);
         const examPractice=phasePaperPractice||(studyBlockIndex%3===2&&selectedPhase!=="Foundation");
         const type:PlanBlockType=shouldRecall&&!examPractice?"revision":"study";
-        plan.push(block(`study-${date.toDateString()}-${p}`,p,p+length,type,examPractice?`Exam practice · ${item.topicName}`:item.topicName,{subtitle:examPractice?`${item.subjectName} · timed questions / paper practice`:shouldRecall?`${item.subjectName} · active recall${item.memoryHeavy?" · memory cycle":""}`:`${item.subjectName} · lesson study`,subjectName:item.subjectName,topicName:item.topicName,priority:item.score<50||item.reviewDue?"high":"normal"}));
+        const classNote=item.classFocus?" · this week's class lesson":"";
+        plan.push(block(`study-${date.toDateString()}-${p}`,p,p+length,type,examPractice?`Exam practice · ${item.topicName}`:item.topicName,{subtitle:examPractice?`${item.subjectName} · timed questions / paper practice${classNote}`:shouldRecall?`${item.subjectName} · active recall${item.memoryHeavy?" · memory cycle":""}${classNote}`:`${item.subjectName} · lesson study${classNote}`,subjectName:item.subjectName,topicName:item.topicName,priority:item.score<50||item.reviewDue||item.classFocus?"high":"normal"}));
         studyMinutes+=length;studyBlockIndex++;p+=length;
         allocated[item.bucket]=(allocated[item.bucket]??0)+length;
         usage[useKey]=(usage[useKey]??0)+1;
-        if(segmentEnd-p>=10){const breakLength=Math.min(15,segmentEnd-p);plan.push(block(`break-${date.toDateString()}-${p}`,p,p+breakLength,"break","Recovery break",{subtitle:examMode?"Walk, hydrate and reset before the next exam block":"Move, drink water, rest your eyes"}));p+=breakLength;}continue;
+        if(segmentEnd-p>=10){const breakLength=Math.min(15,segmentEnd-p);plan.push(block(`break-${date.toDateString()}-${p}`,p,p+breakLength,"break","Recovery break",{subtitle:examMode?"Walk, hydrate and reset before the next exam block":"Move, drink water, rest your eyes"}));p+=breakLength;}
+        continue;
       }
       const noCovered=weak.length===0;
       const focusEmpty=(mainExamMode||examMode)&&(activePhase.examSubjects?.length??0)>0;
-      plan.push(block(`free-${date.toDateString()}-${p}`,p,segmentEnd,"free",noCovered?"Flexible study time":examMode?"Recovery / overflow":"Flexible time",{subtitle:noCovered?(focusEmpty?"No manually covered topics match your selected exam focus. Update Study phase or coverage.":"Mark lessons you have personally covered to let Study Arc schedule them here."):studyMinutes>=targetStudy?(examMode?"Protect recovery or use only for unfinished priority work":"Rest, exercise, family or overflow work"):"Use as catch-up time if needed"}));p=segmentEnd;
+      plan.push(block(`free-${date.toDateString()}-${p}`,p,segmentEnd,"free",noCovered?"Flexible study time":examMode?"Recovery / overflow":"Flexible time",{subtitle:noCovered?(focusEmpty?"No manually covered topics match your selected exam focus. Update Study phase or coverage.":"Mark lessons you have personally covered to let Study Arc schedule them here."):studyMinutes>=targetStudy?(examMode?"Protect recovery or use only for unfinished priority work":"Rest, exercise, family or overflow work"):"Use as catch-up time if needed"}));
+      p=segmentEnd;
     }
   };
+
   safeFixed.forEach(item=>{if(item.start>cursor)fillFree(cursor,item.start);plan.push({...item.block,start:minutesToTime(item.start),end:minutesToTime(item.end)});cursor=Math.max(cursor,item.end);});
   if(cursor<sleep)fillFree(cursor,sleep);
   return plan.sort((a,b)=>parseTime(a.start)-parseTime(b.start));
 }
 
-export function generateBonusWork(profile:StudentProfile,progress:TopicProgress[],testMarks:TestMark[]=[],count=5,coverage:SubtopicCoverage[]=[],phase:PlannerPhaseOptions={}){return weaknessQueue(profile,progress,testMarks,coverage,phase).slice(0,Math.max(1,count)).map((item,index)=>({id:`bonus-${item.subjectName}-${item.topicName}`,subjectName:item.subjectName,topicName:item.topicName,title:item.reviewDue?`Recall · ${item.topicName}`:item.topicName,subtitle:item.reviewDue?`${item.subjectName} · memory review due`:item.memoryHeavy?`${item.subjectName} · active recall + blurting`:`${item.subjectName} · priority practice`,studyType:(item.reviewDue||(item.memoryHeavy&&index%2===0)?"Revision":"Study Session") as "Revision"|"Study Session"}));}
+export function generateBonusWork(profile:StudentProfile,progress:TopicProgress[],testMarks:TestMark[]=[],count=5,coverage:SubtopicCoverage[]=[],phase:PlannerPhaseOptions={}){
+  return weaknessQueue(profile,progress,testMarks,coverage,phase)
+    .slice(0,Math.max(1,count))
+    .map((item,index)=>({
+      id:`bonus-${item.subjectName}-${item.topicName}`,
+      subjectName:item.subjectName,
+      topicName:item.topicName,
+      title:item.reviewDue?`Recall · ${item.topicName}`:item.topicName,
+      subtitle:item.reviewDue?`${item.subjectName} · memory review due`:item.memoryHeavy?`${item.subjectName} · active recall + blurting`:`${item.subjectName} · priority practice`,
+      studyType:(item.reviewDue||(item.memoryHeavy&&index%2===0)?"Revision":"Study Session") as "Revision"|"Study Session",
+    }));
+}
 
-export function weeklySubjectMinutes(profile:StudentProfile,classes:ClassSchedule[],plans:PlanBlock[][]):Record<string,{selfStudy:number;classLearning:number;academic:number}>{const result:Record<string,{selfStudy:number;classLearning:number;academic:number}>={};expandSubjectChoices(profile.subjectChoices).forEach(subject=>result[subject]={selfStudy:0,classLearning:0,academic:0});plans.flat().forEach(b=>{if(!b.subjectName)return;const mins=durationMinutes(b.start,b.end);if(!result[b.subjectName])result[b.subjectName]={selfStudy:0,classLearning:0,academic:0};if(b.type==="study"||b.type==="revision")result[b.subjectName].selfStudy+=mins;if(b.type==="class")result[b.subjectName].classLearning+=mins;});Object.values(result).forEach(v=>v.academic=v.selfStudy+v.classLearning);return result;}
+export function weeklySubjectMinutes(profile:StudentProfile,classes:ClassSchedule[],plans:PlanBlock[][]):Record<string,{selfStudy:number;classLearning:number;academic:number}>{
+  const result:Record<string,{selfStudy:number;classLearning:number;academic:number}>={};
+  expandSubjectChoices(profile.subjectChoices).forEach(subject=>result[subject]={selfStudy:0,classLearning:0,academic:0});
+  plans.flat().forEach(b=>{
+    if(!b.subjectName)return;
+    const mins=durationMinutes(b.start,b.end);
+    if(!result[b.subjectName])result[b.subjectName]={selfStudy:0,classLearning:0,academic:0};
+    if(b.type==="study"||b.type==="revision")result[b.subjectName].selfStudy+=mins;
+    if(b.type==="class")result[b.subjectName].classLearning+=mins;
+  });
+  Object.values(result).forEach(v=>v.academic=v.selfStudy+v.classLearning);
+  return result;
+}
