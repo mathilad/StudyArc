@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
 import { useSocial } from "../context/SocialContext";
 import { useStudent } from "../context/StudentContext";
 import { buildNotificationFeed } from "../lib/notifications";
@@ -13,9 +14,10 @@ const iconFor = (kind: string): keyof typeof Ionicons.glyphMap => kind === "revi
 export default function NotificationsScreen() {
   const router = useRouter();
   const { profile, classes, topicProgress, testMarks, subtopicCoverage, todayReview } = useStudent();
+  const { protectedTimes, classWeekOverrides } = useScheduleAdjustments();
   const { pendingRequests } = useSocial();
   const today = useMemo(() => new Date(), []);
-  const plan = useMemo(() => generateDailyPlan(today, profile, classes, topicProgress, testMarks, subtopicCoverage), [classes, profile, subtopicCoverage, testMarks, today, topicProgress]);
+  const plan = useMemo(() => generateDailyPlan(today, profile, classes, topicProgress, testMarks, subtopicCoverage), [classWeekOverrides, classes, profile, protectedTimes, subtopicCoverage, testMarks, today, topicProgress]);
   const items = useMemo(() => buildNotificationFeed(today, profile, plan, topicProgress, classes, Boolean(todayReview)), [classes, plan, profile, today, topicProgress, todayReview]);
 
   const openItem = (item: (typeof items)[number]) => {
