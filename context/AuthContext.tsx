@@ -1,6 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js";
 import * as Linking from "expo-linking";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { Platform } from "react-native";
 import { supabase } from "../lib/supabase";
 
 type AuthResult = { error: string | null; needsEmailConfirmation?: boolean };
@@ -10,7 +11,7 @@ type AuthContextValue = {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
-  signUp: (email: string, password: string) => Promise<AuthResult>;
+  signUp: (email: string, password: string, fullName: string) => Promise<AuthResult>;
   sendPasswordReset: (email: string) => Promise<AuthResult>;
   updatePassword: (password: string) => Promise<AuthResult>;
   signOut: () => Promise<AuthResult>;
@@ -21,6 +22,30 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const messageFrom = (error: unknown) =>
   error instanceof Error ? error.message : "Something went wrong. Please try again.";
 
+const authRedirect = (path: "/login" | "/reset-password") =>
+  Platform.OS === "web"
+    ? Linking.createURL(path)
+    : Linking.createURL(path, { scheme: "studyarc" });
+
+function parseUrlParams(url: string) {
+  const result: Record<string, string> = {};
+  const parse = (part?: string) => {
+    if (!part) return;
+    part.split("&").forEach((piece) => {
+      const [rawKey, ...rawValue] = piece.split("=");
+      if (!rawKey) return;
+      const key = decodeURIComponent(rawKey);
+      const value = decodeURIComponent(rawValue.join("=") || "");
+      result[key] = value;
+    });
+  };
+  const query = url.includes("?") ? url.split("?")[1]?.split("#")[0] : undefined;
+  const hash = url.includes("#") ? url.split("#")[1] : undefined;
+  parse(query);
+  parse(hash);
+  return result;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,11 +53,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    const acceptAuthUrl = async (url: string | null) => {
+      if (!url) return;
+      try {
+        const params = parseUrlParams(url);
+        if (params.access_token && params.refresh_token) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: params.access_token,
+            refresh_token: params.refresh_token,
+          });
+          if (error) throw error;
+          if (mounted) setSession(data.session ?? null);
+          return;
+        }
+        if (params.code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
+          if (error) throw error;
+          if (mounted) setSession(data.session ?? null);
+        }
+      } catch (error) {
+        console.error("Unable to complete Study Arc auth link:", error);
+      }
+    };
+
     supabase.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
       if (error) console.error("Unable to restore Supabase session:", error);
       setSession(data.session ?? null);
       setLoading(false);
+    });
+
+    Linking.getInitialURL().then(acceptAuthUrl).catch(() => undefined);
+    const linkSubscription = Linking.addEventListener("url", ({ url }) => {
+      acceptAuthUrl(url).catch(() => undefined);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -42,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      linkSubscription.remove();
       listener.subscription.unsubscribe();
     };
   }, []);
@@ -59,13 +113,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+  const signUp = useCallback(async (email: string, password: string, fullName: string): Promise<AuthResult> => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: {
-          emailRedirectTo: Linking.createURL("/login"),
+          emailRedirectTo: authRedirect("/login"),
+          data: {
+            full_name: fullName.trim(),
+          },
         },
       });
       if (error) throw error;
@@ -78,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const sendPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: Linking.createURL("/reset-password"),
+        redirectTo: authRedirect("/reset-password"),
       });
       if (error) throw error;
       return { error: null };
