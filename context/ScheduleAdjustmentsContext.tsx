@@ -31,10 +31,10 @@ export function ScheduleAdjustmentsProvider({ children }: { children: React.Reac
   const [classWeekOverrides, setClassWeekOverrides] = useState<ClassWeekOverride[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const persist = useCallback(async (nextProtected = protectedTimes, nextOverrides = classWeekOverrides) => {
+  const persist = useCallback(async (nextProtected: ProtectedTime[], nextOverrides: ClassWeekOverride[]) => {
     if (!user) return;
     await writeJson(cacheKey(user.id, "schedule-adjustments"), { protectedTimes: nextProtected, classWeekOverrides: nextOverrides } satisfies Cache);
-  }, [classWeekOverrides, protectedTimes, user]);
+  }, [user]);
 
   const loadCache = useCallback(async () => {
     if (!user) {
