@@ -20,6 +20,7 @@ const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 const FILTERS = ["All", "Theory", "Revision", "Paper", "Extra Class"] as const;
 type ClassFilter = (typeof FILTERS)[number];
 type PendingDelete = { kind: "class" | "protected"; id: string; title: string; subject?: string };
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 
 const labelDate = (iso: string | null) => iso
   ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })
@@ -69,7 +70,7 @@ export default function Classes() {
   );
 
   const groupedSubjects = useMemo(() => {
-    const order = new Map(subjects.map((subject, index) => [subject, index]));
+    const order = new Map<string, number>(subjects.map((subject, index) => [subject, index]));
     return [...new Set(filteredClasses.map(c => c.subjectName))].sort((a, b) => {
       const ai = order.get(a) ?? 999;
       const bi = order.get(b) ?? 999;
@@ -189,7 +190,7 @@ export default function Classes() {
         <View style={s.actions}>
           <Pressable onPress={() => openEditClass(c)} style={s.editAction}><Ionicons name="create-outline" size={15} color="#AFC2DB" /><Text style={s.editActionText}>Edit</Text></Pressable>
           <Pressable onPress={() => setOverrideClass(c)} style={s.weekAction}><Ionicons name="calendar-number-outline" size={15} color="#CEB0F2" /><Text style={s.weekActionText}>This week</Text></Pressable>
-          {override?.status !== "Missed" && <Pressable onPress={() => router.push({ pathname: "/class-complete", params: { subjectName: c.subjectName } })} style={s.covered}><Ionicons name="checkmark-done-outline" size={16} color="#73DDA4" /><Text style={s.coveredText}>Log coverage</Text></Pressable>}
+          {override?.status !== "Missed" && <Pressable onPress={() => router.push({ pathname: "/class-complete", params: { subjectName: c.subjectName, classId: c.id, occurrenceDate: todayKey() } })} style={s.covered}><Ionicons name="school-outline" size={16} color="#73DDA4" /><Text style={s.coveredText}>Log learning</Text></Pressable>}
         </View>
       </View>
       <Pressable hitSlop={8} onPress={() => setPendingDelete({ kind: "class", id: c.id, title: c.title || `${c.classType} class`, subject: c.subjectName })} style={s.delete}><Ionicons name="trash-outline" size={18} color="#A27680" /></Pressable>
