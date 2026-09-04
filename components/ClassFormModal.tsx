@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { NewClass } from "../context/StudentContext";
-import { format12Hour } from "../lib/time";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import type { ClassSchedule, NewClass } from "../context/StudentContext";
+import { format12Hour, parseTime } from "../lib/time";
 import ClockTimePicker from "./ClockTimePicker";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -12,11 +12,13 @@ export default function ClassFormModal({
   subjects,
   onClose,
   onSave,
+  initialValue = null,
 }: {
   visible: boolean;
   subjects: string[];
   onClose: () => void;
   onSave: (value: NewClass) => Promise<void> | void;
+  initialValue?: ClassSchedule | null;
 }) {
   const [subjectName, setSubjectName] = useState(subjects[0] ?? "Physics");
   const [dayOfWeek, setDayOfWeek] = useState(6);
@@ -27,14 +29,36 @@ export default function ClassFormModal({
   const [preReviewMinutes, setPreReviewMinutes] = useState(30);
   const [clock, setClock] = useState<"start" | "end" | null>(null);
   const [saving, setSaving] = useState(false);
+  const editing = Boolean(initialValue);
 
   React.useEffect(() => {
-    if (visible && subjects.length && !subjects.includes(subjectName)) setSubjectName(subjects[0]);
-  }, [visible, subjects, subjectName]);
+    if (!visible) return;
+    if (initialValue) {
+      setSubjectName(initialValue.subjectName);
+      setDayOfWeek(initialValue.dayOfWeek);
+      setClassType(initialValue.classType);
+      setDeliveryMode(initialValue.deliveryMode);
+      setStartTime(initialValue.startTime);
+      setEndTime(initialValue.endTime);
+      setPreReviewMinutes(initialValue.preReviewMinutes);
+      return;
+    }
+    setSubjectName((current) => subjects.includes(current) ? current : (subjects[0] ?? "Physics"));
+    setDayOfWeek(6);
+    setClassType("Theory");
+    setDeliveryMode("Physical");
+    setStartTime("08:00");
+    setEndTime("11:00");
+    setPreReviewMinutes(30);
+  }, [initialValue, subjects, visible]);
 
   const title = useMemo(() => `${subjectName} ${classType}`, [subjectName, classType]);
 
   const save = async () => {
+    if (parseTime(endTime) <= parseTime(startTime)) {
+      Alert.alert("Check class time", "Class end time must be after the start time.");
+      return;
+    }
     setSaving(true);
     try {
       await onSave({
@@ -58,7 +82,7 @@ export default function ClassFormModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={s.overlay}>
         <View style={s.sheet}>
-          <View style={s.header}><View><Text style={s.eyebrow}>WEEKLY CLASS</Text><Text style={s.title}>Add class</Text></View><Pressable onPress={onClose} style={s.close}><Ionicons name="close" size={20} color="#FFF" /></Pressable></View>
+          <View style={s.header}><View><Text style={s.eyebrow}>{editing ? "EDIT WEEKLY CLASS" : "WEEKLY CLASS"}</Text><Text style={s.title}>{editing ? "Edit class" : "Add class"}</Text></View><Pressable onPress={onClose} style={s.close}><Ionicons name="close" size={20} color="#FFF" /></Pressable></View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
             <Text style={s.label}>SUBJECT</Text>
             <View style={s.wrap}>{subjects.map((x) => <Pressable key={x} onPress={() => setSubjectName(x)} style={[s.chip, subjectName === x && s.chipActive]}><Text style={[s.chipText, subjectName === x && s.chipTextActive]}>{x}</Text></Pressable>)}</View>
@@ -81,9 +105,9 @@ export default function ClassFormModal({
             </View>
 
             <Text style={s.label}>PRE-CLASS REVIEW</Text>
-            <View style={s.stepper}><Pressable onPress={() => setPreReviewMinutes(Math.max(0, preReviewMinutes - 5))} style={s.step}><Ionicons name="remove" size={22} color="#D8C4F3" /></Pressable><View style={s.stepCenter}><Text style={s.stepValue}>{preReviewMinutes} min</Text><Text style={s.stepSub}>scheduled before every class</Text></View><Pressable onPress={() => setPreReviewMinutes(Math.min(90, preReviewMinutes + 5))} style={s.step}><Ionicons name="add" size={22} color="#D8C4F3" /></Pressable></View>
+            <View style={s.stepper}><Pressable onPress={() => setPreReviewMinutes(Math.max(0, preReviewMinutes - 5))} style={s.step}><Ionicons name="remove" size={22} color="#D8C4F3" /></Pressable><View style={s.stepCenter}><Text style={s.stepValue}>{preReviewMinutes} min</Text><Text style={s.stepSub}>scheduled before every class</Text></View><Pressable onPress={() => setPreReviewMinutes(Math.min(180, preReviewMinutes + 5))} style={s.step}><Ionicons name="add" size={22} color="#D8C4F3" /></Pressable></View>
 
-            <Pressable disabled={saving} onPress={save} style={[s.save, saving && { opacity: .5 }]}><Text style={s.saveText}>{saving ? "Saving…" : "Add to weekly timetable"}</Text></Pressable>
+            <Pressable disabled={saving} onPress={save} style={[s.save, saving && { opacity: .5 }]}><Text style={s.saveText}>{saving ? "Saving…" : editing ? "Save class changes" : "Add to weekly timetable"}</Text></Pressable>
           </ScrollView>
         </View>
       </View>
