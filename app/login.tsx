@@ -90,11 +90,6 @@ export default function LoginScreen() {
           {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.primaryText}>SIGN IN</Text>}
         </Pressable>
 
-        <View style={s.sessionNote}>
-          <Ionicons name="shield-checkmark-outline" size={16} color="#9F7BC8" />
-          <Text style={s.sessionNoteText}>Study Arc keeps you signed in on this device until you choose Sign out. That is why returning users may open the app without seeing this screen again.</Text>
-        </View>
-
         <Text style={s.footer}>New to Study Arc? <Link href="/signup" style={s.link}>Create account</Link></Text>
       </View>
     </KeyboardAvoidingView>
@@ -118,7 +113,5 @@ const s = StyleSheet.create({
   primary: { height: 54, borderRadius: 15, backgroundColor: "#A970F0", alignItems: "center", justifyContent: "center", marginTop: 20 },
   disabled: { opacity: 0.6 },
   primaryText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900", letterSpacing: 1.1 },
-  sessionNote: { marginTop: 16, borderRadius: 14, backgroundColor: "#15131D", borderWidth: 1, borderColor: "#30283B", padding: 12, flexDirection: "row", alignItems: "flex-start", gap: 9 },
-  sessionNoteText: { flex: 1, color: "#7E8998", fontSize: 10.5, lineHeight: 16 },
   footer: { color: "#8E98A7", fontSize: 13, textAlign: "center", marginTop: 20 },
 });
