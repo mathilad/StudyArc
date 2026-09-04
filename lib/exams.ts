@@ -1,3 +1,5 @@
+import { getRuntimePhaseSettings } from "./phaseRuntime";
+
 export type ExamWindow = { year: number; start: string; end: string; official: boolean };
 
 // Sri Lanka G.C.E. A/L dates announced by the Department of Examinations.
@@ -36,11 +38,8 @@ export function examDateLabel(year: number): string {
   return start.toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
 }
 
-export function isFullWorkMode(year: number | null | undefined, now = new Date()): boolean {
-  if (!year) return false;
-  const exam = localDate(getExamWindow(year).start);
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if (today.getTime() > exam.getTime()) return false;
-  const days = Math.ceil((exam.getTime() - today.getTime()) / 86400000);
-  return days <= 30;
+// Full Work Mode is now tied to the phase the student explicitly selected.
+// Date-based logic only suggests a phase; it never switches the app automatically.
+export function isFullWorkMode(_year: number | null | undefined, _now = new Date()): boolean {
+  return getRuntimePhaseSettings().phase === "Exam Month";
 }
