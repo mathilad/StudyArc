@@ -80,7 +80,7 @@ export type DailyReview = {
   createdAt: string;
 };
 
-export type NewClass = Omit<ClassSchedule, "id">;
+export type NewClass = Omit<ClassSchedule, "id"> & { id?: string };
 export type NewTestMark = Omit<TestMark, "id" | "mcqPercent" | "essayPercent">;
 export type TopicProgressInput = Omit<TopicProgress, "id">;
 export type DailyReviewInput = Omit<DailyReview, "id" | "createdAt">;
@@ -410,8 +410,8 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
 
   const addClass = useCallback(async (v: NewClass) => {
     if (!user) throw new Error("You must be signed in.");
-    const local = { ...v, id: makeUuid(), travelMinutes: v.deliveryMode === "Physical" ? 90 : 0 };
-    const next = [...classes, local].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
+    const local: ClassSchedule = { ...v, id: v.id ?? makeUuid(), travelMinutes: v.deliveryMode === "Physical" ? 90 : 0 };
+    const next = [...classes.filter(x => x.id !== local.id), local].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
     setClasses(next);
     await persist(profile, next, testMarks, topicProgress, subtopicCoverage, dailyReviews);
     await enqueueMutation({
