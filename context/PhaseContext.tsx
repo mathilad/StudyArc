@@ -155,7 +155,10 @@ export function PhaseProvider({ children }: { children: React.ReactNode }) {
             body: `Study Arc suggests ${recommended}. You decide whether to change from ${settings.phase}.`,
             data: { kind: "phase-suggestion", route: "/study-phase" },
           },
-          trigger: new Date(Date.now() + 5000),
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: new Date(Date.now() + 5000),
+          },
         });
         await AsyncStorage.setItem(reminderKey(user.id), "1");
       } catch {}
