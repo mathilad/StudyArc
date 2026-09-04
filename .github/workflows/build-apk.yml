@@ -40,6 +40,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Type-check app
+        run: npm run typecheck
+
+      - name: Lint app
+        run: npm run lint
+
       - name: Show Study Arc configuration
         run: npx expo config --type public
 
@@ -67,12 +73,12 @@ jobs:
             exit 1
           fi
 
-          cp "$APK" output/StudyArc-v1.0.3.apk
+          cp "$APK" output/StudyArc-v1.1.0.apk
 
       - name: Upload Study Arc APK
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v1.0.3-APK
-          path: output/StudyArc-v1.0.3.apk
+          name: StudyArc-v1.1.0-APK
+          path: output/StudyArc-v1.1.0.apk
           if-no-files-found: error
           retention-days: 30
