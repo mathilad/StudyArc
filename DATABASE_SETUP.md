@@ -1,80 +1,126 @@
 # Study Arc Supabase setup
 
-The app is configured with the Supabase project URL and publishable key in `.env`.
+The Expo client uses only the Supabase project URL and publishable key. Never place a Supabase secret/service-role key in the app, APK, repository, or public environment variables.
 
-## 1. Rotate the secret key that was exposed previously
+## 1. Rotate any previously exposed secret key
 
-A Supabase secret key was previously pasted into chat. Revoke/rotate it in Supabase. **Do not put the replacement in this app.** The Expo/web client only needs the publishable key.
+If a Supabase secret key was ever pasted into a chat, log, or public location, revoke/rotate it in Supabase. The Study Arc client does **not** need that key.
 
-## 2. Run the upgraded database schema
+## 2. Run the database schema
 
-Open:
-
-**Supabase Dashboard -> SQL Editor -> New query**
-
-Paste the complete contents of:
+Open **Supabase Dashboard → SQL Editor → New query** and run the complete contents of:
 
 `supabase/schema.sql`
 
-and press **Run**.
+For an existing Study Arc database, also run the latest idempotent migration once:
 
-It is written to be safe to re-run and creates/upgrades:
+`supabase/migrations/20260904_complete_study_arc_fixes.sql`
 
-- `student_profiles`
-- `class_schedules`
-- `test_marks` (raw MCQ/Essay score + total, with normalized percentages for analytics)
-- `syllabus_coverage` (manual/class-end lesson subtopic coverage)
-- `topic_progress`
-- `study_sessions`
-- `study_laps`
-- `avatars` Storage bucket
-- `social_profiles`
-- `daily_study_rankings`
-- `friendships`
-- `study_presence`
-- `contact_messages`
-- realtime publication entries for ranking/friends/presence
-- indexes
-- Row Level Security policies
+The migration is safe to re-run. It adds the study-medium field, keeps `Extra Class` valid, and reinstalls the profile-avatar storage policies that allow each authenticated user to write only inside `avatars/<their-user-id>/...`.
 
-The session table is also upgraded with optional focus/understanding ratings and repeatable past-paper metadata: paper year, section and attempt number.
+The database covers:
 
-## 3. Authentication
+- student profiles, name, English/Sinhala medium, exam year and daily rhythm
+- weekly classes, including Theory, Revision, Paper and Extra Class
+- raw MCQ/Essay marks and weak topics
+- manual/class syllabus coverage
+- topic progress and recall schedule
+- stopwatch sessions and laps
+- past-paper history
+- daily reviews
+- profile avatars
+- social profiles, daily rankings, friendships and study presence
+- private Contact Us messages
+- required indexes, RLS policies and realtime publication entries
 
-In **Authentication -> Providers -> Email** enable Email authentication.
+## 3. Authentication and app deep links
 
-For production, keeping email confirmation enabled is recommended.
+In **Authentication → Providers → Email**, enable Email authentication. Keeping email confirmation enabled is recommended.
 
-In **Authentication -> URL Configuration**, add native redirects:
+In **Authentication → URL Configuration → Redirect URLs**, add all of these native Study Arc redirects:
 
 - `studyarc://login`
+- `studyarc:///login`
 - `studyarc://reset-password`
+- `studyarc:///reset-password`
 
-For a deployed web build also add the actual web URLs, for example:
+The app scheme is `studyarc`, so confirmation and recovery links in the installed Android/iOS app return to Study Arc instead of localhost.
+
+If you deploy a web build, add its real HTTPS routes separately, for example:
 
 - `https://YOUR_DOMAIN/login`
 - `https://YOUR_DOMAIN/reset-password`
 
-## 4. Environment variables
+Do not use a localhost Site URL for production email flows.
 
-The app expects:
+## 4. Install the Study Arc email templates
+
+Open **Authentication → Email Templates** and paste:
+
+- `supabase/email-templates/confirm-signup.html` into **Confirm signup**
+- `supabase/email-templates/reset-password.html` into **Reset password / Recovery**
+
+Suggested subjects:
+
+- `Welcome to Study Arc — confirm your email`
+- `Reset your Study Arc password`
+
+Both templates use Supabase's `{{ .ConfirmationURL }}` value so the redirect configured by the app is retained.
+
+## 5. Environment variables
+
+Study Arc expects:
 
 ```env
 EXPO_PUBLIC_SUPABASE_URL=...
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 ```
 
-Do not add any `SUPABASE_SECRET_KEY`, service-role key or database password to Expo client code.
+For GitHub Actions, create repository Actions secrets with those exact two names before building the APK.
 
-## 5. Run
+Do not add `SUPABASE_SECRET_KEY`, a service-role key, or a database password to Expo client code.
 
-On Windows you can double-click `INSTALL_WINDOWS.bat`, or:
+## 6. Account flow
+
+New users now:
+
+1. enter their name, email, password and password confirmation;
+2. see a clear **Check your email** next-step screen;
+3. confirm the email and return to Study Arc;
+4. sign in if requested;
+5. complete onboarding, including English/Sinhala medium, subjects, exam target, wake/sleep times and classes.
+
+Study Arc persists a valid Supabase session on a trusted device. Therefore a returning user can open the app without typing the password every time. This is normal authenticated-session persistence; signing out removes that local session.
+
+Password recovery opens the Study Arc reset screen. After the password is changed, the recovery session is signed out and the user is asked to sign in with the new password.
+
+## 7. Profile photos
+
+Profile photos are uploaded to the public `avatars` bucket under the signed-in user's own folder. The storage RLS policies permit insert/update/delete only when the first folder segment equals `auth.uid()`.
+
+If an older installation showed `new row violates row-level security policy`, run `supabase/migrations/20260904_complete_study_arc_fixes.sql` and then try the photo again while signed in.
+
+## 8. Contact Us
+
+Contact Us no longer depends on an installed email application. Signed-in users submit the message directly to the protected `contact_messages` table. The support address shown in the app is:
+
+`mathiladinimuthu3@gmail.com`
+
+The message remains available to the project owner through Supabase/dashboard tooling without exposing any server email-provider secret in the Expo client.
+
+## 9. Planner and coverage behavior
+
+Self-study and adaptive revision work are generated only from syllabus lessons the learner has manually marked covered. Class blocks, physical travel and pre-class review remain fixed because they come from the weekly class schedule.
+
+The planner calendar marks dates that contain saved study sessions. The Sessions tab also groups history under separate date headings.
+
+## 10. Run locally
+
+On Windows, double-click `INSTALL_WINDOWS.bat`, or run:
 
 ```bat
 npm start
 ```
-
-The start script now installs dependencies automatically when `node_modules` is missing.
 
 Manual equivalent:
 
@@ -89,36 +135,6 @@ Web:
 npm run web
 ```
 
-## 6. Cloud data model
+## 11. Privacy
 
-Each signed-in user gets isolated data through RLS:
-
-- profile and selected A/L subjects
-- exam year, wake/sleep times, self-study target
-- class schedule, mode, travel and pre-class review duration
-- MCQ/Essay test marks and weak topics
-- topic mastery and spaced-recall timestamps
-- stopwatch sessions and laps
-- repeated past-paper attempts
-- optional focus/understanding reflection
-- profile avatar metadata
-- minimal social profile + daily study ranking
-- friend relationships and studying-now presence
-- private support-message log
-
-This makes Supabase the long-term source of truth while the planner/analytics are generated from those records in the app.
-
-## 7. Social privacy
-
-The social tables intentionally expose only display name/avatar/friend code, daily study total and a short studying-now presence. Full study sessions, marks, notes and topic history remain protected by the original per-user RLS policies.
-
-## 8. Contact Us email
-
-The app logs the message to `contact_messages`, then opens the device email composer addressed to `mathiladinimuthu3@gmail.com`. Do not add an email-provider API secret to Expo. If automatic server-side email is added later, store that provider secret in a Supabase Edge Function secret instead.
-
-## Offline-first + daily reviews
-Re-run `supabase/schema.sql` after updating to this build. It adds the `daily_reviews` table and RLS policies. Offline data itself lives locally on each device in AsyncStorage; queued changes are uploaded automatically after connectivity returns.
-
-
-## Latest marks + syllabus coverage upgrade
-Run the complete `supabase/schema.sql` again for this build. It adds decimal-capable `mcq_score`, `mcq_total`, `essay_score`, and `essay_total` columns and the `syllabus_coverage` table. Existing percentage-only test rows remain readable; new test results store the real mark and the total available mark.
+RLS keeps each student's private profile, study history, marks, notes, syllabus progress and support messages scoped to that authenticated account. Social features expose only the minimal data required for friends/ranking/presence; private sessions and marks are not shared with other users.
