@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { usePlanning } from "../context/PlanningContext";
 import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
 import { useSocial } from "../context/SocialContext";
 import { useStudent } from "../context/StudentContext";
@@ -16,11 +17,12 @@ const iconFor = (kind: string): keyof typeof Ionicons.glyphMap => kind === "revi
 export default function NotificationsScreen() {
   const router = useRouter();
   const { profile, classes, topicProgress, testMarks, subtopicCoverage, todayReview } = useStudent();
+  const { preferences } = usePlanning();
   const { protectedTimes, classWeekOverrides } = useScheduleAdjustments();
   const { pendingRequests } = useSocial();
   const { sessions } = useStudy();
   const today = useMemo(() => new Date(), []);
-  const plan = useMemo(() => generateDailyPlan(today, profile, classes, topicProgress, testMarks, subtopicCoverage), [classWeekOverrides, classes, profile, protectedTimes, subtopicCoverage, testMarks, today, topicProgress]);
+  const plan = useMemo(() => generateDailyPlan(today, profile, classes, topicProgress, testMarks, subtopicCoverage), [classWeekOverrides, classes, preferences, profile, protectedTimes, subtopicCoverage, testMarks, today, topicProgress]);
   const items = useMemo(() => buildNotificationFeed(today, profile, plan, topicProgress, classes, Boolean(todayReview), sessions), [classes, plan, profile, sessions, today, topicProgress, todayReview]);
   const readIds = useMemo(() => [...items.map(item => item.id), ...pendingRequests.map(request => `friend-${request.friendshipId}`)], [items, pendingRequests]);
 
