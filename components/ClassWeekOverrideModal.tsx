@@ -1,92 +1,29 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useStudent, type ClassSchedule } from "../context/StudentContext";
-import { SUBJECTS, topicDisplayName, type SubjectName } from "../data/subjects";
-import type { ClassWeekOverride, ClassWeekOverrideInput } from "../lib/scheduleAdjustments";
-import { currentWeekDates, localDateKey, weekStartKey } from "../lib/scheduleAdjustments";
-import { format12Hour, parseTime } from "../lib/time";
-import ClockTimePicker from "./ClockTimePicker";
+import React,{useMemo,useState}from"react";
+import{Alert,Modal,Pressable,ScrollView,StyleSheet,Text,View}from"react-native";
+import{useStudent,type ClassSchedule}from"../context/StudentContext";
+import{SUBJECTS,topicDisplayName,type SubjectName}from"../data/subjects";
+import type{ClassWeekOverride,ClassWeekOverrideInput}from"../lib/scheduleAdjustments";
+import{currentWeekDates,localDateKey,weekStartKey}from"../lib/scheduleAdjustments";
+import{format12Hour,parseTime}from"../lib/time";
+import ClockTimePicker from"./ClockTimePicker";
 
-const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-
-type Mode="Scheduled"|"Missed"|"Rescheduled";
-
+const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];type Mode="Scheduled"|"Missed"|"Rescheduled";
 export default function ClassWeekOverrideModal({visible,classSchedule,existing,onClose,onSave,onClear}:{visible:boolean;classSchedule:ClassSchedule|null;existing?:ClassWeekOverride|null;onClose:()=>void;onSave:(value:ClassWeekOverrideInput)=>Promise<void>|void;onClear:()=>Promise<void>|void}){
-  const{profile,subtopicCoverage}=useStudent();
-  const week=useMemo(()=>currentWeekDates(),[visible]);
-  const[mode,setMode]=useState<Mode>("Scheduled");
-  const[day,setDay]=useState(new Date().getDay());
-  const[startTime,setStartTime]=useState("08:00");
-  const[endTime,setEndTime]=useState("10:00");
-  const[topicName,setTopicName]=useState<string|null>(null);
-  const[clock,setClock]=useState<"start"|"end"|null>(null);
-  const[saving,setSaving]=useState(false);
-
-  const subject=classSchedule?.subjectName as SubjectName|undefined;
-  const topics=useMemo(()=>subject&&SUBJECTS[subject]?SUBJECTS[subject].topics:[],[subject]);
-  const manuallyCovered=new Set(subtopicCoverage.filter(x=>x.covered&&x.source==="Manual").map(x=>`${x.subjectName}::${x.topicName}`));
-
-  React.useEffect(()=>{
-    if(!visible||!classSchedule)return;
-    setMode(existing?.status??"Scheduled");
-    setDay(existing?.rescheduledDate?new Date(`${existing.rescheduledDate}T00:00:00`).getDay():classSchedule.dayOfWeek);
-    setStartTime(existing?.startTime??classSchedule.startTime);
-    setEndTime(existing?.endTime??classSchedule.endTime);
-    setTopicName(existing?.topicName??null);
-  },[classSchedule,existing,visible]);
-
-  if(!classSchedule)return null;
-
-  const save=async()=>{
-    if(mode==="Rescheduled"&&parseTime(endTime)<=parseTime(startTime)){Alert.alert("Check the time","End time must be after start time.");return}
-    setSaving(true);
-    try{
-      await onSave({
-        classId:classSchedule.id,
-        weekStart:weekStartKey(),
-        status:mode,
-        rescheduledDate:mode==="Rescheduled"?localDateKey(week[day]):null,
-        startTime:mode==="Rescheduled"?startTime:null,
-        endTime:mode==="Rescheduled"?endTime:null,
-        topicName,
-      });
-      onClose();
-    }finally{setSaving(false)}
-  };
-
-  const clear=async()=>{setSaving(true);try{await onClear();onClose()}finally{setSaving(false)}};
-
-  return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-    <View style={s.overlay}><View style={s.card}>
-      <View style={s.head}><View style={{flex:1}}><Text style={s.eyebrow}>THIS WEEK ONLY</Text><Text style={s.title}>{classSchedule.subjectName} · {classSchedule.classType}</Text><Text style={s.sub}>Tell Study Arc what this class is covering, or mark this week's occurrence missed/moved. Your normal weekly class stays unchanged.</Text></View><Pressable onPress={onClose} style={s.close}><Ionicons name="close" size={19} color="#FFF"/></Pressable></View>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:8}}>
-        <Text style={s.label}>THIS WEEK'S LESSON</Text>
-        <Text style={s.helper}>Class lessons receive extra planning priority this week and into the next class cycle. Self-study still only uses lessons you personally marked covered.</Text>
-        <View style={s.topicWrap}>
-          <Pressable onPress={()=>setTopicName(null)} style={[s.topicChip,!topicName&&s.topicChipActive]}><Text style={[s.topicText,!topicName&&s.topicTextActive]}>Not set</Text></Pressable>
-          {topics.map(topic=>{const active=topicName===topic.title;const covered=manuallyCovered.has(`${classSchedule.subjectName}::${topic.title}`);return <Pressable key={topic.title} onPress={()=>setTopicName(topic.title)} style={[s.topicChip,active&&s.topicChipActive]}><Text style={[s.topicText,active&&s.topicTextActive]}>{topicDisplayName(classSchedule.subjectName,topic.title,profile.medium)}</Text>{covered&&<Ionicons name="checkmark-circle" size={12} color={active?"#EADFFF":"#6ECF98"}/>}</Pressable>})}
-        </View>
-
-        <Text style={s.label}>CLASS STATUS THIS WEEK</Text>
-        <View style={s.modeRow}>
-          <Pressable onPress={()=>setMode("Scheduled")} style={[s.mode,mode==="Scheduled"&&s.normalActive]}><Ionicons name="checkmark-circle-outline" size={20} color={mode==="Scheduled"?"#78DFA8":"#7E8999"}/><Text style={[s.modeText,mode==="Scheduled"&&{color:"#CFF4DE"}]}>Normal</Text></Pressable>
-          <Pressable onPress={()=>setMode("Missed")} style={[s.mode,mode==="Missed"&&s.missedActive]}><Ionicons name="close-circle-outline" size={20} color={mode==="Missed"?"#F0B1BA":"#7E8999"}/><Text style={[s.modeText,mode==="Missed"&&{color:"#F0C5CC"}]}>Missed</Text></Pressable>
-          <Pressable onPress={()=>setMode("Rescheduled")} style={[s.mode,mode==="Rescheduled"&&s.rescheduledActive]}><Ionicons name="calendar-outline" size={20} color={mode==="Rescheduled"?"#C9A6F5":"#7E8999"}/><Text style={[s.modeText,mode==="Rescheduled"&&{color:"#E8D9FA"}]}>Move</Text></Pressable>
-        </View>
-        {mode==="Missed"?<View style={s.info}><Ionicons name="information-circle-outline" size={18} color="#C19BA6"/><Text style={s.infoText}>Study Arc removes this week's class, travel and pre-class review. You can return later and arrange a make-up inside this same week.</Text></View>:mode==="Rescheduled"?<>
-          <Text style={s.label}>MAKE-UP DAY</Text><View style={s.days}>{week.map((date,i)=><Pressable key={i} onPress={()=>setDay(i)} style={[s.day,day===i&&s.dayActive]}><Text style={[s.dayName,day===i&&s.dayNameActive]}>{DAYS[i]}</Text><Text style={[s.dayDate,day===i&&s.dayDateActive]}>{date.getDate()}</Text></Pressable>)}</View>
-          <Text style={s.label}>MAKE-UP TIME</Text><View style={s.timeRow}><Pressable onPress={()=>setClock("start")} style={s.timeCard}><Text style={s.timeLabel}>START</Text><Text style={s.timeValue}>{format12Hour(startTime)}</Text></Pressable><Ionicons name="arrow-forward" size={18} color="#657286"/><Pressable onPress={()=>setClock("end")} style={s.timeCard}><Text style={s.timeLabel}>END</Text><Text style={s.timeValue}>{format12Hour(endTime)}</Text></Pressable></View>
-          <View style={s.info}><Ionicons name="refresh-outline" size={18} color="#BFA3E5"/><Text style={s.infoText}>The make-up keeps the same delivery mode and travel rules. Paper classes receive at least 90 minutes of targeted preparation.</Text></View>
-        </>:<View style={s.info}><Ionicons name="sparkles-outline" size={18} color="#7CDFA9"/><Text style={s.infoText}>The class stays at its normal weekly time. The lesson you selected above becomes a priority signal for this week's study plan.</Text></View>}
-
-        <Pressable disabled={saving} onPress={save} style={[s.save,saving&&{opacity:.55}]}><Text style={s.saveText}>{saving?"Saving…":mode==="Missed"?"Save missed class":mode==="Rescheduled"?"Save make-up time":"Save this week's focus"}</Text></Pressable>
-        <Pressable disabled={saving} onPress={clear} style={s.clear}><Text style={s.clearText}>Clear this week's changes</Text></Pressable>
-      </ScrollView>
-    </View></View>
-    <ClockTimePicker visible={clock==="start"} value={startTime} title="Make-up class starts" onClose={()=>setClock(null)} onChange={setStartTime}/>
-    <ClockTimePicker visible={clock==="end"} value={endTime} title="Make-up class ends" onClose={()=>setClock(null)} onChange={setEndTime}/>
-  </Modal>;
+ const{profile,subtopicCoverage}=useStudent();const week=useMemo(()=>currentWeekDates(),[]);const[mode,setMode]=useState<Mode>("Scheduled"),[day,setDay]=useState(new Date().getDay()),[startTime,setStartTime]=useState("08:00"),[endTime,setEndTime]=useState("10:00"),[topicNames,setTopicNames]=useState<string[]>([]),[clock,setClock]=useState<"start"|"end"|null>(null),[saving,setSaving]=useState(false);
+ const subject=classSchedule?.subjectName as SubjectName|undefined;const topics=useMemo(()=>subject&&SUBJECTS[subject]?SUBJECTS[subject].topics:[],[subject]);const paper=classSchedule?.classType==="Paper";const manuallyCovered=new Set(subtopicCoverage.filter(x=>x.covered&&x.source==="Manual").map(x=>`${x.subjectName}::${x.topicName}`));
+ React.useEffect(()=>{if(!visible||!classSchedule)return;setMode(existing?.status??"Scheduled");setDay(existing?.rescheduledDate?new Date(`${existing.rescheduledDate}T00:00:00`).getDay():classSchedule.dayOfWeek);setStartTime(existing?.startTime??classSchedule.startTime);setEndTime(existing?.endTime??classSchedule.endTime);setTopicNames(existing?.topicNames?.length?existing.topicNames:existing?.topicName?[existing.topicName]:[])},[classSchedule,existing,visible]);
+ if(!classSchedule)return null;
+ const toggleTopic=(name:string)=>{if(!paper){setTopicNames([name]);return}setTopicNames(current=>current.includes(name)?current.filter(x=>x!==name):[...current,name])};
+ const save=async()=>{if(mode==="Rescheduled"&&parseTime(endTime)<=parseTime(startTime)){Alert.alert("Check the time","End time must be after start time.");return}setSaving(true);try{await onSave({classId:classSchedule.id,weekStart:weekStartKey(),status:mode,rescheduledDate:mode==="Rescheduled"?localDateKey(week[day]):null,startTime:mode==="Rescheduled"?startTime:null,endTime:mode==="Rescheduled"?endTime:null,topicName:topicNames[0]??null,topicNames});onClose()}finally{setSaving(false)}};
+ const clear=async()=>{setSaving(true);try{await onClear();onClose()}finally{setSaving(false)}};
+ return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}><View style={s.overlay}><View style={s.card}><View style={s.head}><View style={{flex:1}}><Text style={s.eyebrow}>THIS WEEK ONLY</Text><Text style={s.title}>{classSchedule.subjectName} · {classSchedule.classType}</Text><Text style={s.sub}>{paper?"Add every topic you expect in this paper class. Study Arc will use them as preparation and revision priorities.":"Tell Study Arc what this class is covering, or mark this week's occurrence missed/moved."}</Text></View><Pressable onPress={onClose} style={s.close}><Ionicons name="close" size={19} color="#FFF"/></Pressable></View><ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:8}}>
+ <Text style={s.label}>{paper?"EXPECTED PAPER TOPICS":"THIS WEEK'S LESSON"}</Text><Text style={s.helper}>{paper?"Select multiple topics. This does not mark them mastered or personally studied.":"The selected lesson receives extra planning priority around this class."}</Text><View style={s.topicWrap}><Pressable onPress={()=>setTopicNames([])} style={[s.topicChip,topicNames.length===0&&s.topicChipActive]}><Text style={[s.topicText,topicNames.length===0&&s.topicTextActive]}>Not set</Text></Pressable>{topics.map(topic=>{const active=topicNames.includes(topic.title),covered=manuallyCovered.has(`${classSchedule.subjectName}::${topic.title}`);return <Pressable key={topic.title} onPress={()=>toggleTopic(topic.title)} style={[s.topicChip,active&&s.topicChipActive]}><Text style={[s.topicText,active&&s.topicTextActive]}>{topicDisplayName(classSchedule.subjectName,topic.title,profile.medium)}</Text>{covered&&<Ionicons name="checkmark-circle" size={12} color={active?"#EADFFF":"#6ECF98"}/>}</Pressable>})}</View>
+ {paper&&topicNames.length>0?<View style={s.selected}><Ionicons name="documents-outline" size={17} color="#C9A6F5"/><Text style={s.selectedText}>{topicNames.length} expected topic{topicNames.length===1?"":"s"} will influence paper-class preparation.</Text></View>:null}
+ <Text style={s.label}>CLASS STATUS THIS WEEK</Text><View style={s.modeRow}><ModeButton label="Normal" icon="checkmark-circle-outline" active={mode==="Scheduled"} onPress={()=>setMode("Scheduled")}/><ModeButton label="Missed" icon="close-circle-outline" active={mode==="Missed"} onPress={()=>setMode("Missed")}/><ModeButton label="Move" icon="calendar-outline" active={mode==="Rescheduled"} onPress={()=>setMode("Rescheduled")}/></View>
+ {mode==="Missed"?<View style={s.info}><Ionicons name="information-circle-outline" size={18} color="#C19BA6"/><Text style={s.infoText}>Study Arc removes this week's class, travel and pre-class review, then re-optimizes the remaining schedule.</Text></View>:mode==="Rescheduled"?<><Text style={s.label}>MAKE-UP DAY</Text><View style={s.days}>{week.map((date,i)=><Pressable key={i} onPress={()=>setDay(i)} style={[s.day,day===i&&s.dayActive]}><Text style={[s.dayName,day===i&&s.dayNameActive]}>{DAYS[i]}</Text><Text style={[s.dayDate,day===i&&s.dayDateActive]}>{date.getDate()}</Text></Pressable>)}</View><Text style={s.label}>MAKE-UP TIME</Text><View style={s.timeRow}><Pressable onPress={()=>setClock("start")} style={s.timeCard}><Text style={s.timeLabel}>START</Text><Text style={s.timeValue}>{format12Hour(startTime)}</Text></Pressable><Ionicons name="arrow-forward" size={18} color="#657286"/><Pressable onPress={()=>setClock("end")} style={s.timeCard}><Text style={s.timeLabel}>END</Text><Text style={s.timeValue}>{format12Hour(endTime)}</Text></Pressable></View></>:<View style={s.info}><Ionicons name="sparkles-outline" size={18} color="#7CDFA9"/><Text style={s.infoText}>The class stays at its normal weekly time. Selected topics become planning signals; they are not automatically marked completed.</Text></View>}
+ <Pressable disabled={saving} onPress={save} style={[s.save,saving&&{opacity:.55}]}><Text style={s.saveText}>{saving?"Saving…":"Save this week's class plan"}</Text></Pressable><Pressable disabled={saving} onPress={clear} style={s.clear}><Text style={s.clearText}>Clear this week's changes</Text></Pressable>
+ </ScrollView></View></View><ClockTimePicker visible={clock==="start"} value={startTime} title="Make-up class starts" onClose={()=>setClock(null)} onChange={setStartTime}/><ClockTimePicker visible={clock==="end"} value={endTime} title="Make-up class ends" onClose={()=>setClock(null)} onChange={setEndTime}/></Modal>
 }
-
-const s=StyleSheet.create({overlay:{flex:1,backgroundColor:"rgba(3,6,10,.82)",alignItems:"center",justifyContent:"center",padding:20},card:{width:"100%",maxWidth:620,maxHeight:"92%",borderRadius:25,backgroundColor:"#101720",borderWidth:1,borderColor:"#344154",padding:20},head:{flexDirection:"row",gap:10,alignItems:"flex-start"},eyebrow:{color:"#B784FF",fontSize:8,fontWeight:"900",letterSpacing:1.4},title:{color:"#F2F4F7",fontSize:19,fontWeight:"900",marginTop:3},sub:{color:"#7A8798",fontSize:10.5,lineHeight:16,marginTop:5},close:{width:40,height:40,borderRadius:13,backgroundColor:"#18212D",alignItems:"center",justifyContent:"center"},label:{color:"#748194",fontSize:9,fontWeight:"900",letterSpacing:1.1,marginTop:17,marginBottom:8},helper:{color:"#708093",fontSize:9.5,lineHeight:15,marginBottom:9},topicWrap:{flexDirection:"row",flexWrap:"wrap",gap:7},topicChip:{minHeight:36,borderRadius:11,backgroundColor:"#151E28",borderWidth:1,borderColor:"#2A3747",paddingHorizontal:10,flexDirection:"row",gap:5,alignItems:"center",justifyContent:"center"},topicChipActive:{backgroundColor:"#3A2854",borderColor:"#7B5CAF"},topicText:{color:"#8895A5",fontSize:9.5,fontWeight:"800",maxWidth:250},topicTextActive:{color:"#F1E8FD"},modeRow:{flexDirection:"row",gap:7},mode:{flex:1,minHeight:54,borderRadius:15,backgroundColor:"#141C26",borderWidth:1,borderColor:"#2A3747",alignItems:"center",justifyContent:"center",gap:4},normalActive:{backgroundColor:"#112019",borderColor:"#356148"},missedActive:{backgroundColor:"#27171D",borderColor:"#68404A"},rescheduledActive:{backgroundColor:"#261B35",borderColor:"#684A8E"},modeText:{color:"#8190A0",fontSize:9.5,fontWeight:"900"},info:{marginTop:13,borderRadius:14,backgroundColor:"#0D141D",borderWidth:1,borderColor:"#263241",padding:11,flexDirection:"row",gap:8},infoText:{flex:1,color:"#788596",fontSize:10,lineHeight:16},days:{flexDirection:"row",gap:5},day:{flex:1,minHeight:53,borderRadius:13,backgroundColor:"#141C26",borderWidth:1,borderColor:"#293545",alignItems:"center",justifyContent:"center"},dayActive:{backgroundColor:"#7048C6",borderColor:"#A987F2"},dayName:{color:"#748194",fontSize:8,fontWeight:"900"},dayNameActive:{color:"#EADFF8"},dayDate:{color:"#C5CDD7",fontSize:13,fontWeight:"900",marginTop:2},dayDateActive:{color:"#FFF"},timeRow:{flexDirection:"row",alignItems:"center",gap:7},timeCard:{flex:1,minHeight:62,borderRadius:15,backgroundColor:"#141C26",borderWidth:1,borderColor:"#293545",padding:11},timeLabel:{color:"#657286",fontSize:8,fontWeight:"900"},timeValue:{color:"#F1F4F8",fontSize:16,fontWeight:"900",marginTop:5},save:{height:50,borderRadius:15,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center",marginTop:18},saveText:{color:"#150C1D",fontWeight:"900",fontSize:12},clear:{height:42,alignItems:"center",justifyContent:"center",marginTop:5},clearText:{color:"#8A96A5",fontSize:10.5,fontWeight:"800"}});
+function ModeButton({label,icon,active,onPress}:{label:string;icon:keyof typeof Ionicons.glyphMap;active:boolean;onPress:()=>void}){return <Pressable onPress={onPress} style={[s.mode,active&&s.modeActive]}><Ionicons name={icon} size={20} color={active?"#DCC8F5":"#7E8999"}/><Text style={[s.modeText,active&&{color:"#F0E8F8"}]}>{label}</Text></Pressable>}
+const s=StyleSheet.create({overlay:{flex:1,backgroundColor:"rgba(3,6,10,.82)",alignItems:"center",justifyContent:"center",padding:20},card:{width:"100%",maxWidth:620,maxHeight:"92%",borderRadius:25,backgroundColor:"#101720",borderWidth:1,borderColor:"#344154",padding:20},head:{flexDirection:"row",gap:10,alignItems:"flex-start"},eyebrow:{color:"#B784FF",fontSize:8,fontWeight:"900",letterSpacing:1.4},title:{color:"#F2F4F7",fontSize:19,fontWeight:"900",marginTop:3},sub:{color:"#7A8798",fontSize:10.5,lineHeight:16,marginTop:5},close:{width:40,height:40,borderRadius:13,backgroundColor:"#18212D",alignItems:"center",justifyContent:"center"},label:{color:"#748194",fontSize:9,fontWeight:"900",letterSpacing:1.1,marginTop:17,marginBottom:8},helper:{color:"#708093",fontSize:9.5,lineHeight:15,marginBottom:9},topicWrap:{flexDirection:"row",flexWrap:"wrap",gap:7},topicChip:{minHeight:36,borderRadius:11,backgroundColor:"#151E28",borderWidth:1,borderColor:"#2A3747",paddingHorizontal:10,flexDirection:"row",gap:5,alignItems:"center",justifyContent:"center"},topicChipActive:{backgroundColor:"#3A2854",borderColor:"#7B5CAF"},topicText:{color:"#8895A5",fontSize:9.5,fontWeight:"800",maxWidth:250},topicTextActive:{color:"#F1E8FD"},selected:{marginTop:10,borderRadius:12,backgroundColor:"#191425",padding:10,flexDirection:"row",gap:7,alignItems:"center"},selectedText:{flex:1,color:"#9E8CAF",fontSize:9.5},modeRow:{flexDirection:"row",gap:7},mode:{flex:1,minHeight:54,borderRadius:15,backgroundColor:"#141C26",borderWidth:1,borderColor:"#2A3747",alignItems:"center",justifyContent:"center",gap:4},modeActive:{backgroundColor:"#261B35",borderColor:"#684A8E"},modeText:{color:"#8190A0",fontSize:9.5,fontWeight:"900"},info:{marginTop:13,borderRadius:14,backgroundColor:"#0D141D",borderWidth:1,borderColor:"#263241",padding:11,flexDirection:"row",gap:8},infoText:{flex:1,color:"#788596",fontSize:10,lineHeight:16},days:{flexDirection:"row",gap:5},day:{flex:1,minHeight:53,borderRadius:13,backgroundColor:"#141C26",borderWidth:1,borderColor:"#293545",alignItems:"center",justifyContent:"center"},dayActive:{backgroundColor:"#7048C6",borderColor:"#A987F2"},dayName:{color:"#748194",fontSize:8,fontWeight:"900"},dayNameActive:{color:"#EADFF8"},dayDate:{color:"#C5CDD7",fontSize:13,fontWeight:"900",marginTop:2},dayDateActive:{color:"#FFF"},timeRow:{flexDirection:"row",alignItems:"center",gap:7},timeCard:{flex:1,minHeight:62,borderRadius:15,backgroundColor:"#141C26",borderWidth:1,borderColor:"#293545",padding:11},timeLabel:{color:"#657286",fontSize:8,fontWeight:"900"},timeValue:{color:"#F1F4F8",fontSize:16,fontWeight:"900",marginTop:5},save:{height:50,borderRadius:15,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center",marginTop:18},saveText:{color:"#150C1D",fontWeight:"900",fontSize:12},clear:{height:42,alignItems:"center",justifyContent:"center",marginTop:5},clearText:{color:"#8A96A5",fontSize:10.5,fontWeight:"800"}})
