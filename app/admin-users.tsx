@@ -1,36 +1,199 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
-import React,{useCallback,useEffect,useMemo,useState}from"react";
-import{Alert,Pressable,ScrollView,StyleSheet,Text,TextInput,View}from"react-native";
-import{useAppConfig}from"../context/AppConfigContext";
-import{useAuth}from"../context/AuthContext";
-import{useMonetization}from"../context/MonetizationContext";
-import{supabase}from"../lib/supabase";
+import React, { useCallback, useEffect, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useAppConfig } from "../context/AppConfigContext";
+import { useAuth } from "../context/AuthContext";
+import { useMonetization } from "../context/MonetizationContext";
+import { supabase } from "../lib/supabase";
 
-type AdminUser={user_id:string;email:string|null;created_at:string;stream:string|null;exam_year:number|null;role:string;is_blocked:boolean;access_state:string;plan_name:string|null;premium_expires_at:string|null;payment_reference:string|null;activation_code:string|null};
-const stateLabel=(s:string)=>s.replaceAll("_"," ");
+type AdminUser = {
+  user_id: string;
+  email: string | null;
+  created_at: string;
+  stream: string | null;
+  exam_year: number | null;
+  role: string;
+  is_blocked: boolean;
+  access_state: string;
+  plan_name: string | null;
+  premium_expires_at: string | null;
+  payment_reference: string | null;
+  activation_code: string | null;
+};
 
-export default function AdminUsersScreen(){
- const router=useRouter();const{session}=useAuth();const{isAdmin}=useAppConfig();const{plans}=useMonetization();const[query,setQuery]=useState(""),[users,setUsers]=useState<AdminUser[]>([]),[selected,setSelected]=useState<AdminUser|null>(null),[planId,setPlanId]=useState<string|null>(plans[0]?.id??null),[reason,setReason]=useState(""),[busy,setBusy]=useState(false),[message,setMessage]=useState<string|null>(null);
- const load=useCallback(async()=>{if(!isAdmin)return;setBusy(true);try{const{data,error}=await supabase.rpc("admin_list_users",{search_text:query.trim()||null,max_rows:200});if(error)throw error;setUsers((data??[]) as AdminUser[])}catch(e){setMessage(e instanceof Error?e.message:"Could not load users.")}finally{setBusy(false)}},[isAdmin,query]);
- useEffect(()=>{load()},[load]);
- useEffect(()=>{if(!planId&&plans[0])setPlanId(plans[0].id)},[planId,plans]);
- if(!session)return <Redirect href="/login"/>;if(!isAdmin)return <Redirect href="/(tabs)"/>;
- const refreshSelected=async()=>{await load();setSelected(null)};
- const block=async()=>{if(!selected)return;setBusy(true);try{const{error}=await supabase.rpc("admin_block_user",{target_user:selected.user_id,internal_reason:reason.trim()||null,public_message:"Your Study Arc account currently cannot access the application. Please contact Study Arc support.",pause_subscription:false});if(error)throw error;setMessage("User blocked.");await refreshSelected()}catch(e){setMessage(e instanceof Error?e.message:"Could not block user.")}finally{setBusy(false)}};
- const unblock=async()=>{if(!selected)return;setBusy(true);try{const{error}=await supabase.rpc("admin_unblock_user",{target_user:selected.user_id});if(error)throw error;setMessage("User unblocked.");await refreshSelected()}catch(e){setMessage(e instanceof Error?e.message:"Could not unblock user.")}finally{setBusy(false)}};
- const grant=async()=>{if(!selected||!planId)return;setBusy(true);try{const{error}=await supabase.rpc("admin_grant_premium",{target_user:selected.user_id,target_plan:planId,custom_days:null,reason:reason.trim()||"Admin grant"});if(error)throw error;setMessage("Premium granted.");await refreshSelected()}catch(e){setMessage(e instanceof Error?e.message:"Could not grant premium.")}finally{setBusy(false)}};
- const generate=async()=>{if(!selected||!planId)return;setBusy(true);try{const{data,error}=await supabase.rpc("admin_generate_activation_code",{target_user:selected.user_id,target_plan:planId,valid_days:30});if(error)throw error;setMessage(`Activation code: ${data?.code??"created"}`);await load();setSelected({...selected,activation_code:data?.code??selected.activation_code})}catch(e){setMessage(e instanceof Error?e.message:"Could not generate code.")}finally{setBusy(false)}};
- const filtered=useMemo(()=>users,[users]);
- return <View style={s.root}><LinearGradient colors={["#1A1227","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.head}><Pressable onPress={()=>router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF"/></Pressable><View style={{flex:1}}><Text style={s.title}>Users & access</Text><Text style={s.sub}>Search accounts, block/unblock, grant Premium and manage user-bound codes</Text></View></View><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
- {message?<View style={s.message}><Text style={s.messageText}>{message}</Text></View>:null}
- <View style={s.searchRow}><TextInput value={query} onChangeText={setQuery} onSubmitEditing={load} placeholder="Search email or user ID" placeholderTextColor="#586678" autoCapitalize="none" style={s.search}/><Pressable onPress={load} style={s.searchButton}><Ionicons name="search" size={18} color="#170C1F"/></Pressable></View>
- <Text style={s.section}>ACCOUNTS</Text>{filtered.map(u=><Pressable key={u.user_id} onPress={()=>setSelected(u)} style={[s.user,u.is_blocked&&s.blocked]}><View style={[s.avatar,u.is_blocked&&{backgroundColor:"#321A20"}]}><Ionicons name={u.is_blocked?"lock-closed-outline":"person-outline"} size={19} color={u.is_blocked?"#EAA3AF":"#CDB3EE"}/></View><View style={{flex:1,minWidth:0}}><Text style={s.email} numberOfLines={1}>{u.email||u.user_id}</Text><Text style={s.meta}>{u.stream||"No stream"}{u.exam_year?` · A/L ${u.exam_year}`:""} · {u.role}</Text><Text style={s.meta}>{u.plan_name||"No active plan"}{u.premium_expires_at?` · until ${new Date(u.premium_expires_at).toLocaleDateString()}`:""}</Text></View><View style={[s.state,u.access_state==="BLOCKED"?s.stateBlocked:u.access_state==="PREMIUM"?s.statePremium:s.stateNeutral]}><Text style={s.stateText}>{stateLabel(u.access_state)}</Text></View></Pressable>)}
- {busy&&filtered.length===0?<Text style={s.loading}>Loading…</Text>:null}
- </ScrollView>
- {selected?<View style={s.sheet}><ScrollView contentContainerStyle={s.sheetInner} keyboardShouldPersistTaps="handled"><View style={s.sheetHead}><View style={{flex:1}}><Text style={s.sheetTitle}>{selected.email||"User"}</Text><Text style={s.sheetId}>{selected.user_id}</Text></View><Pressable onPress={()=>setSelected(null)} style={s.close}><Ionicons name="close" size={20} color="#B9C1CC"/></Pressable></View><View style={s.info}><Info label="ACCESS" value={stateLabel(selected.access_state)}/><Info label="STREAM" value={selected.stream||"—"}/><Info label="EXAM" value={selected.exam_year?String(selected.exam_year):"—"}/><Info label="PLAN" value={selected.plan_name||"—"}/></View>{selected.activation_code?<View style={s.codeBox}><Text style={s.codeLabel}>ACTIVE USER CODE</Text><Text style={s.code}>{selected.activation_code}</Text></View>:null}<Text style={s.label}>ADMIN NOTE / REASON</Text><TextInput value={reason} onChangeText={setReason} placeholder="Optional internal reason" placeholderTextColor="#596678" style={s.input}/><Text style={s.label}>PLAN</Text><View style={s.wrap}>{plans.map(p=><Pressable key={p.id} onPress={()=>setPlanId(p.id)} style={[s.chip,planId===p.id&&s.chipOn]}><Text style={[s.chipText,planId===p.id&&s.chipTextOn]}>{p.name}</Text></Pressable>)}</View><View style={s.actions}><Pressable disabled={busy||!planId} onPress={grant} style={s.actionPrimary}><Ionicons name="diamond-outline" size={17} color="#160B20"/><Text style={s.actionPrimaryText}>Grant Premium</Text></Pressable><Pressable disabled={busy||!planId} onPress={generate} style={s.actionSecondary}><Ionicons name="key-outline" size={17} color="#D8C3F3"/><Text style={s.actionSecondaryText}>{selected.activation_code?"Regenerate code":"Generate code"}</Text></Pressable></View>{selected.is_blocked?<Pressable disabled={busy} onPress={unblock} style={s.unblock}><Ionicons name="lock-open-outline" size={17} color="#112017"/><Text style={s.unblockText}>Unblock user</Text></Pressable>:<Pressable disabled={busy} onPress={()=>Alert.alert("Block account?","The user will lose app access immediately. Their data is not deleted.",[{text:"Cancel",style:"cancel"},{text:"Block",style:"destructive",onPress:block}])} style={s.blockButton}><Ionicons name="lock-closed-outline" size={17} color="#FFE5EA"/><Text style={s.blockText}>Block user</Text></Pressable>}</ScrollView></View>:null}
- </View>
+const stateLabel = (value: string) => value.replaceAll("_", " ");
+
+export default function AdminUsersScreen() {
+  const router = useRouter();
+  const { session } = useAuth();
+  const { isAdmin } = useAppConfig();
+  const { plans } = useMonetization();
+  const [query, setQuery] = useState("");
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [selected, setSelected] = useState<AdminUser | null>(null);
+  const [planId, setPlanId] = useState<string | null>(plans[0]?.id ?? null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!isAdmin) return;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("admin_list_users", {
+        search_text: query.trim() || null,
+        max_rows: 200,
+      });
+      if (error) throw error;
+      setUsers((data ?? []) as AdminUser[]);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not load users.");
+    } finally {
+      setBusy(false);
+    }
+  }, [isAdmin, query]);
+
+  useEffect(() => { load().catch(() => undefined); }, [load]);
+  useEffect(() => { if (!planId && plans[0]) setPlanId(plans[0].id); }, [planId, plans]);
+
+  if (!session) return <Redirect href="/login" />;
+  if (!isAdmin) return <Redirect href="/(tabs)" />;
+
+  const refreshAfterChange = async () => {
+    await load();
+    setSelected(null);
+    setReason("");
+  };
+
+  const blockUser = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("admin_block_user", {
+        target_user: selected.user_id,
+        internal_reason: reason.trim() || null,
+        public_message: "Your Study Arc account currently cannot access the application. Please contact Study Arc support.",
+        pause_subscription: false,
+      });
+      if (error) throw error;
+      setMessage("User blocked.");
+      await refreshAfterChange();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not block user.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const unblockUser = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("admin_unblock_user", { target_user: selected.user_id });
+      if (error) throw error;
+      setMessage("User unblocked.");
+      await refreshAfterChange();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not unblock user.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const grantPremium = async () => {
+    if (!selected || !planId) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("admin_grant_premium", {
+        target_user: selected.user_id,
+        target_plan: planId,
+        custom_days: null,
+        reason: reason.trim() || "Admin grant",
+      });
+      if (error) throw error;
+      setMessage("Premium granted.");
+      await refreshAfterChange();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not grant premium.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const generateCode = async () => {
+    if (!selected || !planId) return;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("admin_generate_activation_code", {
+        target_user: selected.user_id,
+        target_plan: planId,
+        valid_days: 30,
+      });
+      if (error) throw error;
+      const code = data?.code ?? null;
+      setMessage(code ? `Activation code: ${code}` : "Activation code created.");
+      await load();
+      setSelected(current => current ? { ...current, activation_code: code ?? current.activation_code } : current);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not generate code.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <View style={s.root}>
+    <LinearGradient colors={["#1A1227", "#080D14", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <View style={s.head}>
+      <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF" /></Pressable>
+      <View style={{ flex: 1 }}><Text style={s.title}>Users & access</Text><Text style={s.sub}>Search, block, grant Premium and manage user-bound activation codes</Text></View>
+    </View>
+
+    <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      {message ? <View style={s.message}><Text style={s.messageText}>{message}</Text></View> : null}
+      <View style={s.searchRow}>
+        <TextInput value={query} onChangeText={setQuery} onSubmitEditing={load} placeholder="Search email or user ID" placeholderTextColor="#586678" autoCapitalize="none" style={s.search} />
+        <Pressable onPress={load} style={s.searchButton}><Ionicons name="search" size={18} color="#170C1F" /></Pressable>
+      </View>
+
+      <Text style={s.section}>ACCOUNTS</Text>
+      {users.map(user => <Pressable key={user.user_id} onPress={() => setSelected(user)} style={[s.user, user.is_blocked && s.blocked]}>
+        <View style={[s.avatar, user.is_blocked && { backgroundColor: "#321A20" }]}><Ionicons name={user.is_blocked ? "lock-closed-outline" : "person-outline"} size={19} color={user.is_blocked ? "#EAA3AF" : "#CDB3EE"} /></View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={s.email} numberOfLines={1}>{user.email || user.user_id}</Text>
+          <Text style={s.meta}>{user.stream || "No stream"}{user.exam_year ? ` · A/L ${user.exam_year}` : ""} · {user.role}</Text>
+          <Text style={s.meta}>{user.plan_name || "No active plan"}{user.premium_expires_at ? ` · until ${new Date(user.premium_expires_at).toLocaleDateString()}` : ""}</Text>
+        </View>
+        <View style={[s.state, user.access_state === "BLOCKED" ? s.stateBlocked : user.access_state === "PREMIUM" ? s.statePremium : s.stateNeutral]}><Text style={s.stateText}>{stateLabel(user.access_state)}</Text></View>
+      </Pressable>)}
+      {busy && users.length === 0 ? <Text style={s.loading}>Loading…</Text> : null}
+    </ScrollView>
+
+    {selected ? <View style={s.sheet}><ScrollView contentContainerStyle={s.sheetInner} keyboardShouldPersistTaps="handled">
+      <View style={s.sheetHead}>
+        <View style={{ flex: 1 }}><Text style={s.sheetTitle}>{selected.email || "User"}</Text><Text style={s.sheetId}>{selected.user_id}</Text></View>
+        <Pressable onPress={() => setSelected(null)} style={s.close}><Ionicons name="close" size={20} color="#B9C1CC" /></Pressable>
+      </View>
+      <View style={s.info}><Info label="ACCESS" value={stateLabel(selected.access_state)} /><Info label="STREAM" value={selected.stream || "—"} /><Info label="EXAM" value={selected.exam_year ? String(selected.exam_year) : "—"} /><Info label="PLAN" value={selected.plan_name || "—"} /></View>
+      {selected.activation_code ? <View style={s.codeBox}><Text style={s.codeLabel}>ACTIVE USER CODE</Text><Text style={s.code}>{selected.activation_code}</Text></View> : null}
+      <Text style={s.label}>ADMIN NOTE / REASON</Text><TextInput value={reason} onChangeText={setReason} placeholder="Optional internal reason" placeholderTextColor="#596678" style={s.input} />
+      <Text style={s.label}>PLAN</Text><View style={s.wrap}>{plans.map(plan => <Pressable key={plan.id} onPress={() => setPlanId(plan.id)} style={[s.chip, planId === plan.id && s.chipOn]}><Text style={[s.chipText, planId === plan.id && s.chipTextOn]}>{plan.name}</Text></Pressable>)}</View>
+      <View style={s.actions}>
+        <Pressable disabled={busy || !planId} onPress={grantPremium} style={s.actionPrimary}><Ionicons name="diamond-outline" size={17} color="#160B20" /><Text style={s.actionPrimaryText}>Grant Premium</Text></Pressable>
+        <Pressable disabled={busy || !planId} onPress={generateCode} style={s.actionSecondary}><Ionicons name="key-outline" size={17} color="#D8C3F3" /><Text style={s.actionSecondaryText}>{selected.activation_code ? "Regenerate code" : "Generate code"}</Text></Pressable>
+      </View>
+      {selected.is_blocked
+        ? <Pressable disabled={busy} onPress={unblockUser} style={s.unblock}><Ionicons name="lock-open-outline" size={17} color="#112017" /><Text style={s.unblockText}>Unblock user</Text></Pressable>
+        : <Pressable disabled={busy} onPress={() => Alert.alert("Block account?", "The user will lose app access immediately. Their data is not deleted.", [{ text: "Cancel", style: "cancel" }, { text: "Block", style: "destructive", onPress: blockUser }])} style={s.blockButton}><Ionicons name="lock-closed-outline" size={17} color="#FFE5EA" /><Text style={s.blockText}>Block user</Text></Pressable>}
+    </ScrollView></View> : null}
+  </View>;
 }
-function Info({label,value}:{label:string;value:string}){return <View style={s.infoItem}><Text style={s.infoLabel}>{label}</Text><Text style={s.infoValue}>{value}</Text></View>}
-const s=StyleSheet.create({root:{flex:1,backgroundColor:"#080D14"},head:{padding:18,paddingTop:22,flexDirection:"row",alignItems:"center",gap:11,borderBottomWidth:1,borderBottomColor:"#2A2135"},back:{width:43,height:43,borderRadius:14,backgroundColor:"#151B25",alignItems:"center",justifyContent:"center"},title:{color:"#F5F6F8",fontSize:22,fontWeight:"900"},sub:{color:"#748194",fontSize:10,marginTop:3},content:{padding:20,paddingBottom:50,width:"100%",maxWidth:930,alignSelf:"center"},message:{borderRadius:14,backgroundColor:"#122019",borderWidth:1,borderColor:"#315843",padding:11,marginBottom:10},messageText:{color:"#8BD4A7",fontSize:10.5,fontWeight:"700"},searchRow:{flexDirection:"row",gap:8},search:{flex:1,height:48,borderRadius:14,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",color:"#EDF0F4",paddingHorizontal:12,fontSize:11},searchButton:{width:48,height:48,borderRadius:14,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center"},section:{color:"#8190A3",fontSize:9,fontWeight:"900",letterSpacing:1.3,marginTop:20,marginBottom:9},user:{minHeight:76,borderRadius:17,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:11,flexDirection:"row",alignItems:"center",gap:10,marginBottom:7},blocked:{borderColor:"#5A3039",backgroundColor:"#151116"},avatar:{width:42,height:42,borderRadius:13,backgroundColor:"#21182D",alignItems:"center",justifyContent:"center"},email:{color:"#E9EDF1",fontSize:11.5,fontWeight:"900"},meta:{color:"#748194",fontSize:8.5,marginTop:3},state:{borderRadius:9,paddingHorizontal:7,paddingVertical:5,maxWidth:115},stateBlocked:{backgroundColor:"#3B1D24"},statePremium:{backgroundColor:"#173323"},stateNeutral:{backgroundColor:"#252C36"},stateText:{color:"#C7D0DA",fontSize:6.8,fontWeight:"900",textAlign:"center"},loading:{color:"#778495",textAlign:"center",marginTop:20},sheet:{position:"absolute",left:0,right:0,bottom:0,maxHeight:"82%",backgroundColor:"#0D141D",borderTopWidth:1,borderTopColor:"#49345F",borderTopLeftRadius:24,borderTopRightRadius:24},sheetInner:{padding:20,paddingBottom:36,maxWidth:780,width:"100%",alignSelf:"center"},sheetHead:{flexDirection:"row",alignItems:"center",gap:10},sheetTitle:{color:"#F1F3F6",fontSize:18,fontWeight:"900"},sheetId:{color:"#6F7D8F",fontSize:8,marginTop:3},close:{width:39,height:39,borderRadius:12,backgroundColor:"#18212C",alignItems:"center",justifyContent:"center"},info:{flexDirection:"row",flexWrap:"wrap",gap:7,marginTop:14},infoItem:{flexGrow:1,flexBasis:"22%",minWidth:110,borderRadius:13,backgroundColor:"#111923",borderWidth:1,borderColor:"#293646",padding:10},infoLabel:{color:"#718094",fontSize:7,fontWeight:"900"},infoValue:{color:"#E2E6EB",fontSize:10,fontWeight:"900",marginTop:4},codeBox:{borderRadius:16,backgroundColor:"#21182D",borderWidth:1,borderColor:"#5C427A",padding:13,marginTop:11},codeLabel:{color:"#8F77AA",fontSize:7.5,fontWeight:"900",letterSpacing:1},code:{color:"#EAD9FF",fontSize:17,fontWeight:"900",letterSpacing:1.1,marginTop:5},label:{color:"#718094",fontSize:8,fontWeight:"900",letterSpacing:1,marginTop:15,marginBottom:6},input:{height:44,borderRadius:12,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",color:"#EDF0F4",paddingHorizontal:10,fontSize:10.5},wrap:{flexDirection:"row",flexWrap:"wrap",gap:6},chip:{minHeight:34,borderRadius:10,backgroundColor:"#17202B",borderWidth:1,borderColor:"#2C3948",paddingHorizontal:9,alignItems:"center",justifyContent:"center"},chipOn:{backgroundColor:"#392653",borderColor:"#7755A2"},chipText:{color:"#8190A2",fontSize:8.5,fontWeight:"800"},chipTextOn:{color:"#F0E5FD"},actions:{flexDirection:"row",gap:8,marginTop:13},actionPrimary:{flex:1,minHeight:45,borderRadius:13,backgroundColor:"#B784FF",flexDirection:"row",gap:6,alignItems:"center",justifyContent:"center"},actionPrimaryText:{color:"#160B20",fontSize:9.5,fontWeight:"900"},actionSecondary:{flex:1,minHeight:45,borderRadius:13,backgroundColor:"#21182D",borderWidth:1,borderColor:"#4A365F",flexDirection:"row",gap:6,alignItems:"center",justifyContent:"center"},actionSecondaryText:{color:"#D8C3F3",fontSize:9.5,fontWeight:"900"},blockButton:{minHeight:44,borderRadius:13,backgroundColor:"#743442",flexDirection:"row",gap:6,alignItems:"center",justifyContent:"center",marginTop:9},blockText:{color:"#FFE5EA",fontSize:9.5,fontWeight:"900"},unblock:{minHeight:44,borderRadius:13,backgroundColor:"#7BCF99",flexDirection:"row",gap:6,alignItems:"center",justifyContent:"center",marginTop:9},unblockText:{color:"#112017",fontSize:9.5,fontWeight:"900"}})
+
+function Info({ label, value }: { label: string; value: string }) {
+  return <View style={s.infoItem}><Text style={s.infoLabel}>{label}</Text><Text style={s.infoValue}>{value}</Text></View>;
+}
+
+const s = StyleSheet.create({
+  root:{flex:1,backgroundColor:"#080D14"},head:{padding:18,paddingTop:22,flexDirection:"row",alignItems:"center",gap:11,borderBottomWidth:1,borderBottomColor:"#2A2135"},back:{width:43,height:43,borderRadius:14,backgroundColor:"#151B25",alignItems:"center",justifyContent:"center"},title:{color:"#F5F6F8",fontSize:22,fontWeight:"900"},sub:{color:"#748194",fontSize:10,marginTop:3},content:{padding:20,paddingBottom:50,width:"100%",maxWidth:930,alignSelf:"center"},message:{borderRadius:14,backgroundColor:"#122019",borderWidth:1,borderColor:"#315843",padding:11,marginBottom:10},messageText:{color:"#8BD4A7",fontSize:10.5,fontWeight:"700"},searchRow:{flexDirection:"row",gap:8},search:{flex:1,height:48,borderRadius:14,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",color:"#EDF0F4",paddingHorizontal:12,fontSize:11},searchButton:{width:48,height:48,borderRadius:14,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center"},section:{color:"#8190A3",fontSize:9,fontWeight:"900",letterSpacing:1.3,marginTop:20,marginBottom:9},user:{minHeight:76,borderRadius:17,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:11,flexDirection:"row",alignItems:"center",gap:10,marginBottom:7},blocked:{borderColor:"#5A3039",backgroundColor:"#151116"},avatar:{width:42,height:42,borderRadius:13,backgroundColor:"#21182D",alignItems:"center",justifyContent:"center"},email:{color:"#E9EDF1",fontSize:11.5,fontWeight:"900"},meta:{color:"#748194",fontSize:8.5,marginTop:3},state:{borderRadius:9,paddingHorizontal:7,paddingVertical:5,maxWidth:115},stateBlocked:{backgroundColor:"#3B1D24"},statePremium:{backgroundColor:"#173323"},stateNeutral:{backgroundColor:"#252C36"},stateText:{color:"#C7D0DA",fontSize:6.8,fontWeight:"900",textAlign:"center"},loading:{color:"#778495",textAlign:"center",marginTop:20},sheet:{position:"absolute",left:0,right:0,bottom:0,maxHeight:"82%",backgroundColor:"#0D141D",borderTopWidth:1,borderTopColor:"#49345F",borderTopLeftRadius:24,borderTopRightRadius:24},sheetInner:{padding:20,paddingBottom:36,maxWidth:780,width:"100%",alignSelf:"center"},sheetHead:{flexDirection:"row",alignItems:"center",gap:10},sheetTitle:{color:"#F1F3F6",fontSize:18,fontWeight:"900"},sheetId:{color:"#6F7D8F",fontSize:8,marginTop:3},close:{width:39,height:39,borderRadius:12,backgroundColor:"#18212C",alignItems:"center",justifyContent:"center"},info:{flexDirection:"row",flexWrap:"wrap",gap:7,marginTop:14},infoItem:{flexGrow:1,flexBasis:"22%",minWidth:110,borderRadius:13,backgroundColor:"#111923",borderWidth:1,borderColor:"#293646",padding:10},infoLabel:{color:"#718094",fontSize:7,fontWeight:"900"},infoValue:{color:"#E2E6EB",fontSize:10,fontWeight:"900",marginTop:4},codeBox:{borderRadius:16,backgroundColor:"#21182D",borderWidth:1,borderColor:"#5C427A",padding:13,marginTop:11},codeLabel:{color:"#8F77AA",fontSize:7.5,fontWeight:"900",letterSpacing:1},code:{color:"#EAD9FF",fontSize:17,fontWeight:"900",letterSpacing:1.1,marginTop:5},label:{color:"#718094",fontSize:8,fontWeight:"900",letterSpacing:1,marginTop:15,marginBottom:6},input:{height:44,borderRadius:12,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",color:"#EDF0F4",paddingHorizontal:10,fontSize:10.5},wrap:{flexDirection:"row",flexWrap:"wrap",gap:6},chip:{minHeight:34,borderRadius:10,backgroundColor:"#17202B",borderWidth:1,borderColor:"#2C3948",paddingHorizontal:9,alignItems:"center",justifyContent:"center"},chipOn:{backgroundColor:"#392653",borderColor:"#7755A2"},chipText:{color:"#8190A2",fontSize:8.5,fontWeight:"800"},chipTextOn:{color:"#F0E5FD"},actions:{flexDirection:"row",gap:8,marginTop:13},actionPrimary:{flex:1,minHeight:45,borderRadius:13,backgroundColor:"#B784FF",flexDirection:"row",gap:6,alignItems:"center",justifyContent:"center"},actionPrimaryText:{color:"#160B20",fontSize:9.5,fontWeight:"900"},actionSecondary:{flex:1,minHeight:45,borderRadius:13,backgroundColor:"#21182D",borderWidth:1,borderColor:"#4A365F",flexDirection:"row",gap:6,alignItems:"center",justifyContent:"center"},actionSecondaryText:{color:"#D8C3F3",fontSize:9.5,fontWeight:"900"},blockButton:{minHeight:44,borderRadius:13,backgroundColor:"#743442",flexDirection:"row",gap:6,alignItems:"center",justifyContent:"center",marginTop:9},blockText:{color:"#FFE5EA",fontSize:9.5,fontWeight:"900"},unblock:{minHeight:44,borderRadius:13,backgroundColor:"#7BCF99",flexDirection:"row",gap:6,alignItems:"center",justifyContent:"center",marginTop:9},unblockText:{color:"#112017",fontSize:9.5,fontWeight:"900"}
+});
