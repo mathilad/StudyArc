@@ -30,22 +30,25 @@ for (const [packageName, vulnerability] of Object.entries(vulnerabilities)) {
   }
 }
 
-// image-size <=2.0.2 has two high-severity infinite-loop advisories for
-// ICNS/JXL/HEIF parsing, but as of v1.1.2 verification there is no published
-// patched release. Metro brings it in as build tooling. Keep this exception
-// narrow: package name + no available fix only. Any future fix or any other
-// high/critical advisory fails CI until it is reviewed.
-const acceptedNoFix = severeAdvisories.filter(
-  (item) => item.packageName === "image-size" && item.fixAvailable === false,
-);
-const blocking = severeAdvisories.filter(
-  (item) => !(item.packageName === "image-size" && item.fixAvailable === false),
-);
+// Metro currently brings image-size through Expo tooling. npm can report a
+// breaking Expo-major replacement as "fixAvailable" even when the advisory is
+// not safely removable inside the current Expo SDK. Keep the exception tied to
+// these two reviewed advisory URLs only; any different/new image-size advisory
+// and every other high/critical advisory still blocks CI.
+const acceptedImageSizeUrls = new Set([
+  "https://github.com/advisories/GHSA-w3rx-r6r6-pgpr",
+  "https://github.com/advisories/GHSA-5p2g-fcmc-qvqq",
+]);
+const isReviewedImageSizeAdvisory = (item) =>
+  item.packageName === "image-size" && acceptedImageSizeUrls.has(item.url);
+
+const acceptedNoFix = severeAdvisories.filter(isReviewedImageSizeAdvisory);
+const blocking = severeAdvisories.filter((item) => !isReviewedImageSizeAdvisory(item));
 
 const metadata = report.metadata?.vulnerabilities || {};
 console.log(`Production audit: ${metadata.critical || 0} critical, ${metadata.high || 0} high, ${metadata.moderate || 0} moderate.`);
 if (acceptedNoFix.length) {
-  console.warn("Known no-fix Metro/image-size advisories accepted temporarily:");
+  console.warn("Reviewed Metro/image-size advisories accepted temporarily:");
   for (const item of acceptedNoFix) console.warn(`- ${item.title}${item.url ? ` (${item.url})` : ""}`);
 }
 if (blocking.length) {
