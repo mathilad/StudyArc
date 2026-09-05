@@ -10,7 +10,8 @@ import{expandSubjectChoices}from"../data/subjects";
 const dayStart=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();
 const fmt=(sec:number)=>{const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h?`${h}h ${m}m`:`${m}m`};
 const sum=(rows:StudySession[])=>rows.reduce((a,b)=>a+b.durationSeconds,0);
-const isPaper=(s:StudySession)=>["Past Papers","Paper Discussion","Paper Review","Paper Correction"].includes(s.studyType);
+const isPaper=(session:StudySession)=>["Past Papers","Paper Discussion","Paper Review","Paper Correction"].includes(session.studyType);
+const isSelfStudy=(session:StudySession)=>["Study Session","Revision","Tute Questions"].includes(session.studyType);
 
 export default function ReportsScreen(){
  const router=useRouter();const{profile,topicProgress,subtopicCoverage}=useStudent();const{sessions}=useStudy();const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
@@ -18,15 +19,14 @@ export default function ReportsScreen(){
  const week=useMemo(()=>sessions.filter(s=>new Date(s.startedAt).getTime()>=weekStart),[sessions,weekStart]);
  const month=useMemo(()=>sessions.filter(s=>new Date(s.startedAt).getTime()>=monthStart),[sessions,monthStart]);
  const priorMonth=useMemo(()=>sessions.filter(s=>{const t=new Date(s.startedAt).getTime();return t>=priorStart&&t<monthStart}),[sessions,monthStart,priorStart]);
- const weekTotal=sum(week),classSec=sum(week.filter(s=>s.studyType==="Class")),paperSec=sum(week.filter(isPaper)),selfSec=Math.max(0,weekTotal-classSec);
+ const weekTotal=sum(week),classSec=sum(week.filter(s=>s.studyType==="Class")),paperSec=sum(week.filter(isPaper)),selfSec=sum(week.filter(isSelfStudy));
  const subjectWeek=useMemo(()=>Object.fromEntries(subjects.map(subject=>[subject,sum(week.filter(s=>s.subjectName===subject))])),[subjects,week]);
  const mastery=useMemo(()=>subjects.map(subject=>{const rows=topicProgress.filter(p=>p.subjectName===subject);const score=rows.length?rows.reduce((a,p)=>a+p.knowledge*.35+p.memory*.35+p.performance*.30,0)/rows.length:0;return{subject,score}}).sort((a,b)=>b.score-a.score),[subjects,topicProgress]);
  const strongest=mastery[0],weakest=mastery[mastery.length-1];
  const avgWeek=subjects.length?Object.values(subjectWeek).reduce((a,b)=>a+b,0)/subjects.length:0;
  const lowBalance=subjects.filter(s=>(subjectWeek[s]??0)<avgWeek*.45).sort((a,b)=>(subjectWeek[a]??0)-(subjectWeek[b]??0));
  const papers=week.filter(s=>s.studyType==="Past Papers").length;
- const covered=subtopicCoverage.filter(x=>x.covered&&x.source==="Manual");
- const coveragePct=subtopicCoverage.filter(x=>x.source==="Manual").length?Math.round(covered.length/subtopicCoverage.filter(x=>x.source==="Manual").length*100):0;
+ const manualRows=subtopicCoverage.filter(x=>x.source==="Manual"),covered=manualRows.filter(x=>x.covered),coveragePct=manualRows.length?Math.round(covered.length/manualRows.length*100):0;
  const priorityTopics=[...topicProgress].sort((a,b)=>(a.knowledge+a.memory+a.performance)-(b.knowledge+b.memory+b.performance)).slice(0,4);
  const monthSec=sum(month),priorSec=sum(priorMonth),monthDelta=priorSec?Math.round((monthSec-priorSec)/priorSec*100):monthSec?100:0;
  const monthPapers=month.filter(s=>s.studyType==="Past Papers").length,priorPapers=priorMonth.filter(s=>s.studyType==="Past Papers").length;
