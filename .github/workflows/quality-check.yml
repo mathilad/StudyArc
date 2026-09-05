@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - studyarc-platform-upgrade
+      - studyarc-v1.1.2-complete
 
 concurrency:
   group: study-arc-quality-${{ github.ref }}
