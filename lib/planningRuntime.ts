@@ -8,18 +8,13 @@ export const DEFAULT_PLANNING_PREFERENCES: PlanningPreferences = {
   maxStudyBlockMinutes: 180,
   countClassTimeTowardTarget: true,
   weeklySubjectAdjustments: {
-    Physics: 180,
-    Chemistry: 30,
-    Mathematics: 0,
+    "Pure Mathematics": 0,
+    "Applied Mathematics": 0,
+    Physics: 0,
+    Chemistry: 0,
   },
 };
 
 let runtimePreferences: PlanningPreferences = DEFAULT_PLANNING_PREFERENCES;
-
-export function setRuntimePlanningPreferences(value: PlanningPreferences) {
-  runtimePreferences = value;
-}
-
-export function getRuntimePlanningPreferences(): PlanningPreferences {
-  return runtimePreferences;
-}
+export function setRuntimePlanningPreferences(value: PlanningPreferences) { runtimePreferences = value; }
+export function getRuntimePlanningPreferences(): PlanningPreferences { return runtimePreferences; }
