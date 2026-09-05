@@ -19,21 +19,18 @@ export default function MoreScreen(){
   <Text style={s.title}>More</Text><Text style={s.subtitle}>Account, study setup, privacy and support.</Text>
   <Pressable onPress={()=>router.push("/profile")} style={s.profile}><View style={s.avatar}><Ionicons name="person-outline" size={27} color="#D7C2F2"/></View><View style={{flex:1}}><Text style={s.profileTitle}>{profile.fullName||"Profile"}</Text><Text style={s.profileSub}>{user?.email}</Text><Text style={s.profileMeta}>{stream||"A/L student"}{profile.examYear?` · ${profile.examYear}`:""}</Text></View><Ionicons name="chevron-forward" size={19} color="#6F7A89"/></Pressable>
   <View style={s.metrics}><Metric label="TOTAL WORK" value={fmt(totalSeconds)}/><Metric label="SESSIONS" value={String(sessions.length)}/><Metric label="ACCESS" value={access?.state.replaceAll("_"," ")??"—"}/></View>
-
   {isAdmin?<><Text style={s.section}>ADMINISTRATION</Text><Row icon="shield-checkmark-outline" title="Admin Console" sub="Users, pricing, payments, catalog and system controls" onPress={()=>router.push("/admin")}/></>:null}
-
   <Text style={s.section}>PLANNING & ACADEMICS</Text>
   <Row icon="options-outline" title="Planner controls" sub="Daily target, Catch-up Mode and separate subject balance" onPress={()=>router.push("/planner-controls")}/>
   <Row icon="calendar-number-outline" title="Classes & protected time" sub={`${classes.length} weekly classes configured`} onPress={()=>router.push("/classes")}/>
   <Row icon="school-outline" title="Study phase" sub="Normal, paper practice, main-exam preparation and exam month" onPress={()=>router.push("/study-phase")}/>
   <Row icon="calendar-outline" title="Exams & paper dates" sub="Add MCQ/essay or paper components separately" onPress={()=>router.push("/exams")}/>
   <Row icon="clipboard-outline" title="Assignments" sub="Homework, due dates and planner priorities" onPress={()=>router.push("/assignment")}/>
-
+  <Row icon="bar-chart-outline" title="Weekly & monthly review" sub="Work time, subject balance, heatmap and next priorities" onPress={()=>router.push("/reports")}/>
   <Text style={s.section}>SETTINGS & DATA</Text>
-  <Row icon="notifications-outline" title="Notification controls" sub="Study, class, revision, paper and missed-plan reminders" onPress={()=>router.push("/notifications")}/>
+  <Row icon="notifications-outline" title="Notification controls" sub="Study, class, revision, paper and missed-plan reminders" onPress={()=>router.push("/notification-settings")}/>
   <Row icon="download-outline" title="Data & privacy controls" sub="Export data, clear study history and delete account" onPress={()=>router.push("/data-controls")}/>
   <Row icon="trophy-outline" title="Global ranking" sub="Optional social feature; not used by the planner or readiness score" onPress={()=>router.push("/leaderboard")}/>
-
   <Text style={s.section}>ABOUT & SUPPORT</Text>
   <Row icon="information-circle-outline" title="About Study Arc" sub="How the planner and readiness system work" onPress={()=>router.push("/about")}/>
   <Row icon="mail-outline" title="Contact Study Arc" sub={settings.contactEmail} onPress={()=>router.push("/contact")}/>
