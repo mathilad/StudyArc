@@ -35,10 +35,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view v1.1.1 >/dev/null 2>&1; then
-            gh release upload v1.1.1 output/StudyArc-v1.1.1.apk --clobber
+          REPO="${{ github.repository }}"
+          if gh release view v1.1.1 --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload v1.1.1 output/StudyArc-v1.1.1.apk --clobber --repo "$REPO"
           else
             gh release create v1.1.1 output/StudyArc-v1.1.1.apk \
+              --repo "$REPO" \
+              --target "${{ github.sha }}" \
               --title "Study Arc v1.1.1" \
               --notes "Official Study Arc v1.1.1 Android APK."
           fi
