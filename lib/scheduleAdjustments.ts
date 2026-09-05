@@ -19,6 +19,7 @@ export type ClassWeekOverride = {
   startTime: string | null;
   endTime: string | null;
   topicName: string | null;
+  topicNames: string[];
 };
 
 export type ClassWeekOverrideInput = Omit<ClassWeekOverride, "id">;
