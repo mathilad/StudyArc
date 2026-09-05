@@ -18,7 +18,7 @@ jobs:
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
     steps:
-      - name: Checkout v1.1.2 branch
+      - name: Checkout completed v1.1.2 branch
         uses: actions/checkout@v4
 
       - name: Setup Node.js
