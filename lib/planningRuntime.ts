@@ -8,9 +8,10 @@ export const DEFAULT_PLANNING_PREFERENCES: PlanningPreferences = {
   maxStudyBlockMinutes: 180,
   countClassTimeTowardTarget: true,
   weeklySubjectAdjustments: {
+    "Pure Mathematics": 0,
+    "Applied Mathematics": 0,
     Physics: 180,
     Chemistry: 30,
-    Mathematics: 0,
   },
 };
 
