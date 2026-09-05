@@ -1,0 +1,44 @@
+name: Publish Study Arc v1.1.1 Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-v1.1.1-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    name: Publish existing APK as direct download
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download successful Study Arc APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: StudyArc-v1.1.1-APK
+          path: output
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 33875986107
+
+      - name: Verify APK
+        run: |
+          test -f output/StudyArc-v1.1.1.apk
+          ls -lh output/StudyArc-v1.1.1.apk
+
+      - name: Create or update v1.1.1 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v1.1.1 >/dev/null 2>&1; then
+            gh release upload v1.1.1 output/StudyArc-v1.1.1.apk --clobber
+          else
+            gh release create v1.1.1 output/StudyArc-v1.1.1.apk \
+              --title "Study Arc v1.1.1" \
+              --notes "Official Study Arc v1.1.1 Android APK."
+          fi
