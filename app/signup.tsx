@@ -16,7 +16,6 @@ import { useAuth } from "../context/AuthContext";
 export default function SignupScreen() {
   const router = useRouter();
   const { session, loading, signUp } = useAuth();
-  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,8 +28,8 @@ export default function SignupScreen() {
 
   const submit = async () => {
     setError(null);
-    if (fullName.trim().length < 2 || !email.trim() || !password || !confirmPassword) {
-      setError("Enter your name, email and password to continue.");
+    if (!email.trim() || !password || !confirmPassword) {
+      setError("Enter your email and password to continue.");
       return;
     }
     if (password.length < 8) {
@@ -43,7 +42,7 @@ export default function SignupScreen() {
     }
 
     setSubmitting(true);
-    const result = await signUp(email, password, fullName);
+    const result = await signUp(email, password);
     setSubmitting(false);
     if (result.error) {
       setError(result.error);
@@ -83,13 +82,7 @@ export default function SignupScreen() {
       <View style={s.card}>
         <View style={s.logo}><Text style={s.logoText}>Study<Text style={s.logoAccent}> Arc</Text></Text></View>
         <Text style={s.title}>Create account</Text>
-        <Text style={s.subtitle}>Choose your name and password now. Your study setup comes immediately after email verification.</Text>
-
-        <Text style={s.label}>YOUR NAME</Text>
-        <View style={s.inputWrap}>
-          <Ionicons name="person-outline" size={18} color="#7D8796" />
-          <TextInput value={fullName} onChangeText={setFullName} placeholder="Your name" placeholderTextColor="#555E6B" autoCapitalize="words" style={s.input} />
-        </View>
+        <Text style={s.subtitle}>Create your account with your email and password. You’ll choose your profile name during study setup.</Text>
 
         <Text style={s.label}>EMAIL</Text>
         <View style={s.inputWrap}>
