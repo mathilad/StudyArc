@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Audit, typecheck, lint and web bundle
+    name: Audit, typecheck, lint and platform bundles
     runs-on: ubuntu-latest
     env:
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
@@ -28,8 +28,8 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high
+      - name: Review production dependency audit
+        run: npm run audit:production
 
       - name: TypeScript typecheck
         run: npm run typecheck
@@ -39,3 +39,6 @@ jobs:
 
       - name: Export web bundle
         run: npx expo export --platform web --output-dir dist-quality-check
+
+      - name: Export Android JS bundle
+        run: npx expo export --platform android --output-dir dist-android-quality-check
