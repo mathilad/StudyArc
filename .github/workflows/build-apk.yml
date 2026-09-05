@@ -74,12 +74,12 @@ jobs:
             exit 1
           fi
 
-          cp "$APK" output/StudyArc-v1.1.1.apk
+          cp "$APK" output/StudyArc-v1.1.2.apk
 
       - name: Upload Study Arc APK
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v1.1.1-APK
-          path: output/StudyArc-v1.1.1.apk
+          name: StudyArc-v1.1.2-APK
+          path: output/StudyArc-v1.1.2.apk
           if-no-files-found: error
           retention-days: 30
