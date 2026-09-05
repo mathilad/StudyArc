@@ -19,6 +19,11 @@ export default function Index() {
   if (!introComplete || authLoading || (session && (studentLoading || accessLoading))) return <StudyArcLoader />;
   if (!session) return <Redirect href="/login" />;
   if (!profile.onboardingComplete) return <Redirect href="/onboarding" />;
-  if (access && ["BLOCKED", "PAYMENT_REQUIRED", "PAYMENT_PENDING"].includes(access.state)) return <Redirect href="/access" />;
+
+  // Access is deliberately fail-closed. A newly authenticated account with no
+  // server/cache entitlement must never fall through into premium tabs offline.
+  if (!access || ["BLOCKED", "PAYMENT_REQUIRED", "PAYMENT_PENDING"].includes(access.state)) {
+    return <Redirect href="/access" />;
+  }
   return <Redirect href="/(tabs)" />;
 }
