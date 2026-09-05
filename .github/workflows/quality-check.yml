@@ -1,0 +1,45 @@
+name: Study Arc v1.1.2 Quality Check
+
+on:
+  push:
+    branches:
+      - studyarc-platform-upgrade
+      - studyarc-v1.1.2-complete
+
+concurrency:
+  group: study-arc-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Audit, typecheck, lint and platform bundles
+    runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Checkout final v1.1.2 upgrade
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Review production dependency audit
+        run: npm run audit:production
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Expo lint
+        run: npm run lint
+
+      - name: Export web bundle
+        run: npx expo export --platform web --output-dir dist-quality-check
+
+      - name: Export Android JS bundle
+        run: npx expo export --platform android --output-dir dist-android-quality-check
