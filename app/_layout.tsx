@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { Platform, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
+import NotificationScheduler from "../components/NotificationScheduler";
 import OfflineStatusBanner from "../components/OfflineStatusBanner";
 import { AcademicProvider } from "../context/AcademicContext";
 import { AppConfigProvider } from "../context/AppConfigContext";
@@ -29,9 +30,10 @@ export default function RootLayout() {
   return <View style={{ flex: 1, backgroundColor: "#080D14" }}>
     <AuthProvider><AppConfigProvider><OfflineProvider><MonetizationProvider><StudentProvider><AcademicProvider><ClassLearningProvider><PlanningProvider><ScheduleAdjustmentsProvider><PhaseProvider><StudyProvider><SocialProvider>
       <StatusBar hidden />
+      <NotificationScheduler />
       <Stack screenOptions={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#080D14" } }}>
         <Stack.Screen name="index" /><Stack.Screen name="login" /><Stack.Screen name="signup" /><Stack.Screen name="forgot-password" /><Stack.Screen name="reset-password" /><Stack.Screen name="onboarding" /><Stack.Screen name="access" /><Stack.Screen name="(tabs)" />
-        <Stack.Screen name="subject" /><Stack.Screen name="topic" /><Stack.Screen name="stopwatch" /><Stack.Screen name="manual-session" /><Stack.Screen name="session-complete" /><Stack.Screen name="past-paper" /><Stack.Screen name="revision" /><Stack.Screen name="classes" /><Stack.Screen name="profile" /><Stack.Screen name="study-phase" /><Stack.Screen name="test-mark" /><Stack.Screen name="notifications" /><Stack.Screen name="leaderboard" /><Stack.Screen name="friends" /><Stack.Screen name="bonus-work" /><Stack.Screen name="daily-review" /><Stack.Screen name="about" /><Stack.Screen name="contact" /><Stack.Screen name="admin" /><Stack.Screen name="admin-monetization" /><Stack.Screen name="admin-users" /><Stack.Screen name="exams" />
+        <Stack.Screen name="subject" /><Stack.Screen name="topic" /><Stack.Screen name="stopwatch" /><Stack.Screen name="manual-session" /><Stack.Screen name="session-complete" /><Stack.Screen name="past-paper" /><Stack.Screen name="revision" /><Stack.Screen name="classes" /><Stack.Screen name="profile" /><Stack.Screen name="study-phase" /><Stack.Screen name="test-mark" /><Stack.Screen name="notifications" /><Stack.Screen name="notification-settings" /><Stack.Screen name="leaderboard" /><Stack.Screen name="friends" /><Stack.Screen name="bonus-work" /><Stack.Screen name="daily-review" /><Stack.Screen name="about" /><Stack.Screen name="contact" /><Stack.Screen name="privacy" /><Stack.Screen name="terms" /><Stack.Screen name="data-controls" /><Stack.Screen name="reports" /><Stack.Screen name="assignment" /><Stack.Screen name="planner-controls" /><Stack.Screen name="admin" /><Stack.Screen name="admin-monetization" /><Stack.Screen name="admin-users" /><Stack.Screen name="exams" />
       </Stack>
       <OfflineStatusBanner />
     </SocialProvider></StudyProvider></PhaseProvider></ScheduleAdjustmentsProvider></PlanningProvider></ClassLearningProvider></AcademicProvider></StudentProvider></MonetizationProvider></OfflineProvider></AppConfigProvider></AuthProvider>
