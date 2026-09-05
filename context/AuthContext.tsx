@@ -10,7 +10,7 @@ type AuthContextValue = {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
-  signUp: (email: string, password: string, fullName: string) => Promise<AuthResult>;
+  signUp: (email: string, password: string) => Promise<AuthResult>;
   sendPasswordReset: (email: string) => Promise<AuthResult>;
   updatePassword: (password: string) => Promise<AuthResult>;
   signOut: () => Promise<AuthResult>;
@@ -70,7 +70,7 @@ export function AuthProvider({children}:{children:React.ReactNode}){
   },[]);
 
   const signIn=useCallback(async(email:string,password:string):Promise<AuthResult>=>{try{const{error}=await supabase.auth.signInWithPassword({email:email.trim().toLowerCase(),password});if(error)throw error;return{error:null}}catch(error){return{error:messageFrom(error)}}},[]);
-  const signUp=useCallback(async(email:string,password:string,fullName:string):Promise<AuthResult>=>{try{const{data,error}=await supabase.auth.signUp({email:email.trim().toLowerCase(),password,options:{emailRedirectTo:authRedirect("/login","signup"),data:{full_name:fullName.trim()}}});if(error)throw error;return{error:null,needsEmailConfirmation:!data.session}}catch(error){return{error:messageFrom(error)}}},[]);
+  const signUp=useCallback(async(email:string,password:string):Promise<AuthResult>=>{try{const{data,error}=await supabase.auth.signUp({email:email.trim().toLowerCase(),password,options:{emailRedirectTo:authRedirect("/login","signup")}});if(error)throw error;return{error:null,needsEmailConfirmation:!data.session}}catch(error){return{error:messageFrom(error)}}},[]);
   const sendPasswordReset=useCallback(async(email:string):Promise<AuthResult>=>{try{const{error}=await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(),{redirectTo:authRedirect("/reset-password","recovery")});if(error)throw error;return{error:null}}catch(error){return{error:messageFrom(error)}}},[]);
   const updatePassword=useCallback(async(password:string):Promise<AuthResult>=>{try{const{error}=await supabase.auth.updateUser({password});if(error)throw error;return{error:null}}catch(error){return{error:messageFrom(error)}}},[]);
   const signOut=useCallback(async():Promise<AuthResult>=>{try{const{error}=await supabase.auth.signOut();if(error)throw error;return{error:null}}catch(error){return{error:messageFrom(error)}}},[]);
