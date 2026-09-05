@@ -21,7 +21,7 @@ type QueueItem = { subjectName:SubjectName; topicName:string; score:number; revi
 const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 const block=(id:string,start:number,end:number,type:PlanBlockType,title:string,extra:Partial<PlanBlock>={}):PlanBlock=>({id,start:minutesToTime(start),end:minutesToTime(end),type,title,...extra});
 const mergeFixed=(items:FixedBlock[])=>items.filter(x=>x.end>x.start).sort((a,b)=>a.start-b.start).reduce<FixedBlock[]>((acc,item)=>{const prev=acc[acc.length-1];if(!prev||item.start>=prev.end){acc.push(item);return acc;}if(item.end>prev.end)acc.push({...item,start:prev.end});return acc;},[]);
-export const planningBucketFor=(subjectName:string)=>subjectName==="Pure Mathematics"||subjectName==="Applied Mathematics"?"Mathematics":subjectName;
+export const planningBucketFor=(subjectName:string)=>subjectName;
 const resolvePhase=(phase:PlannerPhaseOptions):PlannerPhaseOptions=>Object.keys(phase).length?phase:getRuntimePhaseSettings() as PlannerPhaseOptions;
 
 function manuallyCoveredTopicSet(coverage: SubtopicCoverage[]) {
@@ -162,14 +162,16 @@ function bucketTargets(profile:StudentProfile,queue:QueueItem[]){
   return Object.fromEntries(buckets.map(bucket=>[bucket,Math.max(60,base+(adjustments[bucket]??0))]));
 }
 
-function chooseItem(queue:QueueItem[],targets:Record<string,number>,allocated:Record<string,number>,usage:Record<string,number>){
+function chooseItem(queue:QueueItem[],targets:Record<string,number>,allocated:Record<string,number>,usage:Record<string,number>,rotationSeed=0){
   const totalTarget=Object.values(targets).reduce((a,b)=>a+b,0)||1;
   const totalAllocated=Object.values(allocated).reduce((a,b)=>a+b,0);
   const buckets=Object.keys(targets).filter(bucket=>queue.some(x=>x.bucket===bucket));
-  const chosenBucket=buckets.sort((a,b)=>{
+  const rank=(bucket:string)=>{const index=buckets.indexOf(bucket);return (index-rotationSeed+buckets.length)%buckets.length};
+  const chosenBucket=[...buckets].sort((a,b)=>{
     const desiredA=(targets[a]/totalTarget)*Math.max(1,totalAllocated+180);
     const desiredB=(targets[b]/totalTarget)*Math.max(1,totalAllocated+180);
-    return (desiredB-(allocated[b]??0))-(desiredA-(allocated[a]??0));
+    const deficitDifference=(desiredB-(allocated[b]??0))-(desiredA-(allocated[a]??0));
+    return Math.abs(deficitDifference)>.001?deficitDifference:rank(a)-rank(b);
   })[0]??queue[0]?.bucket;
   const candidates=queue.filter(x=>x.bucket===chosenBucket);
   return [...candidates].sort((a,b)=>(a.score+(usage[`${a.subjectName}::${a.topicName}`]??0)*12)-(b.score+(usage[`${b.subjectName}::${b.topicName}`]??0)*12))[0]??queue[0];
@@ -211,7 +213,7 @@ export function generateDailyPlan(date:Date,profile:StudentProfile,classes:Class
       if(need>0&&remaining>=minStudyBlock&&weak.length>0){
         const preferredLength=planning.maxStudyBlockMinutes;
         const length=Math.min(preferredLength,Math.max(minStudyBlock,Math.min(need,remaining>=preferredLength+20?preferredLength:remaining)));
-        const item=chooseItem(weak,targets,allocated,usage);
+        const item=chooseItem(weak,targets,allocated,usage,date.getDay());
         if(!item)break;
         const useKey=`${item.subjectName}::${item.topicName}`;
         const shouldRecall=item.reviewDue||(item.memoryHeavy&&studyBlockIndex%2===1)||(strengthenMode&&studyBlockIndex%2===0)||(mainExamMode&&studyBlockIndex%3===1);
