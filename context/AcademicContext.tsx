@@ -1,9 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import type { ALStream } from "../data/alStreams";
+import { setRuntimePaperTopicResults } from "../lib/academicRuntime";
 import { cacheKey, enqueueMutation, makeUuid, queuedMutationsFor, readJson, removeQueuedMutation, writeJson } from "../lib/offlineStore";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 import { useOffline } from "./OfflineContext";
-import type { ALStream } from "../data/alStreams";
 
 export type Exam = { id: string; name: string; examType: string; startsOn: string | null; endsOn: string | null; isMainExam: boolean };
 export type ExamComponent = { id: string; examId: string; subjectName: string; componentName: string; examAt: string | null };
@@ -41,11 +42,16 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<Cache>(DEFAULT_CACHE);
   const [loading, setLoading] = useState(true);
 
+  // Planner functions are synchronous. Keep their runtime weakness input in step
+  // with this context before descendant screens generate a plan.
+  setRuntimePaperTopicResults(state.paperTopicResults);
+
   const persist = useCallback(async (next: Cache) => { if (user) await writeJson(cacheKey(user.id, "academic"), next); }, [user]);
   const loadCache = useCallback(async () => {
     if (!user) { setState(DEFAULT_CACHE); setLoading(false); return; }
     const next = await readJson<Cache>(cacheKey(user.id, "academic"), DEFAULT_CACHE);
-    setState({ ...DEFAULT_CACHE, ...next }); setLoading(false);
+    setState({ ...DEFAULT_CACHE, ...next });
+    setLoading(false);
   }, [user]);
 
   const syncQueue = useCallback(async () => {
@@ -53,7 +59,8 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
     const queue = await queuedMutationsFor(user.id, KINDS);
     for (const item of queue) {
       try {
-        const p = item.payload; let error: any = null;
+        const p = item.payload;
+        let error: any = null;
         if (item.kind === "academic_stream_set") ({ error } = await supabase.from("student_profiles").update({ stream: p.stream, updated_at: new Date().toISOString() }).eq("user_id", user.id));
         else if (item.kind === "exam_upsert") ({ error } = await supabase.from("exams").upsert(p, { onConflict: "id" }));
         else if (item.kind === "exam_component_upsert") ({ error } = await supabase.from("exam_components").upsert(p, { onConflict: "id" }));
@@ -61,7 +68,9 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
         else if (item.kind === "paper_topic_result_upsert") ({ error } = await supabase.from("paper_topic_results").upsert(p, { onConflict: "id" }));
         if (error) throw error;
         await removeQueuedMutation(item.id);
-      } catch { break; }
+      } catch {
+        break;
+      }
     }
   }, [isOnline, user]);
 
@@ -69,21 +78,28 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
     if (!user) { setState(DEFAULT_CACHE); setLoading(false); return; }
     if (!isOnline) { await loadCache(); return; }
     try {
-      const [pr, er, cr, ar, rr] = await Promise.all([
+      const [profileResult, examsResult, componentsResult, assignmentsResult, paperResults] = await Promise.all([
         supabase.from("student_profiles").select("stream").eq("user_id", user.id).maybeSingle(),
         supabase.from("exams").select("*").eq("user_id", user.id).order("starts_on", { ascending: true }),
         supabase.from("exam_components").select("*").eq("user_id", user.id).order("exam_at", { ascending: true }),
         supabase.from("assignments").select("*").eq("user_id", user.id).order("due_at", { ascending: true }),
         supabase.from("paper_topic_results").select("*").eq("user_id", user.id).order("recorded_at", { ascending: false }).limit(500),
       ]);
-      if (pr.error || er.error || cr.error || ar.error || rr.error) throw pr.error ?? er.error ?? cr.error ?? ar.error ?? rr.error;
+      if (profileResult.error || examsResult.error || componentsResult.error || assignmentsResult.error || paperResults.error) throw profileResult.error ?? examsResult.error ?? componentsResult.error ?? assignmentsResult.error ?? paperResults.error;
       const next: Cache = {
-        stream: (pr.data?.stream as ALStream | null) ?? null,
-        exams: (er.data ?? []).map(mapExam), components: (cr.data ?? []).map(mapComponent), assignments: (ar.data ?? []).map(mapAssignment), paperTopicResults: (rr.data ?? []).map(mapPaperTopic),
+        stream: (profileResult.data?.stream as ALStream | null) ?? null,
+        exams: (examsResult.data ?? []).map(mapExam),
+        components: (componentsResult.data ?? []).map(mapComponent),
+        assignments: (assignmentsResult.data ?? []).map(mapAssignment),
+        paperTopicResults: (paperResults.data ?? []).map(mapPaperTopic),
       };
-      setState(next); await persist(next);
-    } catch { await loadCache(); }
-    finally { setLoading(false); }
+      setState(next);
+      await persist(next);
+    } catch {
+      await loadCache();
+    } finally {
+      setLoading(false);
+    }
   }, [isOnline, loadCache, persist, user]);
 
   useEffect(() => { if (!authLoading) loadCache().then(() => refreshAcademicData()); }, [authLoading, loadCache, refreshAcademicData]);
@@ -91,7 +107,9 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
 
   const setStream = useCallback(async (stream: ALStream) => {
     if (!user) throw new Error("You must be signed in.");
-    const next = { ...state, stream }; setState(next); await persist(next);
+    const next = { ...state, stream };
+    setState(next);
+    await persist(next);
     await enqueueMutation({ userId: user.id, kind: "academic_stream_set", payload: { stream } });
     if (isOnline) syncQueue().catch(() => undefined);
   }, [isOnline, persist, state, syncQueue, user]);
@@ -99,42 +117,59 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
   const addExam = useCallback(async (value: Omit<Exam, "id"> & { id?: string }) => {
     if (!user) throw new Error("You must be signed in.");
     const local: Exam = { ...value, id: value.id ?? makeUuid() };
-    const next = { ...state, exams: [...state.exams.filter(x => x.id !== local.id), local] }; setState(next); await persist(next);
+    const next = { ...state, exams: [...state.exams.filter(x => x.id !== local.id), local] };
+    setState(next);
+    await persist(next);
     await enqueueMutation({ userId: user.id, kind: "exam_upsert", payload: { id: local.id, user_id: user.id, name: local.name, exam_type: local.examType, starts_on: local.startsOn, ends_on: local.endsOn, is_main_exam: local.isMainExam, updated_at: new Date().toISOString() } });
-    if (isOnline) syncQueue().catch(() => undefined); return local.id;
+    if (isOnline) syncQueue().catch(() => undefined);
+    return local.id;
   }, [isOnline, persist, state, syncQueue, user]);
 
   const addExamComponent = useCallback(async (value: Omit<ExamComponent, "id"> & { id?: string }) => {
     if (!user) throw new Error("You must be signed in.");
     const local: ExamComponent = { ...value, id: value.id ?? makeUuid() };
-    const next = { ...state, components: [...state.components.filter(x => x.id !== local.id), local] }; setState(next); await persist(next);
+    const next = { ...state, components: [...state.components.filter(x => x.id !== local.id), local] };
+    setState(next);
+    await persist(next);
     await enqueueMutation({ userId: user.id, kind: "exam_component_upsert", payload: { id: local.id, user_id: user.id, exam_id: local.examId, subject_name: local.subjectName, component_name: local.componentName, exam_at: local.examAt } });
-    if (isOnline) syncQueue().catch(() => undefined); return local.id;
+    if (isOnline) syncQueue().catch(() => undefined);
+    return local.id;
   }, [isOnline, persist, state, syncQueue, user]);
 
   const addAssignment = useCallback(async (value: Omit<Assignment, "id"> & { id?: string }) => {
     if (!user) throw new Error("You must be signed in.");
     const local: Assignment = { ...value, id: value.id ?? makeUuid() };
-    const next = { ...state, assignments: [...state.assignments.filter(x => x.id !== local.id), local] }; setState(next); await persist(next);
+    const next = { ...state, assignments: [...state.assignments.filter(x => x.id !== local.id), local] };
+    setState(next);
+    await persist(next);
     await enqueueMutation({ userId: user.id, kind: "assignment_upsert", payload: { id: local.id, user_id: user.id, source_class_id: local.sourceClassId, title: local.title, subject_name: local.subjectName, topic_name: local.topicName, due_at: local.dueAt, estimated_minutes: local.estimatedMinutes, completed: local.completed, updated_at: new Date().toISOString() } });
-    if (isOnline) syncQueue().catch(() => undefined); return local.id;
+    if (isOnline) syncQueue().catch(() => undefined);
+    return local.id;
   }, [isOnline, persist, state, syncQueue, user]);
 
   const setAssignmentCompleted = useCallback(async (id: string, completed: boolean) => {
-    const current = state.assignments.find(x => x.id === id); if (!current) return;
+    const current = state.assignments.find(x => x.id === id);
+    if (!current) return;
     await addAssignment({ ...current, completed });
   }, [addAssignment, state.assignments]);
 
   const addPaperTopicResult = useCallback(async (value: Omit<PaperTopicResult, "id" | "recordedAt">) => {
     if (!user) throw new Error("You must be signed in.");
     const local: PaperTopicResult = { ...value, id: makeUuid(), recordedAt: new Date().toISOString() };
-    const next = { ...state, paperTopicResults: [local, ...state.paperTopicResults] }; setState(next); await persist(next);
+    const next = { ...state, paperTopicResults: [local, ...state.paperTopicResults] };
+    setState(next);
+    await persist(next);
     await enqueueMutation({ userId: user.id, kind: "paper_topic_result_upsert", payload: { id: local.id, user_id: user.id, subject_name: local.subjectName, topic_name: local.topicName, paper_label: local.paperLabel, performance_percent: local.performancePercent, weakness_percent: local.weaknessPercent, source: local.source, recorded_at: local.recordedAt } });
-    if (isOnline) syncQueue().catch(() => undefined); return local.id;
+    if (isOnline) syncQueue().catch(() => undefined);
+    return local.id;
   }, [isOnline, persist, state, syncQueue, user]);
 
   const value = useMemo(() => ({ stream: state.stream, exams: state.exams, examComponents: state.components, assignments: state.assignments, paperTopicResults: state.paperTopicResults, loading, setStream, addExam, addExamComponent, addAssignment, setAssignmentCompleted, addPaperTopicResult, refreshAcademicData }), [addAssignment, addExam, addExamComponent, addPaperTopicResult, loading, refreshAcademicData, setAssignmentCompleted, setStream, state]);
   return <AcademicContext.Provider value={value}>{children}</AcademicContext.Provider>;
 }
 
-export function useAcademic() { const value = useContext(AcademicContext); if (!value) throw new Error("useAcademic must be used inside AcademicProvider."); return value; }
+export function useAcademic() {
+  const value = useContext(AcademicContext);
+  if (!value) throw new Error("useAcademic must be used inside AcademicProvider.");
+  return value;
+}
