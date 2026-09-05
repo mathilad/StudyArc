@@ -1,61 +1,94 @@
-export type ALStream = "Physical Science" | "Biological Science" | "Commerce" | "Arts" | "Technology";
+export type ALStream = "Physical Science" | "Biological Science" | "Commerce" | "Arts" | "Engineering Technology" | "Biosystems Technology";
 
 export type ALStreamConfig = {
   id: ALStream;
   title: string;
   description: string;
   subjects: string[];
+  requiredSubjects?: string[];
+  coreSubjects?: string[];
+  minimumCoreSelections?: number;
 };
 
-// Current Study Arc onboarding catalog for the established G.C.E. A/L stream model.
-// Rich lesson/sublesson content can be supplied by data/subjects.ts or by the
-// admin-managed academic catalog as it grows; selection itself is never limited
-// to the original science-only set.
 export const AL_STREAMS: ALStreamConfig[] = [
   {
     id: "Physical Science",
     title: "Physical Science / Mathematics",
-    description: "Mathematics and physical-science combinations.",
-    subjects: ["Combined Mathematics", "Physics", "Chemistry", "ICT"],
+    description: "Choose three from the physical-science mathematics group.",
+    subjects: ["Combined Mathematics", "Higher Mathematics", "Physics", "Chemistry"],
   },
   {
     id: "Biological Science",
     title: "Biological Science",
-    description: "Biology, physical science and agriculture combinations.",
-    subjects: ["Biology", "Chemistry", "Physics", "Agricultural Science", "ICT"],
+    description: "Biology is required, with two additional approved science/agriculture subjects.",
+    requiredSubjects: ["Biology"],
+    subjects: ["Biology", "Chemistry", "Physics", "Mathematics", "Agricultural Science"],
   },
   {
     id: "Commerce",
     title: "Commerce",
-    description: "Business, accounting and economics combinations.",
-    subjects: ["Accounting", "Business Studies", "Economics", "Business Statistics", "ICT", "Geography"],
+    description: "Choose at least two of Accounting, Business Studies and Economics, plus an approved third subject.",
+    coreSubjects: ["Accounting", "Business Studies", "Economics"],
+    minimumCoreSelections: 2,
+    subjects: [
+      "Accounting", "Business Studies", "Economics", "Business Statistics", "Agricultural Science", "Geography",
+      "German", "Combined Mathematics", "Mathematics", "History", "Political Science", "English",
+      "Logic and Scientific Method", "French", "ICT",
+    ],
   },
   {
-    id: "Technology",
-    title: "Technology",
-    description: "Engineering/Biosystems Technology combinations with Science for Technology.",
-    subjects: ["Engineering Technology", "Biosystems Technology", "Science for Technology", "ICT"],
+    id: "Engineering Technology",
+    title: "Technology – Engineering",
+    description: "Engineering Technology and Science for Technology are required; choose one approved third subject.",
+    requiredSubjects: ["Engineering Technology", "Science for Technology"],
+    subjects: [
+      "Engineering Technology", "Science for Technology", "Economics", "Geography", "Home Economics", "English",
+      "Communication and Media Studies", "ICT", "Art", "Business Studies", "Agricultural Science", "Accounting", "Mathematics",
+    ],
+  },
+  {
+    id: "Biosystems Technology",
+    title: "Technology – Biosystems",
+    description: "Biosystems Technology and Science for Technology are required; choose one approved third subject.",
+    requiredSubjects: ["Biosystems Technology", "Science for Technology"],
+    subjects: [
+      "Biosystems Technology", "Science for Technology", "Economics", "Geography", "Home Economics", "English",
+      "Communication and Media Studies", "ICT", "Art", "Business Studies", "Agricultural Science", "Accounting", "Mathematics",
+    ],
   },
   {
     id: "Arts",
     title: "Arts",
-    description: "Languages, humanities, religions, social sciences and aesthetic subjects.",
+    description: "Languages, social sciences, religions/civilizations, aesthetics and approved applied subjects.",
     subjects: [
-      "Sinhala", "Tamil", "English", "Pali", "Sanskrit", "Arabic", "Malay",
-      "French", "German", "Russian", "Hindi", "Japanese", "Chinese", "Korean",
-      "Logic and Scientific Method", "Geography", "Political Science", "Economics",
-      "History of Sri Lanka", "History of India", "History of Europe", "Modern World History",
-      "Communication and Media Studies", "Home Economics",
-      "Buddhism", "Buddhist Civilization", "Hinduism", "Hindu Civilization",
-      "Islam", "Islamic Civilization", "Christianity", "Christian Civilization",
-      "Art", "Oriental Music", "Western Music", "Carnatic Music",
-      "Dancing", "Bharatha Natyam", "Drama and Theatre",
+      "Economics", "Geography", "History", "Home Economics", "Agricultural Science", "Mathematics", "Combined Mathematics",
+      "Communication and Media Studies", "ICT", "Accounting", "Business Statistics", "Political Science", "Logic and Scientific Method",
+      "Civil Technology", "Electrical Electronic and Information Technology", "Agro Technology", "Mechanical Technology",
+      "Food Technology", "Bio-Resource Technology",
+      "Buddhism", "Buddhist Civilization", "Hinduism", "Hindu Civilization", "Christianity", "Christian Civilization",
+      "Islam", "Islamic Civilization", "Greek and Roman Civilization",
+      "Art", "Dancing - Sinhala", "Bharatha Natyam", "Oriental Music", "Carnatic Music", "Western Music",
+      "Drama and Theatre - Sinhala", "Drama and Theatre - Tamil", "Drama and Theatre - English",
+      "Sinhala", "Tamil", "English", "Arabic", "Pali", "Sanskrit", "Chinese", "French", "German", "Hindi", "Japanese", "Malay", "Russian",
     ],
   },
 ];
 
 export const streamConfig = (stream?: string | null) => AL_STREAMS.find(item => item.id === stream);
 export const subjectsForStream = (stream?: string | null) => streamConfig(stream)?.subjects ?? [];
+
+export function validateSubjectCombination(stream: ALStream, selected: string[]): string | null {
+  const config = streamConfig(stream);
+  if (!config) return "Choose a valid A/L stream.";
+  if (selected.length !== 3) return "Choose exactly three A/L subjects.";
+  for (const required of config.requiredSubjects ?? []) if (!selected.includes(required)) return `${required} is required for ${config.title}.`;
+  if (config.coreSubjects?.length && config.minimumCoreSelections) {
+    const count = selected.filter(subject => config.coreSubjects!.includes(subject)).length;
+    if (count < config.minimumCoreSelections) return `Choose at least ${config.minimumCoreSelections} Commerce core subjects: ${config.coreSubjects.join(", ")}.`;
+  }
+  if (selected.some(subject => !config.subjects.includes(subject))) return "One or more selected subjects do not belong to this stream combination.";
+  return null;
+}
 
 export const paperComponentsForSubject = (subject: string): string[] => {
   if (["Physics", "Chemistry", "Biology", "Agricultural Science"].includes(subject)) return ["MCQ", "Structured / Essay"];
