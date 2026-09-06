@@ -51,7 +51,7 @@ export default function AccessScreen() {
     if (!target) return;
     setBusy(true); setMessage(null);
     try { const path = await uploadPaymentReceipt(target.id); if(path) setMessage("Receipt submitted. Your payment is waiting for admin verification."); }
-    catch(e){ setMessage(e instanceof Error?e.message:"Could not upload receipt."); }
+    catch(e: any){ setMessage(e?.message ?? e?.details ?? "Could not upload receipt."); }
     finally{ setBusy(false); }
   };
   const redeem = async () => {
