@@ -9,6 +9,12 @@ export default function Index() {
   const { session, loading: authLoading } = useAuth();
   const { profile, loading: studentLoading } = useStudent();
   const { loading: accessLoading, blocked, paidEnabled, isPremium, isAdmin } = useAccess();
+  const metadataRole = session?.user.app_metadata?.role;
+  const isMetadataAdmin = session?.user.app_metadata?.is_admin === true
+    || metadataRole === "admin"
+    || metadataRole === "super_admin"
+    || metadataRole === "content_admin"
+    || metadataRole === "support_admin";
   const [introComplete, setIntroComplete] = useState(false);
 
   useEffect(() => {
@@ -16,10 +22,10 @@ export default function Index() {
     return () => clearTimeout(timer);
   }, []);
 
-  if (!introComplete || authLoading || (session && (studentLoading || accessLoading))) return <StudyArcLoader />;
+  if (!introComplete || authLoading || (session && !isMetadataAdmin && (studentLoading || accessLoading))) return <StudyArcLoader />;
   if (!session) return <Redirect href="/login" />;
   if (blocked) return <Redirect href="/blocked" />;
-  if (isAdmin) return <Redirect href="/admin" />;
+  if (isAdmin || isMetadataAdmin) return <Redirect href="/admin" />;
   if (paidEnabled && !isPremium) return <Redirect href="/activate-plan" />;
   return <Redirect href={profile.onboardingComplete ? "/(tabs)" : "/onboarding"} />;
 }
