@@ -18,7 +18,9 @@ export type AppAccess = {
   refreshAccess: () => Promise<void>;
 };
 
-const EMPTY: Omit<AppAccess, "refreshAccess"> = {
+type AccessState = Omit<AppAccess, "refreshAccess"> & { loadedForUserId: string | null };
+
+const EMPTY: AccessState = {
   loading: true,
   paidEnabled: false,
   monthlyPriceLkr: 500,
@@ -30,6 +32,7 @@ const EMPTY: Omit<AppAccess, "refreshAccess"> = {
   blocked: false,
   blockedReason: null,
   accessCode: "",
+  loadedForUserId: null,
 };
 
 const AccessContext = createContext<AppAccess | null>(null);
@@ -54,7 +57,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       setState({ ...EMPTY, loading: false });
       return;
     }
-    setState(current => ({ ...current, loading: true }));
+    setState(current => ({ ...current, loading: true, loadedForUserId: null }));
     const [settingsResult, accessResult, roleResult] = await Promise.all([
       supabase.from("app_settings").select("key,value").in("key", ["paid_app_enabled", "monthly_price_lkr", "contact_email"]),
       supabase.from("user_access").select("access_code,premium_until,blocked_at,blocked_reason").eq("user_id", user.id).maybeSingle(),
@@ -79,12 +82,18 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       blocked: Boolean(access?.blocked_at),
       blockedReason: access?.blocked_reason ?? null,
       accessCode: access?.access_code ?? "",
+      loadedForUserId: user.id,
     });
   }, [user]);
 
   useEffect(() => { refreshAccess().catch(() => undefined); }, [refreshAccess]);
 
-  const value = useMemo(() => ({ ...state, refreshAccess }), [refreshAccess, state]);
+  const value = useMemo(() => ({
+    ...state,
+    // Never expose access loaded for another account during a session switch.
+    loading: user && state.loadedForUserId !== user.id ? true : state.loading,
+    refreshAccess,
+  }), [refreshAccess, state, user]);
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>;
 }
 
