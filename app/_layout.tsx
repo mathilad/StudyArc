@@ -1,5 +1,7 @@
 import "../data/initializeCatalog";
 import React, { useEffect } from "react";
+import * as Font from "expo-font";
+import { Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import { Platform, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -25,8 +27,15 @@ export default function RootLayout() {
   useEffect(() => {
     SystemUI.setBackgroundColorAsync("#080D14").catch(() => undefined);
     if (Platform.OS !== "web") return;
-    const nav = (globalThis as any).navigator;
+    const webGlobal = globalThis as any;
+    const ignoreIconFontTimeout = (event: any) => {
+      if (String(event?.reason?.message ?? event?.reason ?? "").includes("6000ms timeout exceeded")) event.preventDefault?.();
+    };
+    webGlobal.addEventListener?.("unhandledrejection", ignoreIconFontTimeout);
+    Font.loadAsync({ ...Ionicons.font, ...MaterialCommunityIcons.font, ...MaterialIcons.font }).catch(() => undefined);
+    const nav = webGlobal.navigator;
     if (nav?.serviceWorker && process.env.NODE_ENV === "production") nav.serviceWorker.register("/sw.js").catch(() => undefined);
+    return () => webGlobal.removeEventListener?.("unhandledrejection", ignoreIconFontTimeout);
   }, []);
 
   return <View style={{ flex: 1, backgroundColor: "#080D14" }}>
