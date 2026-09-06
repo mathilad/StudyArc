@@ -13,7 +13,15 @@ export type PaperTopicResult = { id: string; subjectName: string; topicName: str
 
 type Cache = { stream: ALStream | null; exams: Exam[]; components: ExamComponent[]; assignments: Assignment[]; paperTopicResults: PaperTopicResult[] };
 const DEFAULT_CACHE: Cache = { stream: null, exams: [], components: [], assignments: [], paperTopicResults: [] };
-const KINDS = ["academic_stream_set", "exam_upsert", "exam_component_upsert", "assignment_upsert", "paper_topic_result_upsert"];
+const KINDS = [
+  "academic_stream_set",
+  "exam_upsert",
+  "exam_delete",
+  "exam_component_upsert",
+  "exam_component_delete",
+  "assignment_upsert",
+  "paper_topic_result_upsert",
+];
 
 const AcademicContext = createContext<{
   stream: ALStream | null;
@@ -24,7 +32,9 @@ const AcademicContext = createContext<{
   loading: boolean;
   setStream: (stream: ALStream) => Promise<void>;
   addExam: (value: Omit<Exam, "id"> & { id?: string }) => Promise<string>;
+  deleteExam: (id: string) => Promise<void>;
   addExamComponent: (value: Omit<ExamComponent, "id"> & { id?: string }) => Promise<string>;
+  deleteExamComponent: (id: string) => Promise<void>;
   addAssignment: (value: Omit<Assignment, "id"> & { id?: string }) => Promise<string>;
   setAssignmentCompleted: (id: string, completed: boolean) => Promise<void>;
   addPaperTopicResult: (value: Omit<PaperTopicResult, "id" | "recordedAt">) => Promise<string>;
@@ -42,8 +52,6 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<Cache>(DEFAULT_CACHE);
   const [loading, setLoading] = useState(true);
 
-  // Planner functions are synchronous. Keep their runtime weakness input in step
-  // with this context before descendant screens generate a plan.
   setRuntimePaperTopicResults(state.paperTopicResults);
 
   const persist = useCallback(async (next: Cache) => { if (user) await writeJson(cacheKey(user.id, "academic"), next); }, [user]);
@@ -63,7 +71,13 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
         let error: any = null;
         if (item.kind === "academic_stream_set") ({ error } = await supabase.from("student_profiles").update({ stream: p.stream, updated_at: new Date().toISOString() }).eq("user_id", user.id));
         else if (item.kind === "exam_upsert") ({ error } = await supabase.from("exams").upsert(p, { onConflict: "id" }));
+        else if (item.kind === "exam_delete") {
+          const componentDelete = await supabase.from("exam_components").delete().eq("exam_id", p.id).eq("user_id", user.id);
+          if (componentDelete.error) throw componentDelete.error;
+          ({ error } = await supabase.from("exams").delete().eq("id", p.id).eq("user_id", user.id));
+        }
         else if (item.kind === "exam_component_upsert") ({ error } = await supabase.from("exam_components").upsert(p, { onConflict: "id" }));
+        else if (item.kind === "exam_component_delete") ({ error } = await supabase.from("exam_components").delete().eq("id", p.id).eq("user_id", user.id));
         else if (item.kind === "assignment_upsert") ({ error } = await supabase.from("assignments").upsert(p, { onConflict: "id" }));
         else if (item.kind === "paper_topic_result_upsert") ({ error } = await supabase.from("paper_topic_results").upsert(p, { onConflict: "id" }));
         if (error) throw error;
@@ -125,6 +139,15 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
     return local.id;
   }, [isOnline, persist, state, syncQueue, user]);
 
+  const deleteExam = useCallback(async (id: string) => {
+    if (!user) return;
+    const next = { ...state, exams: state.exams.filter(x => x.id !== id), components: state.components.filter(x => x.examId !== id) };
+    setState(next);
+    await persist(next);
+    await enqueueMutation({ userId: user.id, kind: "exam_delete", payload: { id } });
+    if (isOnline) syncQueue().catch(() => undefined);
+  }, [isOnline, persist, state, syncQueue, user]);
+
   const addExamComponent = useCallback(async (value: Omit<ExamComponent, "id"> & { id?: string }) => {
     if (!user) throw new Error("You must be signed in.");
     const local: ExamComponent = { ...value, id: value.id ?? makeUuid() };
@@ -134,6 +157,15 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
     await enqueueMutation({ userId: user.id, kind: "exam_component_upsert", payload: { id: local.id, user_id: user.id, exam_id: local.examId, subject_name: local.subjectName, component_name: local.componentName, exam_at: local.examAt } });
     if (isOnline) syncQueue().catch(() => undefined);
     return local.id;
+  }, [isOnline, persist, state, syncQueue, user]);
+
+  const deleteExamComponent = useCallback(async (id: string) => {
+    if (!user) return;
+    const next = { ...state, components: state.components.filter(x => x.id !== id) };
+    setState(next);
+    await persist(next);
+    await enqueueMutation({ userId: user.id, kind: "exam_component_delete", payload: { id } });
+    if (isOnline) syncQueue().catch(() => undefined);
   }, [isOnline, persist, state, syncQueue, user]);
 
   const addAssignment = useCallback(async (value: Omit<Assignment, "id"> & { id?: string }) => {
@@ -164,7 +196,24 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
     return local.id;
   }, [isOnline, persist, state, syncQueue, user]);
 
-  const value = useMemo(() => ({ stream: state.stream, exams: state.exams, examComponents: state.components, assignments: state.assignments, paperTopicResults: state.paperTopicResults, loading, setStream, addExam, addExamComponent, addAssignment, setAssignmentCompleted, addPaperTopicResult, refreshAcademicData }), [addAssignment, addExam, addExamComponent, addPaperTopicResult, loading, refreshAcademicData, setAssignmentCompleted, setStream, state]);
+  const value = useMemo(() => ({
+    stream: state.stream,
+    exams: state.exams,
+    examComponents: state.components,
+    assignments: state.assignments,
+    paperTopicResults: state.paperTopicResults,
+    loading,
+    setStream,
+    addExam,
+    deleteExam,
+    addExamComponent,
+    deleteExamComponent,
+    addAssignment,
+    setAssignmentCompleted,
+    addPaperTopicResult,
+    refreshAcademicData,
+  }), [addAssignment, addExam, addExamComponent, addPaperTopicResult, deleteExam, deleteExamComponent, loading, refreshAcademicData, setAssignmentCompleted, setStream, state]);
+
   return <AcademicContext.Provider value={value}>{children}</AcademicContext.Provider>;
 }
 
