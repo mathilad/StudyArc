@@ -1,145 +1,497 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Redirect } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
-import { useAccess } from "../context/AccessContext";
+import { Redirect, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import {
+  useAppConfig,
+  type AdminDashboardStats,
+} from "../context/AppConfigContext";
 import { useAuth } from "../context/AuthContext";
-import { supabase } from "../lib/supabase";
 
-type AdminUser = {
-  user_id: string;
-  email: string;
-  full_name: string;
-  access_code: string;
-  premium_until: string | null;
-  blocked: boolean;
-  blocked_reason: string | null;
-  role: string;
-  created_at: string;
+const secondsLabel = (seconds: number) => {
+  const h = Math.floor(seconds / 3600),
+    m = Math.floor((seconds % 3600) / 60);
+  return h ? `${h.toLocaleString()}h ${m}m` : `${m}m`;
 };
-
-const premiumActive = (value: string | null) => Boolean(value && new Date(value).getTime() > Date.now());
-const dateLabel = (value: string | null) => value ? new Date(value).toLocaleDateString() : "Not active";
-
 export default function AdminScreen() {
-  const { session, signOut } = useAuth();
-  const access = useAccess();
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [search, setSearch] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [workingId, setWorkingId] = useState<string | null>(null);
-
-  const loadUsers = useCallback(async () => {
-    setBusy(true);
-    const { data, error } = await supabase.rpc("admin_list_users");
-    setBusy(false);
-    if (error) return Alert.alert("Could not load users", error.message);
-    setUsers((data ?? []) as AdminUser[]);
-  }, []);
-
-  useEffect(() => { if (access.isAdmin) loadUsers().catch(() => undefined); }, [access.isAdmin, loadUsers]);
-
-  if (!session) return <Redirect href="/login" />;
-  if (!access.loading && !access.isAdmin) return <Redirect href="/" />;
-
-  const updateUser = async (user: AdminUser, updates: { premiumUntil?: string | null; blocked?: boolean; reason?: string | null }) => {
-    setWorkingId(user.user_id);
-    const { error } = await supabase.rpc("admin_set_user_access", {
-      p_user_id: user.user_id,
-      p_premium_until: updates.premiumUntil === undefined ? user.premium_until : updates.premiumUntil,
-      p_blocked: updates.blocked === undefined ? user.blocked : updates.blocked,
-      p_blocked_reason: updates.reason === undefined ? user.blocked_reason : updates.reason,
-    });
-    setWorkingId(null);
-    if (error) return Alert.alert("Update failed", error.message);
-    await loadUsers();
+  const router = useRouter();
+  const { session, loading, signOut } = useAuth();
+  const {
+    settings,
+    role,
+    isAdmin,
+    refreshing,
+    refresh,
+    updateSetting,
+    getAdminStats,
+  } = useAppConfig();
+  const [stats, setStats] = useState<AdminDashboardStats | null>(null),
+    [error, setError] = useState<string | null>(null),
+    [saving, setSaving] = useState<string | null>(null),
+    [contact, setContact] = useState(settings.contactEmail),
+    [website, setWebsite] = useState(settings.websiteUrl),
+    [coffee, setCoffee] = useState(settings.buyMeACoffeeUrl),
+    [aMargin, setAMargin] = useState(String(settings.testAMarginPercent));
+  useEffect(() => {
+    setContact(settings.contactEmail);
+    setWebsite(settings.websiteUrl);
+    setCoffee(settings.buyMeACoffeeUrl);
+    setAMargin(String(settings.testAMarginPercent));
+  }, [settings]);
+  useEffect(() => {
+    if (isAdmin)
+      getAdminStats()
+        .then(setStats)
+        .catch((e) =>
+          setError(
+            e instanceof Error ? e.message : "Could not load admin metrics.",
+          ),
+        );
+  }, [getAdminStats, isAdmin]);
+  if (!loading && !session) return <Redirect href="/login" />;
+  if (!loading && session && !refreshing && !isAdmin)
+    return <Redirect href="/(tabs)" />;
+  const saveValue = async (
+    key:
+      "contactEmail" | "websiteUrl" | "buyMeACoffeeUrl" | "testAMarginPercent",
+  ) => {
+    setError(null);
+    setSaving(key);
+    try {
+      if (key === "contactEmail") await updateSetting(key, contact.trim());
+      else if (key === "websiteUrl") await updateSetting(key, website.trim());
+      else if (key === "buyMeACoffeeUrl")
+        await updateSetting(key, coffee.trim());
+      else
+        await updateSetting(
+          key,
+          Math.max(0, Math.min(100, Number(aMargin) || 65)),
+        );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save setting.");
+    } finally {
+      setSaving(null);
+    }
   };
-
-  const grantMonth = async (user: AdminUser) => {
-    const current = user.premium_until ? new Date(user.premium_until).getTime() : 0;
-    const start = Math.max(Date.now(), current);
-    await updateUser(user, { premiumUntil: new Date(start + 30 * 24 * 60 * 60 * 1000).toISOString() });
+  const reload = async () => {
+    setError(null);
+    await refresh();
+    try {
+      setStats(await getAdminStats());
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Could not refresh admin metrics.",
+      );
+    }
   };
-
-  const setPaidMode = async (enabled: boolean) => {
-    setBusy(true);
-    const { error } = await supabase.rpc("admin_set_paid_mode", { p_enabled: enabled });
-    setBusy(false);
-    if (error) return Alert.alert("Could not update paid mode", error.message);
-    await access.refreshAccess();
-  };
-
-  const toggleBlock = (user: AdminUser) => {
-    const next = !user.blocked;
-    Alert.alert(
-      next ? "Block this user?" : "Unblock this user?",
-      next ? "They will immediately lose access to Study Arc data and screens." : "Their access will follow the current premium setting.",
-      [{ text: "Cancel", style: "cancel" }, { text: next ? "Block" : "Unblock", style: next ? "destructive" : "default", onPress: () => updateUser(user, { blocked: next, reason: next ? "Blocked by a Study Arc administrator." : null }) }],
-    );
-  };
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return q ? users.filter(user => user.email?.toLowerCase().includes(q) || user.full_name?.toLowerCase().includes(q) || user.access_code?.toLowerCase().includes(q)) : users;
-  }, [search, users]);
-
-  return <View style={s.root}>
-    <LinearGradient colors={["#211332", "#080D14", "#080D14"]} style={StyleSheet.absoluteFill} />
-    <ScrollView contentContainerStyle={s.content}>
+  return (
+    <View style={s.root}>
+      <LinearGradient
+        colors={["#1D122C", "#080D14", "#080D14"]}
+        style={StyleSheet.absoluteFill}
+      />
       <View style={s.header}>
-        <View><Text style={s.eyebrow}>SUPER ADMIN</Text><Text style={s.title}>Study Arc Control</Text><Text style={s.subtitle}>Premium access, account safety and paid mode</Text></View>
-        <Pressable style={s.signOut} onPress={() => signOut()}><Ionicons name="log-out-outline" size={18} color="#DCC8F5" /><Text style={s.signOutText}>Sign out</Text></Pressable>
+        <View style={{ flex: 1 }}>
+          <Text style={s.kicker}>STUDY ARC</Text>
+          <Text style={s.title}>Admin Console</Text>
+        </View>
+        <View style={s.role}>
+          <Text style={s.roleText}>
+            {role.replaceAll("_", " ").toUpperCase()}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Log out"
+          onPress={() => signOut().catch(() => undefined)}
+          style={s.logout}
+        >
+          <Ionicons name="log-out-outline" size={21} color="#FFB7C1" />
+        </Pressable>
       </View>
-
-      <View style={s.modeCard}>
-        <View style={s.modeIcon}><Ionicons name="card-outline" size={24} color="#D8BBFA" /></View>
-        <View style={{flex:1}}><Text style={s.modeTitle}>Paid app mode</Text><Text style={s.modeCopy}>{access.paidEnabled ? `Students need active premium · LKR ${access.monthlyPriceLkr.toLocaleString()}/month` : "All unblocked students currently have access"}</Text></View>
-        <Switch value={access.paidEnabled} onValueChange={setPaidMode} disabled={busy || access.role !== "super_admin"} trackColor={{false:"#303A48",true:"#7650A8"}} thumbColor="#F1E7FF" />
-      </View>
-
-      <View style={s.stats}>
-        <View style={s.stat}><Text style={s.statValue}>{users.length}</Text><Text style={s.statLabel}>USERS</Text></View>
-        <View style={s.stat}><Text style={s.statValue}>{users.filter(x => premiumActive(x.premium_until)).length}</Text><Text style={s.statLabel}>PREMIUM</Text></View>
-        <View style={s.stat}><Text style={s.statValue}>{users.filter(x => x.blocked).length}</Text><Text style={s.statLabel}>BLOCKED</Text></View>
-      </View>
-
-      <View style={s.searchWrap}><Ionicons name="search" size={19} color="#718094" /><TextInput value={search} onChangeText={setSearch} placeholder="Search email, name or activation code" placeholderTextColor="#566274" style={s.search} autoCapitalize="none" /></View>
-
-      {busy && !users.length ? <ActivityIndicator color="#B784FF" style={{marginTop:35}} /> : filtered.map(user => {
-        const premium = premiumActive(user.premium_until);
-        const working = workingId === user.user_id;
-        return <View key={user.user_id} style={[s.userCard,user.blocked&&s.userBlocked]}>
-          <View style={s.userHead}>
-            <View style={{flex:1}}><Text style={s.userName}>{user.full_name || "Study Arc user"}</Text><Text style={s.userEmail}>{user.email}</Text></View>
-            <View style={[s.badge,user.blocked?s.badgeBlocked:premium?s.badgePremium:s.badgeFree]}><Text style={s.badgeText}>{user.blocked?"BLOCKED":premium?"PREMIUM":"FREE"}</Text></View>
+      <ScrollView
+        contentContainerStyle={s.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {error ? (
+          <View style={s.error}>
+            <Ionicons name="warning-outline" size={18} color="#FF9BAA" />
+            <Text style={s.errorText}>{error}</Text>
           </View>
-          <View style={s.details}>
-            <View><Text style={s.detailLabel}>ACTIVATION CODE</Text><Text selectable style={s.code}>{user.access_code || "—"}</Text></View>
-            <View><Text style={s.detailLabel}>PREMIUM UNTIL</Text><Text style={s.detailValue}>{dateLabel(user.premium_until)}</Text></View>
-            <View><Text style={s.detailLabel}>ROLE</Text><Text style={s.detailValue}>{user.role}</Text></View>
+        ) : null}
+        <View style={s.sectionHead}>
+          <View>
+            <Text style={s.section}>OVERVIEW</Text>
+            <Text style={s.help}>
+              Aggregate operational information. Private student notes are not
+              displayed here.
+            </Text>
           </View>
-          {working ? <ActivityIndicator color="#B784FF" /> : <View style={s.actions}>
-            <Pressable style={s.primaryAction} onPress={() => grantMonth(user)}><Ionicons name="add-circle-outline" size={17} color="#160B20" /><Text style={s.primaryActionText}>GRANT 30 DAYS</Text></Pressable>
-            <Pressable style={s.action} onPress={() => updateUser(user, { premiumUntil: null })}><Text style={s.actionText}>REVOKE</Text></Pressable>
-            <Pressable style={[s.action,user.blocked&&s.unblock]} onPress={() => toggleBlock(user)}><Text style={[s.actionText,user.blocked&&s.unblockText]}>{user.blocked?"UNBLOCK":"BLOCK"}</Text></Pressable>
-          </View>}
-        </View>;
-      })}
-      {!busy && !filtered.length ? <Text style={s.empty}>No users match this search.</Text> : null}
-    </ScrollView>
-  </View>;
+          <Pressable onPress={reload} style={s.refresh}>
+            <Ionicons name="refresh" size={18} color="#D7C0F4" />
+          </Pressable>
+        </View>
+        <View style={s.grid}>
+          <Metric label="USERS" value={stats?.users ?? 0} />
+          <Metric label="ACTIVE TODAY" value={stats?.activeToday ?? 0} />
+          <Metric label="SESSIONS TODAY" value={stats?.sessionsToday ?? 0} />
+          <Metric
+            label="WORK TODAY"
+            value={secondsLabel(stats?.studySecondsToday ?? 0)}
+          />
+          <Metric label="CLASSES" value={stats?.classesConfigured ?? 0} />
+          <Metric label="PAPER ACTIVITY" value={stats?.paperSessions ?? 0} />
+          <Metric label="TESTS" value={stats?.testsRecorded ?? 0} />
+          <Metric
+            label="OPEN ASSIGNMENTS"
+            value={stats?.pendingAssignments ?? 0}
+          />
+        </View>
+        <Text style={s.section}>ADMIN TOOLS</Text>
+        <View style={s.toolGrid}>
+          <Tool
+            icon="card-outline"
+            title="Monetization"
+            subtitle="Paid Mode, live pricing, bank details, payment review and revenue"
+            onPress={() => router.push("/admin-monetization")}
+          />
+          <Tool
+            icon="people-outline"
+            title="Users & access"
+            subtitle="Search accounts, block/unblock, grant Premium and manage activation codes"
+            onPress={() => router.push("/admin-users")}
+          />
+          <Tool
+            icon="library-outline"
+            title="Academic catalog"
+            subtitle="Manage A/L subjects, official topic names, translations and paper structures"
+            onPress={() => router.push("/admin-catalog")}
+          />
+          <Tool
+            icon="pulse-outline"
+            title="Planner health"
+            subtitle="Find missing planner inputs, class overlaps, catalog gaps and inactive data"
+            onPress={() => router.push("/admin-planner-health")}
+          />
+          <Tool
+            icon="calendar-number-outline"
+            title="Official exam sync"
+            subtitle="Maintain Department of Examinations paper dates that sync to student accounts"
+            onPress={() => router.push("/admin-exam-sync")}
+          />
+        </View>
+        <Text style={s.section}>APP CONFIGURATION</Text>
+        <Text style={s.help}>
+          These values are read at runtime. Changing them does not require an
+          APK update.
+        </Text>
+        <Setting
+          label="CONTACT EMAIL"
+          value={contact}
+          onChange={setContact}
+          onSave={() => saveValue("contactEmail")}
+          busy={saving === "contactEmail"}
+        />
+        <Setting
+          label="WEBSITE"
+          value={website}
+          onChange={setWebsite}
+          onSave={() => saveValue("websiteUrl")}
+          busy={saving === "websiteUrl"}
+        />
+        <Setting
+          label="BUY ME A COFFEE"
+          value={coffee}
+          onChange={setCoffee}
+          onSave={() => saveValue("buyMeACoffeeUrl")}
+          busy={saving === "buyMeACoffeeUrl"}
+        />
+        <Setting
+          label="TEST A-RANGE THRESHOLD (%)"
+          value={aMargin}
+          onChange={setAMargin}
+          onSave={() => saveValue("testAMarginPercent")}
+          busy={saving === "testAMarginPercent"}
+          keyboardType="numeric"
+        />
+        <View style={s.notice}>
+          <Ionicons name="shield-checkmark-outline" size={21} color="#8FD4AE" />
+          <View style={{ flex: 1 }}>
+            <Text style={s.noticeTitle}>Protected administration</Text>
+            <Text style={s.noticeText}>
+              Admin permissions are enforced by Supabase RLS and server
+              functions, not by hiding buttons in the app.
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
 }
-
-const s=StyleSheet.create({
-  root:{flex:1,backgroundColor:"#080D14"},content:{width:"100%",maxWidth:1000,alignSelf:"center",padding:22,paddingBottom:50},
-  header:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:15,marginBottom:22},eyebrow:{color:"#B784FF",fontSize:10,fontWeight:"900",letterSpacing:1.5},title:{color:"#F5F6F8",fontSize:31,fontWeight:"900",marginTop:5},subtitle:{color:"#7D8999",fontSize:12,marginTop:4},
-  signOut:{height:43,borderRadius:14,borderWidth:1,borderColor:"#4B3861",paddingHorizontal:13,flexDirection:"row",alignItems:"center",gap:6},signOutText:{color:"#DCC8F5",fontSize:11,fontWeight:"900"},
-  modeCard:{minHeight:90,borderRadius:22,backgroundColor:"#151221",borderWidth:1,borderColor:"#4A3760",padding:16,flexDirection:"row",alignItems:"center",gap:13},modeIcon:{width:48,height:48,borderRadius:15,backgroundColor:"#2B1E3B",alignItems:"center",justifyContent:"center"},modeTitle:{color:"#F0EBF5",fontSize:15,fontWeight:"900"},modeCopy:{color:"#857990",fontSize:10.5,lineHeight:16,marginTop:4},
-  stats:{flexDirection:"row",gap:10,marginTop:12},stat:{flex:1,borderRadius:18,backgroundColor:"#101720",borderWidth:1,borderColor:"#263243",padding:15,alignItems:"center"},statValue:{color:"#EEEFF3",fontSize:24,fontWeight:"900"},statLabel:{color:"#687588",fontSize:8,fontWeight:"900",letterSpacing:1,marginTop:3},
-  searchWrap:{height:53,borderRadius:17,backgroundColor:"#101720",borderWidth:1,borderColor:"#2A3544",paddingHorizontal:14,flexDirection:"row",alignItems:"center",gap:9,marginTop:18},search:{flex:1,color:"#EEF1F5",fontSize:13},
-  userCard:{borderRadius:21,backgroundColor:"#101720",borderWidth:1,borderColor:"#273342",padding:16,marginTop:11},userBlocked:{borderColor:"#58353D"},userHead:{flexDirection:"row",alignItems:"center",gap:10},userName:{color:"#EFF2F6",fontSize:15,fontWeight:"900"},userEmail:{color:"#7F8B9B",fontSize:10.5,marginTop:4},
-  badge:{borderRadius:10,paddingHorizontal:9,paddingVertical:6},badgePremium:{backgroundColor:"#342347"},badgeFree:{backgroundColor:"#1D2935"},badgeBlocked:{backgroundColor:"#3A2026"},badgeText:{color:"#E5D8F2",fontSize:8,fontWeight:"900",letterSpacing:.8},
-  details:{flexDirection:"row",flexWrap:"wrap",gap:22,borderTopWidth:1,borderTopColor:"#26313E",paddingTop:13,marginTop:13},detailLabel:{color:"#5F6C7D",fontSize:7.5,fontWeight:"900",letterSpacing:.9},detailValue:{color:"#BAC2CD",fontSize:11,fontWeight:"800",marginTop:4},code:{color:"#DCC8F5",fontSize:13,fontWeight:"900",letterSpacing:1,marginTop:4},
-  actions:{flexDirection:"row",flexWrap:"wrap",gap:8,marginTop:15},primaryAction:{height:39,borderRadius:12,backgroundColor:"#B784FF",paddingHorizontal:12,flexDirection:"row",alignItems:"center",gap:5},primaryActionText:{color:"#160B20",fontSize:9,fontWeight:"900"},action:{height:39,borderRadius:12,backgroundColor:"#18212D",borderWidth:1,borderColor:"#303D4D",paddingHorizontal:12,alignItems:"center",justifyContent:"center"},actionText:{color:"#B9C2CF",fontSize:9,fontWeight:"900"},unblock:{backgroundColor:"#183027",borderColor:"#2F6650"},unblockText:{color:"#9BE0BD"},empty:{color:"#657386",fontSize:12,textAlign:"center",marginTop:35}
+function Metric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <View style={s.metric}>
+      <Text style={s.metricLabel}>{label}</Text>
+      <Text style={s.metricValue}>
+        {typeof value === "number" ? value.toLocaleString() : value}
+      </Text>
+    </View>
+  );
+}
+function Tool({
+  icon,
+  title,
+  subtitle,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={s.tool}>
+      <View style={s.toolIcon}>
+        <Ionicons name={icon} size={22} color="#D3B9F3" />
+      </View>
+      <Text style={s.toolTitle}>{title}</Text>
+      <Text style={s.toolSub}>{subtitle}</Text>
+      <Ionicons
+        name="arrow-forward"
+        size={17}
+        color="#79688C"
+        style={{ marginTop: 10 }}
+      />
+    </Pressable>
+  );
+}
+function Setting({
+  label,
+  value,
+  onChange,
+  onSave,
+  busy,
+  keyboardType,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onSave: () => void;
+  busy: boolean;
+  keyboardType?: "numeric";
+}) {
+  return (
+    <View style={s.setting}>
+      <Text style={s.settingLabel}>{label}</Text>
+      <View style={s.settingRow}>
+        <TextInput
+          value={value}
+          onChangeText={onChange}
+          keyboardType={keyboardType}
+          autoCapitalize="none"
+          style={s.input}
+        />
+        <Pressable
+          onPress={onSave}
+          disabled={busy}
+          style={[s.save, busy && { opacity: 0.5 }]}
+        >
+          <Text style={s.saveText}>{busy ? "SAVING" : "SAVE"}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#080D14" },
+  header: {
+    padding: 18,
+    paddingTop: 22,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2D2339",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  back: {
+    width: 43,
+    height: 43,
+    borderRadius: 14,
+    backgroundColor: "#151B25",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logout: {
+    width: 43,
+    height: 43,
+    borderRadius: 14,
+    backgroundColor: "#28171D",
+    borderWidth: 1,
+    borderColor: "#5B303B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  kicker: {
+    color: "#A883D5",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1.4,
+  },
+  title: { color: "#F5F6F8", fontSize: 23, fontWeight: "900", marginTop: 2 },
+  role: {
+    borderRadius: 10,
+    backgroundColor: "#2C1E40",
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  roleText: { color: "#D9BDF8", fontSize: 8, fontWeight: "900" },
+  content: {
+    width: "100%",
+    maxWidth: 980,
+    alignSelf: "center",
+    padding: 20,
+    paddingBottom: 50,
+  },
+  sectionHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  section: {
+    color: "#8B98AA",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.3,
+    marginTop: 18,
+  },
+  help: {
+    color: "#6F7C8E",
+    fontSize: 10.5,
+    lineHeight: 16,
+    marginTop: 5,
+    marginBottom: 11,
+  },
+  refresh: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: "#191522",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: "auto",
+  },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+  metric: {
+    minWidth: 150,
+    flexGrow: 1,
+    flexBasis: "22%",
+    minHeight: 92,
+    borderRadius: 18,
+    backgroundColor: "#111923",
+    borderWidth: 1,
+    borderColor: "#283647",
+    padding: 14,
+    justifyContent: "center",
+  },
+  metricLabel: {
+    color: "#718094",
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  metricValue: {
+    color: "#F2F4F7",
+    fontSize: 22,
+    fontWeight: "900",
+    marginTop: 8,
+  },
+  toolGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9, marginTop: 9 },
+  tool: {
+    minWidth: 190,
+    flexBasis: "31%",
+    flexGrow: 1,
+    minHeight: 150,
+    borderRadius: 19,
+    backgroundColor: "#111923",
+    borderWidth: 1,
+    borderColor: "#2A3747",
+    padding: 14,
+  },
+  toolIcon: {
+    width: 43,
+    height: 43,
+    borderRadius: 14,
+    backgroundColor: "#21182D",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  toolTitle: {
+    color: "#EDF0F4",
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 11,
+  },
+  toolSub: { color: "#748194", fontSize: 9.5, lineHeight: 14, marginTop: 4 },
+  setting: {
+    borderRadius: 18,
+    backgroundColor: "#101720",
+    borderWidth: 1,
+    borderColor: "#273443",
+    padding: 14,
+    marginBottom: 9,
+  },
+  settingLabel: {
+    color: "#8090A3",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  settingRow: { flexDirection: "row", gap: 9, marginTop: 9 },
+  input: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 13,
+    backgroundColor: "#0B1119",
+    borderWidth: 1,
+    borderColor: "#26313F",
+    color: "#EDF0F4",
+    paddingHorizontal: 12,
+    fontSize: 12,
+  },
+  save: {
+    minWidth: 82,
+    borderRadius: 13,
+    backgroundColor: "#B784FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saveText: { color: "#160C20", fontSize: 9, fontWeight: "900" },
+  error: {
+    borderRadius: 15,
+    backgroundColor: "#26151A",
+    borderWidth: 1,
+    borderColor: "#63323F",
+    padding: 12,
+    flexDirection: "row",
+    gap: 9,
+    alignItems: "center",
+    marginBottom: 9,
+  },
+  errorText: { color: "#FF9BAA", fontSize: 10.5, flex: 1 },
+  notice: {
+    marginTop: 14,
+    borderRadius: 18,
+    backgroundColor: "#102019",
+    borderWidth: 1,
+    borderColor: "#315843",
+    padding: 14,
+    flexDirection: "row",
+    gap: 10,
+  },
+  noticeTitle: { color: "#C8EBD7", fontSize: 12, fontWeight: "900" },
+  noticeText: { color: "#7EAA91", fontSize: 10, lineHeight: 16, marginTop: 4 },
 });

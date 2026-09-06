@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import type { ClassSchedule, NewClass } from "../context/StudentContext";
+import { useStudent, type ClassSchedule, type NewClass } from "../context/StudentContext";
+import { validateClassSchedule } from "../lib/scheduleValidation";
 import { format12Hour, parseTime } from "../lib/time";
 import ClockTimePicker from "./ClockTimePicker";
 
@@ -20,6 +21,7 @@ export default function ClassFormModal({
   onSave: (value: NewClass) => Promise<void> | void;
   initialValue?: ClassSchedule | null;
 }) {
+  const { classes, profile } = useStudent();
   const [subjectName, setSubjectName] = useState(subjects[0] ?? "Physics");
   const [dayOfWeek, setDayOfWeek] = useState(6);
   const [classType, setClassType] = useState<NewClass["classType"]>("Theory");
@@ -54,28 +56,47 @@ export default function ClassFormModal({
 
   const title = useMemo(() => `${subjectName} ${classType}`, [subjectName, classType]);
 
+  const performSave = async (proposal: NewClass) => {
+    setSaving(true);
+    try {
+      await onSave(proposal);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const save = async () => {
     if (parseTime(endTime) <= parseTime(startTime)) {
       Alert.alert("Check class time", "Class end time must be after the start time.");
       return;
     }
-    setSaving(true);
-    try {
-      await onSave({
-        subjectName,
-        title,
-        classType,
-        deliveryMode,
-        dayOfWeek,
-        startTime,
-        endTime,
-        preReviewMinutes,
-        travelMinutes: deliveryMode === "Physical" ? 90 : 0,
-      });
-      onClose();
-    } finally {
-      setSaving(false);
+
+    const proposal: NewClass = {
+      id: initialValue?.id,
+      subjectName,
+      title,
+      classType,
+      deliveryMode,
+      dayOfWeek,
+      startTime,
+      endTime,
+      preReviewMinutes,
+      travelMinutes: deliveryMode === "Physical" ? 90 : 0,
+    };
+    const conflicts = validateClassSchedule(proposal, classes, profile.wakeTime, profile.sleepTime, initialValue?.id);
+    if (conflicts.length) {
+      Alert.alert(
+        "Schedule conflict",
+        conflicts.map((item) => `• ${item.message}`).join("\n"),
+        [
+          { text: "Go back", style: "cancel" },
+          { text: "Save anyway", onPress: () => { performSave(proposal).catch(() => undefined); } },
+        ],
+      );
+      return;
     }
+    await performSave(proposal);
   };
 
   return (
@@ -95,7 +116,7 @@ export default function ClassFormModal({
 
             <Text style={s.label}>HOW DO YOU ATTEND?</Text>
             <View style={s.modeRow}>{(["Physical", "Online"] as const).map((x) => <Pressable key={x} onPress={() => setDeliveryMode(x)} style={[s.mode, deliveryMode === x && s.modeActive]}><Ionicons name={x === "Physical" ? "location-outline" : "videocam-outline"} size={20} color={deliveryMode === x ? "#FFF" : "#8490A0"} /><Text style={[s.modeText, deliveryMode === x && s.chipTextActive]}>{x}</Text></Pressable>)}</View>
-            {deliveryMode === "Physical" && <View style={s.info}><Ionicons name="car-outline" size={18} color="#D7B8FF" /><Text style={s.infoText}>Study Arc automatically reserves <Text style={s.bold}>1h 30m travel time before and after</Text> this class.</Text></View>}
+            {deliveryMode === "Physical" && <View style={s.info}><Ionicons name="car-outline" size={18} color="#D7B8FF" /><Text style={s.infoText}>Study Arc automatically reserves <Text style={s.bold}>1h 30m travel time before and after</Text> this class and warns when another class leaves too little travel time.</Text></View>}
 
             <Text style={s.label}>TIME</Text>
             <View style={s.timeRow}>

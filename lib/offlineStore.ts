@@ -12,7 +12,7 @@ const QUEUE_KEY = "studyarc:offline:mutation-queue:v1";
 
 export const makeUuid = () => {
   const template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
-  return template.replace(/[xy]/g, (char) => {
+  return template.replace(/[xy]/g, char => {
     const r = Math.floor(Math.random() * 16);
     const v = char === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
@@ -34,17 +34,11 @@ export async function writeJson(key: string, value: unknown) {
   await AsyncStorage.setItem(key, JSON.stringify(value));
 }
 
-export async function readQueue(): Promise<OfflineMutation[]> {
-  return readJson<OfflineMutation[]>(QUEUE_KEY, []);
-}
+export async function readQueue(): Promise<OfflineMutation[]> { return readJson<OfflineMutation[]>(QUEUE_KEY, []); }
 
 export async function enqueueMutation(mutation: Omit<OfflineMutation, "id" | "createdAt">) {
   const queue = await readQueue();
-  const item: OfflineMutation = {
-    ...mutation,
-    id: makeUuid(),
-    createdAt: new Date().toISOString(),
-  };
+  const item: OfflineMutation = { ...mutation, id: makeUuid(), createdAt: new Date().toISOString() };
   queue.push(item);
   await writeJson(QUEUE_KEY, queue);
   return item;
@@ -53,32 +47,32 @@ export async function enqueueMutation(mutation: Omit<OfflineMutation, "id" | "cr
 export async function queuedMutationsFor(userId: string, kinds: string[]) {
   const queue = await readQueue();
   const allowed = new Set(kinds);
-  return queue.filter((item) => item.userId === userId && allowed.has(item.kind));
+  return queue.filter(item => item.userId === userId && allowed.has(item.kind));
 }
 
 export async function removeQueuedMutation(id: string) {
   const queue = await readQueue();
-  await writeJson(QUEUE_KEY, queue.filter((item) => item.id !== id));
+  await writeJson(QUEUE_KEY, queue.filter(item => item.id !== id));
 }
 
 export async function queueCount(userId?: string) {
   const queue = await readQueue();
-  return userId ? queue.filter((item) => item.userId === userId).length : queue.length;
+  return userId ? queue.filter(item => item.userId === userId).length : queue.length;
 }
 
-export async function probeOnline() {
+export async function probeOnline(timeoutMs = 6000) {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
   if (!url) return false;
   const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-  const timer = setTimeout(() => controller?.abort(), 4500);
+  const timer = setTimeout(() => controller?.abort(), Math.max(1000, timeoutMs));
   try {
-    // We only care that a network response can reach the Supabase host.
-    await fetch(`${url}/auth/v1/health`, {
+    const response = await fetch(`${url}/auth/v1/health`, {
       method: "GET",
       signal: controller?.signal,
       headers: { apikey: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "" },
+      cache: "no-store",
     });
-    return true;
+    return response.ok || response.status < 500;
   } catch {
     return false;
   } finally {

@@ -11,7 +11,7 @@ const PlanningContext = createContext<{
   resetDefaults: () => Promise<void>;
 } | null>(null);
 
-const keyFor = (userId: string) => `@study-arc/planning-preferences/v1/${userId}`;
+const keyFor = (userId: string) => `@study-arc/planning-preferences/v2/${userId}`;
 
 function normalize(value: Partial<PlanningPreferences> | null | undefined): PlanningPreferences {
   const block = value?.maxStudyBlockMinutes;
@@ -19,6 +19,7 @@ function normalize(value: Partial<PlanningPreferences> | null | undefined): Plan
   return {
     maxStudyBlockMinutes,
     countClassTimeTowardTarget: value?.countClassTimeTowardTarget !== false,
+    catchUpMode: value?.catchUpMode === true,
     weeklySubjectAdjustments: {
       ...DEFAULT_PLANNING_PREFERENCES.weeklySubjectAdjustments,
       ...(value?.weeklySubjectAdjustments ?? {}),
@@ -40,13 +41,17 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setLoading(true);
-    AsyncStorage.getItem(keyFor(user.id)).then(raw => {
+    Promise.all([
+      AsyncStorage.getItem(keyFor(user.id)),
+      AsyncStorage.getItem(`@study-arc/planning-preferences/v1/${user.id}`),
+    ]).then(([rawV2, rawV1]) => {
       if (!live) return;
-      const parsed = raw ? JSON.parse(raw) : null;
+      const parsed = rawV2 ? JSON.parse(rawV2) : rawV1 ? JSON.parse(rawV1) : null;
       const next = normalize(parsed);
       setPreferences(next);
       setRuntimePlanningPreferences(next);
       setLoading(false);
+      AsyncStorage.setItem(keyFor(user.id), JSON.stringify(next)).catch(() => undefined);
     }).catch(() => {
       if (!live) return;
       setPreferences(DEFAULT_PLANNING_PREFERENCES);
@@ -76,10 +81,7 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
     }));
   }, [persist, preferences]);
 
-  const resetDefaults = useCallback(async () => {
-    await persist(DEFAULT_PLANNING_PREFERENCES);
-  }, [persist]);
-
+  const resetDefaults = useCallback(async () => persist(DEFAULT_PLANNING_PREFERENCES), [persist]);
   const value = useMemo(() => ({ preferences, loading, updatePreferences, setSubjectAdjustment, resetDefaults }), [loading, preferences, resetDefaults, setSubjectAdjustment, updatePreferences]);
   return <PlanningContext.Provider value={value}>{children}</PlanningContext.Provider>;
 }
