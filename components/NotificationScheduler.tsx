@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import React, { useEffect, useMemo } from "react";
 import { Platform } from "react-native";
 import { usePlanning } from "../context/PlanningContext";
@@ -15,6 +16,27 @@ export default function NotificationScheduler(){
   const{protectedTimes,classWeekOverrides}=useScheduleAdjustments();
   const today=useMemo(()=>new Date(),[]);
   const plan=useMemo(()=>generateDailyPlan(today,profile,classes,topicProgress,testMarks,subtopicCoverage),[classWeekOverrides,classes,preferences,profile,protectedTimes,subtopicCoverage,testMarks,today,topicProgress]);
+
+  useEffect(()=>{
+    if(Platform.OS==="web")return;
+    let active=true;
+    let subscription:{remove:()=>void}|null=null;
+    const openResponse=(response:any)=>{
+      const url=response?.notification?.request?.content?.data?.url;
+      if(typeof url==="string"&&url.startsWith("/"))router.push(url as any);
+    };
+    import("expo-notifications").then(async Notifications=>{
+      if(!active)return;
+      const last=await Notifications.getLastNotificationResponseAsync();
+      if(last&&active){openResponse(last);await Notifications.clearLastNotificationResponseAsync().catch(()=>undefined)}
+      if(!active)return;
+      subscription=Notifications.addNotificationResponseReceivedListener(response=>{
+        openResponse(response);
+        Notifications.clearLastNotificationResponseAsync().catch(()=>undefined);
+      });
+    }).catch(()=>undefined);
+    return()=>{active=false;subscription?.remove()};
+  },[]);
 
   useEffect(()=>{
     if(Platform.OS==="web"||!profile.onboardingComplete)return;
