@@ -182,6 +182,12 @@ export default function AdminScreen() {
             onPress={() => router.push("/admin-planner-health")}
           />
           <Tool
+            icon="cloud-download-outline"
+            title="App update notice"
+            subtitle="Send a downloadable new-version link to users inside the app"
+            onPress={() => router.push("/admin-updates")}
+          />
+          <Tool
             icon="calendar-number-outline"
             title="Official exam sync"
             subtitle="Maintain Department of Examinations paper dates that sync to student accounts"
