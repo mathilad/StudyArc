@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppConfig } from "../context/AppConfigContext";
 import { useAuth } from "../context/AuthContext";
@@ -20,6 +20,16 @@ export default function AccessScreen() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    const enabledPlan = plans.find((plan) => plan.enabled && plan.id === selectedPlanId);
+    if (!enabledPlan) setSelectedPlanId(plans.find((plan) => plan.enabled && plan.featured)?.id ?? plans.find((plan) => plan.enabled)?.id ?? null);
+  }, [plans, selectedPlanId]);
+
+  useEffect(() => {
+    const enabledMethod = paymentMethods.find((method) => method.enabled && method.id === selectedMethodId);
+    if (!enabledMethod) setSelectedMethodId(paymentMethods.find((method) => method.enabled)?.id ?? null);
+  }, [paymentMethods, selectedMethodId]);
+
   const selectedPlan = plans.find(p=>p.id===selectedPlanId) ?? plans[0];
   const pending = useMemo(()=>payments.find(p=>p.status==="PENDING") ?? null,[payments]);
   if (!session) return <Redirect href="/login" />;
@@ -28,12 +38,12 @@ export default function AccessScreen() {
   if (!loading && access && !["BLOCKED","PAYMENT_REQUIRED","PAYMENT_PENDING"].includes(access.state)) return <Redirect href="/(tabs)" />;
 
   const startPayment = async () => {
-    if (!selectedPlan) return;
+    if (!selectedPlan || !selectedMethodId) { setMessage("Select an active payment method first."); return; }
     setBusy(true); setMessage(null);
     try {
       const result = await createPaymentRequest(selectedPlan.id, selectedMethodId);
       setMessage(`Payment reference created: ${result.reference}`);
-    } catch(e) { setMessage(e instanceof Error ? e.message : "Could not create payment request."); }
+    } catch(e: any) { setMessage(e?.message ?? e?.details ?? "Could not create payment request."); }
     finally { setBusy(false); }
   };
   const upload = async () => {
