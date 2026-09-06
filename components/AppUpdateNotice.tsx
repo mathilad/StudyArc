@@ -15,8 +15,7 @@ export default function AppUpdateNotice() {
   useEffect(() => {
     if (!user) { setNotice(null); return; }
     supabase.from("app_update_notifications").select("id,version,title,message,download_url").order("created_at", { ascending:false }).limit(1).maybeSingle()
-      .then(({ data }) => setNotice(data as UpdateNotice | null))
-      .catch(() => undefined);
+      .then(({ data }) => setNotice(data as UpdateNotice | null), () => undefined);
   }, [user]);
 
   if (!notice || hidden) return null;
