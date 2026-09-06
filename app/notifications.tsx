@@ -34,7 +34,7 @@ export default function NotificationsScreen() {
     if (item.kind === "protected") { router.push("/classes"); return; }
     if (item.kind === "class") {
       const matched = classes.find(c => item.id.includes(c.id));
-      router.push(matched ? { pathname: "/classes", params: { classId: matched.id } } : "/classes");
+      router.push(matched ? { pathname: "/class-reminder", params: { classId: matched.id } } : "/classes");
       return;
     }
     if ((item.kind === "revision" || item.kind === "memory") && item.subjectName && item.topicName) {
