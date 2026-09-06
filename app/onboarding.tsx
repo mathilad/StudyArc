@@ -6,6 +6,7 @@ import{Alert,Pressable,ScrollView,StyleSheet,Text,View}from"react-native";
 import ClassFormModal from"../components/ClassFormModal";
 import ClockTimePicker from"../components/ClockTimePicker";
 import{useAcademic}from"../context/AcademicContext";
+import{useAppConfig}from"../context/AppConfigContext";
 import{useAuth}from"../context/AuthContext";
 import{useStudent,type StudentProfile}from"../context/StudentContext";
 import{AL_STREAMS,streamConfig,subjectsForStream,validateSubjectCombination,type ALStream}from"../data/alStreams";
@@ -15,10 +16,10 @@ import{format12Hour}from"../lib/time";
 
 const TOTAL=8;
 export default function OnboardingScreen(){
- const router=useRouter();const{session,loading:authLoading}=useAuth();const{profile,completeOnboarding,addClass}=useStudent();const{stream:savedStream,setStream:persistStream}=useAcademic();
+ const router=useRouter();const{session,loading:authLoading}=useAuth();const{isAdmin,refreshing:adminLoading}=useAppConfig();const{profile,completeOnboarding,addClass}=useStudent();const{stream:savedStream,setStream:persistStream}=useAcademic();
  const[step,setStep]=useState(0),[stream,setStream]=useState<ALStream>((savedStream&&AL_STREAMS.some(x=>x.id===savedStream)?savedStream:"Physical Science") as ALStream),[medium,setMedium]=useState<StudyMedium>(profile.medium??"English"),[subjectChoices,setSubjectChoices]=useState<string[]>(profile.subjectChoices??[]),[examYear,setExamYear]=useState(profile.examYear??availableExamYears()[0]),[wakeTime,setWakeTime]=useState(profile.wakeTime||"06:00"),[sleepTime,setSleepTime]=useState(profile.sleepTime||"22:30"),[hours,setHours]=useState(profile.selfStudyHours||3),[clock,setClock]=useState<"wake"|"sleep"|null>(null),[classOpen,setClassOpen]=useState(false),[classCount,setClassCount]=useState(0),[saving,setSaving]=useState(false),[combinationError,setCombinationError]=useState<string|null>(null);
  const streamSubjects=useMemo(()=>subjectsForStream(stream),[stream]),effectiveSubjects=useMemo(()=>expandSubjectChoices(subjectChoices),[subjectChoices]),years=availableExamYears(),config=streamConfig(stream);
- if(!authLoading&&!session)return <Redirect href="/login"/>;if(profile.onboardingComplete)return <Redirect href="/(tabs)"/>;
+ if(!authLoading&&!session)return <Redirect href="/login"/>;if(session&&adminLoading)return null;if(isAdmin)return <Redirect href="/admin"/>;if(profile.onboardingComplete)return <Redirect href="/(tabs)"/>;
  const chooseStream=(v:ALStream)=>{setStream(v);setSubjectChoices([]);setCombinationError(null)};
  const toggleSubject=(subject:string)=>{setSubjectChoices(current=>{const next=current.includes(subject)?current.filter(x=>x!==subject):current.length>=3?current:[...current,subject];setCombinationError(next.length===3?validateSubjectCombination(stream,next):null);return next})};
  const validation=step===2?validateSubjectCombination(stream,subjectChoices):null;const canContinue=step!==2||!validation;
