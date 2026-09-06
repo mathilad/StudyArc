@@ -6,6 +6,7 @@ import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "rea
 import ClassFormModal from "../components/ClassFormModal";
 import ClockTimePicker from "../components/ClockTimePicker";
 import { useAuth } from "../context/AuthContext";
+import { useAccess } from "../context/AccessContext";
 import { usePhase } from "../context/PhaseContext";
 import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
 import { useSocial } from "../context/SocialContext";
@@ -19,7 +20,7 @@ const fmt=(sec:number)=>{const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60
 const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 export default function MoreScreen(){
- const router=useRouter();const{user,signOut}=useAuth();const{settings:phaseSettings}=usePhase();const{protectedTimes,classWeekOverrides}=useScheduleAdjustments();const{profile,classes,addClass,saveProfile,uploadAvatar,refreshStudentData}=useStudent();const{totalSeconds,sessions,refreshSessions}=useStudy();const{myRank,friends,friendCode,refreshSocial}=useSocial();
+ const router=useRouter();const{user,signOut}=useAuth();const{isAdmin}=useAccess();const{settings:phaseSettings}=usePhase();const{protectedTimes,classWeekOverrides}=useScheduleAdjustments();const{profile,classes,addClass,saveProfile,uploadAvatar,refreshStudentData}=useStudent();const{totalSeconds,sessions,refreshSessions}=useStudy();const{myRank,friends,friendCode,refreshSocial}=useSocial();
  const[classOpen,setClassOpen]=useState(false);const[clock,setClock]=useState<"wake"|"sleep"|null>(null);const[busy,setBusy]=useState(false);const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
  const changeTime=async(kind:"wake"|"sleep",value:string)=>{await saveProfile(kind==="wake"?{wakeTime:value}:{sleepTime:value})};
  const sync=async()=>{setBusy(true);try{await Promise.all([refreshStudentData(),refreshSessions(),refreshSocial()])}finally{setBusy(false)}};
@@ -51,6 +52,8 @@ export default function MoreScreen(){
   <Pressable style={s.row} onPress={()=>router.push("/test-mark")}><View style={s.rowIcon}><Ionicons name="stats-chart-outline" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Add test marks</Text><Text style={s.rowSub}>Track MCQ, essay and weak topics</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
   <Pressable style={s.row} onPress={()=>router.push("/revision")}><View style={s.rowIcon}><Ionicons name="refresh-outline" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Start a revision session</Text><Text style={s.rowSub}>Revise any topic whenever you want</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
   <Pressable style={s.row} onPress={sync}><View style={s.rowIcon}><Ionicons name="cloud-done-outline" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>{busy?"Syncing…":"Sync cloud data"}</Text><Text style={s.rowSub}>Reload sessions, ranking, classes, marks and topic progress</Text></View><Ionicons name="sync-outline" size={19} color="#657286"/></Pressable>
+
+  {isAdmin&&<><Text style={s.section}>ADMINISTRATION</Text><Pressable style={s.row} onPress={()=>router.push("/admin")}><View style={[s.rowIcon,{backgroundColor:"#B784FF18"}]}><Ionicons name="shield-checkmark-outline" size={21} color="#C6A0F4"/></View><View style={s.rowText}><Text style={s.rowTitle}>Admin dashboard</Text><Text style={s.rowSub}>Premium grants, account blocking and paid mode</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable></>}
 
   <Text style={s.section}>ABOUT & SUPPORT</Text>
   <Pressable style={s.row} onPress={()=>router.push("/about")}><View style={s.rowIcon}><Ionicons name="information-circle-outline" size={22} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>About Study Arc</Text><Text style={s.rowSub}>App information, privacy and support</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
