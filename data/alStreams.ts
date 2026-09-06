@@ -14,13 +14,13 @@ export const AL_STREAMS: ALStreamConfig[] = [
   {
     id: "Physical Science",
     title: "Physical Science / Mathematics",
-    description: "Choose three from the physical-science mathematics group. ICT may be selected with Combined Mathematics.",
+    description: "Choose three from the physical-science mathematics group. ICT is available only with Combined Mathematics and Chemistry.",
     subjects: ["Combined Mathematics", "Higher Mathematics", "Physics", "Chemistry", "ICT"],
   },
   {
     id: "Biological Science",
     title: "Biological Science",
-    description: "Biology is required, with two additional approved science, agriculture or ICT subjects.",
+    description: "Biology is required, with two additional approved science or agriculture subjects. ICT is available only with Chemistry.",
     requiredSubjects: ["Biology"],
     subjects: ["Biology", "Chemistry", "Physics", "Mathematics", "Agricultural Science", "ICT"],
   },
@@ -82,6 +82,14 @@ export function validateSubjectCombination(stream: ALStream, selected: string[])
   if (!config) return "Choose a valid A/L stream.";
   if (selected.length !== 3) return "Choose exactly three A/L subjects.";
   for (const required of config.requiredSubjects ?? []) if (!selected.includes(required)) return `${required} is required for ${config.title}.`;
+  if (selected.includes("ICT")) {
+    const validIctCombination = stream === "Physical Science"
+      ? selected.includes("Combined Mathematics") && selected.includes("Chemistry")
+      : stream === "Biological Science"
+        ? selected.includes("Biology") && selected.includes("Chemistry")
+        : true;
+    if (!validIctCombination) return "ICT can be selected only with Chemistry and your stream's main subject.";
+  }
   if (config.coreSubjects?.length && config.minimumCoreSelections) {
     const count = selected.filter(subject => config.coreSubjects!.includes(subject)).length;
     if (count < config.minimumCoreSelections) return `Choose at least ${config.minimumCoreSelections} Commerce core subjects: ${config.coreSubjects.join(", ")}.`;
