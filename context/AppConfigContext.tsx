@@ -78,9 +78,10 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULTS);
   const [role, setRole] = useState<AdminRole>("student");
   const [refreshing, setRefreshing] = useState(false);
+  const [loadedForUserId, setLoadedForUserId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!user) { setRole("student"); return; }
+    if (!user) { setRole("student"); setLoadedForUserId(null); return; }
     setRefreshing(true);
     try {
       const [{ data: settingRows, error: settingError }, { data: roleRow, error: roleError }] = await Promise.all([
@@ -95,6 +96,7 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
       if (!roleError && roleRow?.role) setRole(roleRow.role as AdminRole);
       else setRole("student");
     } finally {
+      setLoadedForUserId(user.id);
       setRefreshing(false);
     }
   }, [user]);
@@ -127,8 +129,12 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
     return data as AdminDashboardStats;
   }, [role]);
 
-  const isAdmin = role !== "student";
-  const value = useMemo(() => ({ settings, role, isAdmin, refreshing, refresh, updateSetting, getAdminStats }), [getAdminStats, isAdmin, refresh, refreshing, role, settings, updateSetting]);
+  const metadataRole = user?.app_metadata?.role;
+  const metadataIsAdmin = user?.app_metadata?.is_admin === true || ["admin", "content_admin", "support_admin", "super_admin"].includes(metadataRole);
+  const resolvedRole: AdminRole = role !== "student" ? role : metadataIsAdmin ? "super_admin" : "student";
+  const isAdmin = resolvedRole !== "student";
+  const isRefreshingCurrentUser = refreshing || Boolean(user && loadedForUserId !== user.id);
+  const value = useMemo(() => ({ settings, role: resolvedRole, isAdmin, refreshing: isRefreshingCurrentUser, refresh, updateSetting, getAdminStats }), [getAdminStats, isAdmin, isRefreshingCurrentUser, refresh, resolvedRole, settings, updateSetting]);
   return <AppConfigContext.Provider value={value}>{children}</AppConfigContext.Provider>;
 }
 
