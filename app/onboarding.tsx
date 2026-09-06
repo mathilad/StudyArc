@@ -1,4 +1,4 @@
-import { Ionicons } from "../components/SafeIcons";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
