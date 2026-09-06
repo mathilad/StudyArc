@@ -4,6 +4,8 @@ import { Platform, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import OfflineStatusBanner from "../components/OfflineStatusBanner";
+import AccessGuard from "../components/AccessGuard";
+import { AccessProvider } from "../context/AccessContext";
 import { AuthProvider } from "../context/AuthContext";
 import { ClassLearningProvider } from "../context/ClassLearningContext";
 import { OfflineProvider } from "../context/OfflineContext";
@@ -27,6 +29,8 @@ export default function RootLayout() {
   return (
     <View style={{ flex: 1, backgroundColor: "#080D14" }}>
       <AuthProvider>
+        <AccessProvider>
+          <AccessGuard />
         <OfflineProvider>
           <StudentProvider>
             <ClassLearningProvider>
@@ -62,6 +66,9 @@ export default function RootLayout() {
                           <Stack.Screen name="daily-review" />
                           <Stack.Screen name="about" />
                           <Stack.Screen name="contact" />
+                          <Stack.Screen name="admin" />
+                          <Stack.Screen name="activate-plan" />
+                          <Stack.Screen name="blocked" />
                         </Stack>
                         <OfflineStatusBanner />
                       </SocialProvider>
@@ -72,6 +79,7 @@ export default function RootLayout() {
             </ClassLearningProvider>
           </StudentProvider>
         </OfflineProvider>
+        </AccessProvider>
       </AuthProvider>
     </View>
   );
