@@ -31,7 +31,7 @@ export default function PlanScreen(){
   const[selectedDate,setSelectedDate]=useState(new Date());
   const[month,setMonth]=useState(new Date(selectedDate.getFullYear(),selectedDate.getMonth(),1));
   const[filter,setFilter]=useState<string>("All");
-  const[controlsOpen,setControlsOpen]=useState(true);
+  const[controlsOpen,setControlsOpen]=useState(false);
   const phaseOptions=useMemo(()=>({phase:phaseSettings.phase,examSubjects:phaseSettings.examSubjects,examTopics:phaseSettings.examTopics,doneSubjects:phaseSettings.doneSubjects}),[phaseSettings]);
   const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
   const subjectBuckets=useMemo(()=>[...new Set(subjects.map(planningBucketFor))],[subjects]);
