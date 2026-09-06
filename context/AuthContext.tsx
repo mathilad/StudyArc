@@ -84,11 +84,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const sendPasswordReset = useCallback(async (email: string): Promise<AuthResult> => { try { const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: authRedirect("/reset-password", "recovery") }); if (error) throw error; return { error: null }; } catch (error) { return { error: messageFrom(error) }; } }, []);
   const updatePassword = useCallback(async (password: string): Promise<AuthResult> => { try { const { error } = await supabase.auth.updateUser({ password }); if (error) throw error; return { error: null }; } catch (error) { return { error: messageFrom(error) }; } }, []);
   const signOut = useCallback(async (): Promise<AuthResult> => {
+    setSession(null);
+    setLoading(false);
     try {
       const { error } = await supabase.auth.signOut({ scope: "local" });
       if (error) throw error;
-      setSession(null);
-      setLoading(false);
       return { error: null };
     } catch (error) {
       return { error: messageFrom(error) };
