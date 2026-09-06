@@ -26,23 +26,27 @@ export default function NotificationsScreen() {
   const items = useMemo(() => buildNotificationFeed(today, profile, plan, topicProgress, classes, Boolean(todayReview), sessions), [classes, plan, profile, sessions, today, topicProgress, todayReview]);
   const readIds = useMemo(() => [...items.map(item => item.id), ...pendingRequests.map(request => `friend-${request.friendshipId}`)], [items, pendingRequests]);
 
-  useEffect(() => {
-    markNotificationsRead(readIds).catch(() => undefined);
-  }, [readIds]);
+  useEffect(() => { markNotificationsRead(readIds).catch(() => undefined); }, [readIds]);
 
   const openItem = (item: (typeof items)[number]) => {
     if (item.kind === "phase" || item.kind === "exam") { router.push("/study-phase"); return; }
     if (item.kind === "balance") { router.push("/(tabs)/plan"); return; }
-    if (item.kind === "protected" || item.kind === "class") { router.push("/classes"); return; }
-    if ((item.kind === "revision" || item.kind === "memory") && item.subjectName && item.topicName) {
-      router.push({ pathname: "/stopwatch", params: { subjectName: item.subjectName, topicName: item.topicName, studyType: "Revision" } });
+    if (item.kind === "protected") { router.push("/classes"); return; }
+    if (item.kind === "class") {
+      const matched = classes.find(c => item.id.includes(c.id));
+      router.push(matched ? { pathname: "/classes", params: { classId: matched.id } } : "/classes");
       return;
+    }
+    if ((item.kind === "revision" || item.kind === "memory") && item.subjectName && item.topicName) {
+      router.push({ pathname: "/stopwatch", params: { subjectName: item.subjectName, topicName: item.topicName, studyType: "Revision" } }); return;
     }
     if (item.kind === "study" && item.subjectName && item.topicName) {
-      router.push({ pathname: "/stopwatch", params: { subjectName: item.subjectName, topicName: item.topicName, studyType: "Study Session" } });
-      return;
+      router.push({ pathname: "/stopwatch", params: { subjectName: item.subjectName, topicName: item.topicName, studyType: "Study Session" } }); return;
     }
-    if (item.kind === "class_complete") { router.push({ pathname: "/class-complete", params: { subjectName: item.subjectName } }); return; }
+    if (item.kind === "class_complete") {
+      const matched = classes.find(c => item.id.includes(c.id));
+      router.push({ pathname: "/class-complete", params: { subjectName: item.subjectName, classId: matched?.id } }); return;
+    }
     if (item.kind === "daily_review") router.push("/daily-review");
   };
 
