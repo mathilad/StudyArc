@@ -37,7 +37,7 @@ export default function MoreScreen(){
  const changeTime=async(kind:"wake"|"sleep",value:string)=>{await saveProfile(kind==="wake"?{wakeTime:value}:{sleepTime:value})};
  const sync=async()=>{setBusy(true);try{await Promise.all([refreshStudentData(),refreshSessions(),refreshSocial()])}finally{setBusy(false)}};
  const handleAvatar=async()=>{try{setBusy(true);await uploadAvatar()}catch(e){Alert.alert("Photo not updated",e instanceof Error?e.message:"Try again.")}finally{setBusy(false)}};
- const handleSignOut=async()=>{if(busy)return;setBusy(true);const r=await signOut();setBusy(false);if(r.error)Alert.alert("Could not sign out",r.error);else router.replace("/login")};
+ const handleSignOut=()=>{if(busy)return;setBusy(true);router.replace("/login");signOut().then(r=>{if(r.error)console.warn("Supabase local sign-out cleanup failed:",r.error)}).finally(()=>setBusy(false))};
  const openUrl=(url:string)=>Linking.openURL(url).catch(()=>Alert.alert("Could not open link","Please try again."));
  return <Screen><LinearGradient colors={["#100C18","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
   <Text style={s.title}>More</Text><Text style={s.subtitle}>Profile, study phase, routine, classes and support.</Text>
