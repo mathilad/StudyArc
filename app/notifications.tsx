@@ -33,7 +33,8 @@ export default function NotificationsScreen() {
   const openItem = (item: (typeof items)[number]) => {
     if (item.kind === "phase" || item.kind === "exam") { router.push("/study-phase"); return; }
     if (item.kind === "balance") { router.push("/(tabs)/plan"); return; }
-    if (item.kind === "protected" || item.kind === "class") { router.push("/classes"); return; }
+    if (item.kind === "class") return;
+    if (item.kind === "protected") { router.push("/classes"); return; }
     if ((item.kind === "revision" || item.kind === "memory") && item.subjectName && item.topicName) {
       router.push({ pathname: "/stopwatch", params: { subjectName: item.subjectName, topicName: item.topicName, studyType: "Revision" } });
       return;
@@ -55,7 +56,7 @@ export default function NotificationsScreen() {
       {items.length === 0 && pendingRequests.length === 0 ? <View style={s.empty}><Ionicons name="checkmark-circle-outline" size={42} color="#65D79A" /><Text style={s.emptyTitle}>All caught up</Text><Text style={s.emptyText}>There are no active reminders right now.</Text></View> : items.map((item) => <Pressable key={item.id} onPress={() => openItem(item)} style={[s.card, item.priority === "high" && s.cardHigh]}>
         <View style={[s.icon, item.priority === "high" && s.iconHigh]}><Ionicons name={iconFor(item.kind)} size={21} color={item.priority === "high" ? "#E6C8FF" : "#8FA0B4"} /></View>
         <View style={{ flex: 1, minWidth: 0 }}><View style={s.topLine}><Text style={s.itemTitle}>{item.title}</Text><Text style={s.when}>{item.whenLabel}</Text></View><Text style={s.body}>{item.body}</Text></View>
-        <Ionicons name="chevron-forward" size={17} color="#596779" />
+        {item.kind !== "class" ? <Ionicons name="chevron-forward" size={17} color="#596779" /> : null}
       </Pressable>)}
     </ScrollView>
   </View>;
