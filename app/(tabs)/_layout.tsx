@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import React from "react";
 import StudyArcLoader from "../../components/StudyArcLoader";
+import { useAppConfig } from "../../context/AppConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import { useMonetization } from "../../context/MonetizationContext";
 import { useStudent } from "../../context/StudentContext";
@@ -10,8 +11,11 @@ export default function TabsLayout() {
   const { session, loading: authLoading } = useAuth();
   const { profile, loading: studentLoading } = useStudent();
   const { access, loading: accessLoading } = useMonetization();
-  if (authLoading || (session && (studentLoading || accessLoading))) return <StudyArcLoader compact />;
+  const { isAdmin, refreshing: adminLoading } = useAppConfig();
+  if (authLoading || (session && adminLoading)) return <StudyArcLoader compact />;
   if (!session) return <Redirect href="/login" />;
+  if (isAdmin) return <Redirect href="/admin" />;
+  if (studentLoading || accessLoading) return <StudyArcLoader compact />;
   if (!profile.onboardingComplete) return <Redirect href="/onboarding" />;
   if (!access || ["BLOCKED", "PAYMENT_REQUIRED", "PAYMENT_PENDING"].includes(access.state)) return <Redirect href="/access" />;
 
