@@ -210,7 +210,7 @@ export default function AdminUsersScreen() {
             value={query}
             onChangeText={setQuery}
             onSubmitEditing={load}
-            placeholder="Search email or user ID"
+            placeholder="Search email, username or user ID"
             placeholderTextColor="#586678"
             autoCapitalize="none"
             style={s.search}
