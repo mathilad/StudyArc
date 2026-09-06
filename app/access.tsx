@@ -12,7 +12,7 @@ const money = (value:number) => `LKR ${Math.round(value).toLocaleString()}`;
 export default function AccessScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
-  const { settings } = useAppConfig();
+  const { settings, isAdmin, refreshing: adminLoading } = useAppConfig();
   const { access, plans, paymentMethods, payments, loading, refreshMonetization, createPaymentRequest, uploadPaymentReceipt, redeemActivationCode } = useMonetization();
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(plans.find(p=>p.featured)?.id ?? plans[0]?.id ?? null);
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(paymentMethods[0]?.id ?? null);
@@ -23,6 +23,8 @@ export default function AccessScreen() {
   const selectedPlan = plans.find(p=>p.id===selectedPlanId) ?? plans[0];
   const pending = useMemo(()=>payments.find(p=>p.status==="PENDING") ?? null,[payments]);
   if (!session) return <Redirect href="/login" />;
+  if (adminLoading) return null;
+  if (isAdmin) return <Redirect href="/admin" />;
   if (!loading && access && !["BLOCKED","PAYMENT_REQUIRED","PAYMENT_PENDING"].includes(access.state)) return <Redirect href="/(tabs)" />;
 
   const startPayment = async () => {
