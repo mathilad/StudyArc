@@ -34,13 +34,13 @@ const EMPTY: Omit<AppAccess, "refreshAccess"> = {
 
 const AccessContext = createContext<AppAccess | null>(null);
 const settingValue = (rows: any[], key: string) => rows.find(row => row.key === key)?.value;
-const resolveRole = (databaseRole: unknown, metadataRole: unknown): AccessRole => {
+const resolveRole = (databaseRole: unknown, metadataRole: unknown, metadataIsAdmin: unknown): AccessRole => {
   if (databaseRole === "content_admin" || databaseRole === "support_admin" || databaseRole === "super_admin") {
     return databaseRole;
   }
   // `app_metadata` is server-controlled. Keep this fallback so an administrator
   // can still reach the admin area if another access query is temporarily down.
-  if (metadataRole === "admin" || metadataRole === "super_admin") return "super_admin";
+  if (metadataIsAdmin === true || metadataRole === "admin" || metadataRole === "super_admin") return "super_admin";
   if (metadataRole === "content_admin" || metadataRole === "support_admin") return metadataRole;
   return "student";
 };
@@ -65,7 +65,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     if (roleResult.error) console.error("Unable to load Study Arc role:", roleResult.error);
     const settings = settingsResult.data ?? [];
     const access = accessResult.data;
-    const role = resolveRole(roleResult.data?.role, user.app_metadata?.role);
+    const role = resolveRole(roleResult.data?.role, user.app_metadata?.role, user.app_metadata?.is_admin);
     const premiumUntil = access?.premium_until ?? null;
     setState({
       loading: false,
