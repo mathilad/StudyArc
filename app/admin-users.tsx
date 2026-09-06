@@ -57,9 +57,8 @@ export default function AdminUsersScreen() {
       if (error) throw error;
       setUsers((data ?? []) as AdminUser[]);
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not load users.",
-      );
+      const details = error as { message?: string; details?: string };
+      setMessage(details?.message ?? details?.details ?? "Could not load users.");
     } finally {
       setBusy(false);
     }
