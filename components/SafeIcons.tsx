@@ -9,10 +9,19 @@ const webSymbols: Record<string, string> = {
   "close": "×", "warning-outline": "!", "home-outline": "⌂",
   "calendar-outline": "□", "time-outline": "◷", "analytics-outline": "◔",
   "grid-outline": "▦", "notifications-outline": "●", "play": "▶",
+  "stopwatch-outline": "◷", "flag": "⚑", "flag-outline": "⚑",
+  "stats-chart": "◔", "stats-chart-outline": "◔", "create-outline": "✎",
+  "calendar-number-outline": "▣", "clipboard-outline": "▤", "documents-outline": "▤",
+  "trophy-outline": "♜", "people-outline": "♟", "flame": "♨",
+  "sparkles": "✦", "sparkles-outline": "✦", "alert-circle-outline": "!",
+  "refresh": "↻", "moon-outline": "☾", "sunny-outline": "☀",
+  "timer-outline": "◷", "add-circle-outline": "⊕", "ellipse-outline": "○",
+  "language-outline": "🌐", "git-branch-outline": "⑂", "school-outline": "🎓",
+  "hardware-chip-outline": "⚙", "briefcase-outline": "💼", "color-palette-outline": "🎨",
 };
 
 function WebIcon({ name, size = 24, color = "#FFFFFF", style }: IconProps) {
-  const symbol = webSymbols[name ?? ""] ?? (name?.includes("check") ? "✓" : name?.includes("arrow") ? "→" : "•");
+  const symbol = webSymbols[name ?? ""] ?? (name?.includes("check") ? "✓" : name?.includes("arrow") ? "→" : name?.includes("calendar") ? "□" : name?.includes("person") ? "◉" : "•");
   return <Text accessibilityRole="image" style={[{ color, fontSize: size, lineHeight: size, textAlign: "center" }, style]}>{symbol}</Text>;
 }
 
