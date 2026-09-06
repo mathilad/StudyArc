@@ -13,7 +13,7 @@ export type PaperTopicResult = { id: string; subjectName: string; topicName: str
 
 type Cache = { stream: ALStream | null; exams: Exam[]; components: ExamComponent[]; assignments: Assignment[]; paperTopicResults: PaperTopicResult[] };
 const DEFAULT_CACHE: Cache = { stream: null, exams: [], components: [], assignments: [], paperTopicResults: [] };
-const KINDS = ["academic_stream_set", "exam_upsert", "exam_component_upsert", "assignment_upsert", "paper_topic_result_upsert"];
+const KINDS = ["academic_stream_set", "exam_upsert", "exam_delete", "exam_component_upsert", "exam_component_delete", "assignment_upsert", "paper_topic_result_upsert"];
 
 const AcademicContext = createContext<{
   stream: ALStream | null;
@@ -24,7 +24,9 @@ const AcademicContext = createContext<{
   loading: boolean;
   setStream: (stream: ALStream) => Promise<void>;
   addExam: (value: Omit<Exam, "id"> & { id?: string }) => Promise<string>;
+  deleteExam: (id: string) => Promise<void>;
   addExamComponent: (value: Omit<ExamComponent, "id"> & { id?: string }) => Promise<string>;
+  deleteExamComponent: (id: string) => Promise<void>;
   addAssignment: (value: Omit<Assignment, "id"> & { id?: string }) => Promise<string>;
   setAssignmentCompleted: (id: string, completed: boolean) => Promise<void>;
   addPaperTopicResult: (value: Omit<PaperTopicResult, "id" | "recordedAt">) => Promise<string>;
@@ -63,7 +65,9 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
         let error: any = null;
         if (item.kind === "academic_stream_set") ({ error } = await supabase.from("student_profiles").update({ stream: p.stream, updated_at: new Date().toISOString() }).eq("user_id", user.id));
         else if (item.kind === "exam_upsert") ({ error } = await supabase.from("exams").upsert(p, { onConflict: "id" }));
+        else if (item.kind === "exam_delete") ({ error } = await supabase.from("exams").delete().eq("id", p.id).eq("user_id", user.id));
         else if (item.kind === "exam_component_upsert") ({ error } = await supabase.from("exam_components").upsert(p, { onConflict: "id" }));
+        else if (item.kind === "exam_component_delete") ({ error } = await supabase.from("exam_components").delete().eq("id", p.id).eq("user_id", user.id));
         else if (item.kind === "assignment_upsert") ({ error } = await supabase.from("assignments").upsert(p, { onConflict: "id" }));
         else if (item.kind === "paper_topic_result_upsert") ({ error } = await supabase.from("paper_topic_results").upsert(p, { onConflict: "id" }));
         if (error) throw error;
@@ -136,6 +140,24 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
     return local.id;
   }, [isOnline, persist, state, syncQueue, user]);
 
+  const deleteExam = useCallback(async (id: string) => {
+    if (!user) throw new Error("You must be signed in.");
+    const next = { ...state, exams: state.exams.filter(exam => exam.id !== id), components: state.components.filter(component => component.examId !== id) };
+    setState(next);
+    await persist(next);
+    await enqueueMutation({ userId: user.id, kind: "exam_delete", payload: { id } });
+    if (isOnline) await syncQueue();
+  }, [isOnline, persist, state, syncQueue, user]);
+
+  const deleteExamComponent = useCallback(async (id: string) => {
+    if (!user) throw new Error("You must be signed in.");
+    const next = { ...state, components: state.components.filter(component => component.id !== id) };
+    setState(next);
+    await persist(next);
+    await enqueueMutation({ userId: user.id, kind: "exam_component_delete", payload: { id } });
+    if (isOnline) await syncQueue();
+  }, [isOnline, persist, state, syncQueue, user]);
+
   const addAssignment = useCallback(async (value: Omit<Assignment, "id"> & { id?: string }) => {
     if (!user) throw new Error("You must be signed in.");
     const local: Assignment = { ...value, id: value.id ?? makeUuid() };
@@ -164,7 +186,7 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
     return local.id;
   }, [isOnline, persist, state, syncQueue, user]);
 
-  const value = useMemo(() => ({ stream: state.stream, exams: state.exams, examComponents: state.components, assignments: state.assignments, paperTopicResults: state.paperTopicResults, loading, setStream, addExam, addExamComponent, addAssignment, setAssignmentCompleted, addPaperTopicResult, refreshAcademicData }), [addAssignment, addExam, addExamComponent, addPaperTopicResult, loading, refreshAcademicData, setAssignmentCompleted, setStream, state]);
+  const value = useMemo(() => ({ stream: state.stream, exams: state.exams, examComponents: state.components, assignments: state.assignments, paperTopicResults: state.paperTopicResults, loading, setStream, addExam, deleteExam, addExamComponent, deleteExamComponent, addAssignment, setAssignmentCompleted, addPaperTopicResult, refreshAcademicData }), [addAssignment, addExam, addExamComponent, addPaperTopicResult, deleteExam, deleteExamComponent, loading, refreshAcademicData, setAssignmentCompleted, setStream, state]);
   return <AcademicContext.Provider value={value}>{children}</AcademicContext.Provider>;
 }
 
