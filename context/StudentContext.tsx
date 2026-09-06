@@ -1,5 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { findTopic, type StudyMedium, type SubjectName } from "../data/subjects";
 import { cacheKey, enqueueMutation, makeUuid, queuedMutationsFor, readJson, removeQueuedMutation, writeJson } from "../lib/offlineStore";
 import { supabase } from "../lib/supabase";
@@ -164,7 +164,7 @@ const mapProfile = (r: any): StudentProfile => ({
 
 export function StudentProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
-  const { isOnline, syncTick, refreshConnectivity } = useOffline();
+  const { isOnline, checking, syncTick, refreshConnectivity } = useOffline();
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
   const [classes, setClasses] = useState<ClassSchedule[]>([]);
   const [testMarks, setTestMarks] = useState<TestMark[]>([]);
@@ -173,6 +173,20 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
   const [dailyReviews, setDailyReviews] = useState<DailyReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const currentUser = useRef(user?.id);
+  const profileRevision = useRef(0);
+  const latestProfile = useRef(profile);
+  const [loadedUser, setLoadedUser] = useState<string | undefined>();
+  if (currentUser.current !== user?.id) {
+    currentUser.current = user?.id;
+    profileRevision.current += 1;
+    latestProfile.current = DEFAULT_PROFILE;
+  }
+  const applyProfile = useCallback((value: StudentProfile) => {
+    latestProfile.current = value;
+    setProfile(value);
+  }, []);
+
 
   const persist = useCallback(async (
     p = profile,
@@ -184,7 +198,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
   ) => {
     if (!user) return;
     await writeJson(cacheKey(user.id, "student"), {
-      profile: p,
+      profile: latestProfile.current.onboardingComplete && !p.onboardingComplete ? latestProfile.current : p,
       classes: c,
       testMarks: t,
       topicProgress: tp,
@@ -195,6 +209,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
 
   const loadCache = useCallback(async () => {
     if (!user) return;
+    const revision = profileRevision.current;
     const x = await readJson<StudentCache>(cacheKey(user.id, "student"), {
       profile: DEFAULT_PROFILE,
       classes: [],
@@ -203,18 +218,23 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
       subtopicCoverage: [],
       dailyReviews: [],
     });
-    setProfile({ ...DEFAULT_PROFILE, ...(x.profile ?? {}) });
+    if (currentUser.current !== user.id || revision !== profileRevision.current) return;
+    const pending = await queuedMutationsFor(user.id, ["student_profile_upsert"]);
+    if (currentUser.current !== user.id || revision !== profileRevision.current) return;
+    const cachedProfile = { ...DEFAULT_PROFILE, ...(x.profile ?? {}) };
+    applyProfile(pending.length ? mapProfile(pending[pending.length - 1].payload) : cachedProfile);
     setClasses(x.classes ?? []);
     setTestMarks(x.testMarks ?? []);
     setTopicProgress(x.topicProgress ?? []);
     setSubtopicCoverage(x.subtopicCoverage ?? []);
     setDailyReviews(x.dailyReviews ?? []);
+    setLoadedUser(user.id);
     setLoading(false);
-  }, [user]);
+  }, [applyProfile, user]);
 
   const refreshStudentData = useCallback(async () => {
     if (!user) {
-      setProfile(DEFAULT_PROFILE);
+      applyProfile(DEFAULT_PROFILE);
       setClasses([]);
       setTestMarks([]);
       setTopicProgress([]);
@@ -223,6 +243,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
+    const revision = profileRevision.current;
     setError(null);
     if (!isOnline) {
       await loadCache();
@@ -325,7 +346,10 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
         createdAt: r.created_at,
       }));
 
-      setProfile(nextProfile);
+      const pending = await queuedMutationsFor(user.id, ["student_profile_upsert"]);
+      if (currentUser.current !== user.id || revision !== profileRevision.current) return;
+      if (pending.length) nextProfile = mapProfile(pending[pending.length - 1].payload);
+      applyProfile(nextProfile);
       setClasses(nextClasses);
       setTestMarks(nextTests);
       setTopicProgress(nextTopics);
@@ -340,48 +364,58 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
         dailyReviews: nextReviews,
       } satisfies StudentCache);
     } catch {
+      if (currentUser.current !== user.id || revision !== profileRevision.current) return;
       await loadCache();
       setError("Offline copy shown. Changes are saved locally and will sync automatically.");
     } finally {
-      setLoading(false);
-    }
-  }, [isOnline, loadCache, user]);
-
-  const syncQueue = useCallback(async () => {
-    if (!user || !isOnline) return;
-    const q = await queuedMutationsFor(user.id, KINDS);
-    for (const item of q) {
-      try {
-        let e: any = null;
-        const p = item.payload;
-        if (item.kind === "student_profile_upsert") ({ error: e } = await supabase.from("student_profiles").upsert(p, { onConflict: "user_id" }));
-        else if (item.kind === "class_upsert") ({ error: e } = await supabase.from("class_schedules").upsert(p, { onConflict: "id" }));
-        else if (item.kind === "class_delete") ({ error: e } = await supabase.from("class_schedules").delete().eq("id", p.id).eq("user_id", user.id));
-        else if (item.kind === "test_mark_upsert") ({ error: e } = await supabase.from("test_marks").upsert(p, { onConflict: "id" }));
-        else if (item.kind === "test_mark_delete") ({ error: e } = await supabase.from("test_marks").delete().eq("id", p.id).eq("user_id", user.id));
-        else if (item.kind === "topic_progress_upsert") ({ error: e } = await supabase.from("topic_progress").upsert(p, { onConflict: "user_id,subject_name,topic_name" }));
-        else if (item.kind === "syllabus_coverage_upsert") ({ error: e } = await supabase.from("syllabus_coverage").upsert(p, { onConflict: "user_id,subject_name,topic_name,subtopic_name" }));
-        else if (item.kind === "daily_review_upsert") ({ error: e } = await supabase.from("daily_reviews").upsert(p, { onConflict: "user_id,review_date" }));
-        if (e) throw e;
-        await removeQueuedMutation(item.id);
-      } catch {
-        break;
+      if (currentUser.current === user.id) {
+        setLoadedUser(user.id);
+        setLoading(false);
       }
     }
+  }, [applyProfile, isOnline, loadCache, user]);
+
+  const syncing = useRef<Promise<void> | null>(null);
+  const syncQueue = useCallback(async () => {
+    if (!user || !isOnline) return;
+    if (syncing.current) return syncing.current;
+    const task = (async () => {
+      const q = await queuedMutationsFor(user.id, KINDS);
+      for (const item of q) {
+        try {
+          let e: any = null;
+          const p = item.payload;
+          if (item.kind === "student_profile_upsert") ({ error: e } = await supabase.from("student_profiles").upsert(p, { onConflict: "user_id" }));
+          else if (item.kind === "class_upsert") ({ error: e } = await supabase.from("class_schedules").upsert(p, { onConflict: "id" }));
+          else if (item.kind === "class_delete") ({ error: e } = await supabase.from("class_schedules").delete().eq("id", p.id).eq("user_id", user.id));
+          else if (item.kind === "test_mark_upsert") ({ error: e } = await supabase.from("test_marks").upsert(p, { onConflict: "id" }));
+          else if (item.kind === "test_mark_delete") ({ error: e } = await supabase.from("test_marks").delete().eq("id", p.id).eq("user_id", user.id));
+          else if (item.kind === "topic_progress_upsert") ({ error: e } = await supabase.from("topic_progress").upsert(p, { onConflict: "user_id,subject_name,topic_name" }));
+          else if (item.kind === "syllabus_coverage_upsert") ({ error: e } = await supabase.from("syllabus_coverage").upsert(p, { onConflict: "user_id,subject_name,topic_name,subtopic_name" }));
+          else if (item.kind === "daily_review_upsert") ({ error: e } = await supabase.from("daily_reviews").upsert(p, { onConflict: "user_id,review_date" }));
+          if (e) throw e;
+          if (item.kind === "student_profile_upsert") profileRevision.current += 1;
+          await removeQueuedMutation(item.id);
+        } catch {
+          break;
+        }
+      }
+    })();
+    syncing.current = task;
+    try { await task; } finally { syncing.current = null; }
   }, [isOnline, user]);
 
   useEffect(() => {
-    if (!authLoading) loadCache().then(() => refreshStudentData());
-  }, [authLoading, loadCache, refreshStudentData]);
-
-  useEffect(() => {
-    if (isOnline && user) syncQueue().then(() => refreshStudentData());
-  }, [isOnline, refreshStudentData, syncQueue, syncTick, user]);
+    if (authLoading || checking) return;
+    // Flush pending local saves before reading the server's profile.
+    void syncQueue().then(() => refreshStudentData());
+  }, [authLoading, checking, refreshStudentData, syncQueue, syncTick]);
 
   const saveProfile = useCallback(async (updates: Partial<StudentProfile>) => {
     if (!user) throw new Error("You must be signed in.");
-    const merged = { ...profile, ...updates };
-    setProfile(merged);
+    const merged = { ...latestProfile.current, ...updates };
+    // Invalidate reads already in flight before persisting this newer profile.
+    profileRevision.current += 1;
     await persist(merged, classes, testMarks, topicProgress, subtopicCoverage, dailyReviews);
     await enqueueMutation({
       userId: user.id,
@@ -402,9 +436,12 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
         updated_at: new Date().toISOString(),
       },
     });
+    profileRevision.current += 1;
+    if (currentUser.current !== user.id) return;
+    applyProfile(merged);
     if (isOnline) syncQueue().catch(() => undefined);
     refreshConnectivity().catch(() => undefined);
-  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
+  }, [applyProfile, classes, dailyReviews, isOnline, persist, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
 
   const completeOnboarding = useCallback(async (v: StudentProfile) => saveProfile({ ...v, onboardingComplete: true }), [saveProfile]);
 
@@ -656,7 +693,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     subtopicCoverage,
     dailyReviews,
     todayReview,
-    loading,
+    loading: loading || authLoading || (Boolean(user) && loadedUser !== user?.id) || (checking && !latestProfile.current.onboardingComplete),
     error,
     refreshStudentData,
     saveProfile,
@@ -671,7 +708,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     setLessonCovered,
     saveDailyReview,
     uploadAvatar,
-  }), [profile, classes, testMarks, topicProgress, subtopicCoverage, dailyReviews, todayReview, loading, error, refreshStudentData, saveProfile, completeOnboarding, addClass, deleteClass, addTestMark, deleteTestMark, upsertTopicProgress, setSubtopicCovered, setSubtopicsCovered, setLessonCovered, saveDailyReview, uploadAvatar]);
+  }), [authLoading, checking, loadedUser, user, profile, classes, testMarks, topicProgress, subtopicCoverage, dailyReviews, todayReview, loading, error, refreshStudentData, saveProfile, completeOnboarding, addClass, deleteClass, addTestMark, deleteTestMark, upsertTopicProgress, setSubtopicCovered, setSubtopicsCovered, setLessonCovered, saveDailyReview, uploadAvatar]);
 
   return <StudentContext.Provider value={value}>{children}</StudentContext.Provider>;
 }

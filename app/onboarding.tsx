@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import StudyArcLoader from "../components/StudyArcLoader";
 import ClassFormModal from "../components/ClassFormModal";
 import ClockTimePicker from "../components/ClockTimePicker";
 import { useAcademic } from "../context/AcademicContext";
@@ -20,7 +21,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
   const { isAdmin, refreshing: adminLoading } = useAppConfig();
-  const { profile, completeOnboarding, addClass } = useStudent();
+  const { profile, loading: studentLoading, completeOnboarding, addClass } = useStudent();
   const { stream: savedStream, setStream: persistStream } = useAcademic();
 
   const [step, setStep] = useState(0);
@@ -47,10 +48,12 @@ export default function OnboardingScreen() {
   const years = availableExamYears();
   const config = streamConfig(stream);
 
+  if (authLoading) return <StudyArcLoader />;
   if (!authLoading && !session) return <Redirect href="/login" />;
   if (session && adminLoading) return null;
   if (isAdmin) return <Redirect href="/admin" />;
-  if (profile.onboardingComplete) return <Redirect href="/(tabs)" />;
+  if (studentLoading) return <StudyArcLoader />;
+  if (profile.onboardingComplete && !saving) return <Redirect href="/(tabs)" />;
 
   const chooseStream = (value: ALStream) => {
     setStream(value);
@@ -104,7 +107,8 @@ export default function OnboardingScreen() {
         selfStudyHours: hours,
         onboardingComplete: true,
       };
-      await Promise.all([completeOnboarding(nextProfile), persistStream(stream)]);
+      await persistStream(stream);
+      await completeOnboarding(nextProfile);
       router.replace("/");
     } catch (errorValue) {
       Alert.alert(
