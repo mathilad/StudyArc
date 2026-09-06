@@ -56,7 +56,7 @@ export default function ClassCompleteScreen() {
   const saveClassTime = async () => {
     if (!classItem || effectiveMinutes <= 0) return;
     await addSession({
-      subjectName: classItem.subjectName,
+      subjectName,
       topicName: isPaper ? "Paper class" : topicName,
       studyType: isPaper ? paperActivity : "Class",
       startedAt: new Date(`${occurrenceDate}T${classItem.startTime}:00`).toISOString(),
@@ -163,7 +163,7 @@ export default function ClassCompleteScreen() {
         await addAssignment({
           sourceClassId: classId ?? null,
           title: homework.trim(),
-          subjectName: classItem?.subjectName ?? subjectName,
+          subjectName,
           topicName: isPaper ? null : topicName,
           dueAt: due,
           estimatedMinutes: 60,
@@ -200,7 +200,10 @@ export default function ClassCompleteScreen() {
         {isPaper ? (
           <>
             <Text style={s.section}>PAPER ACTIVITY</Text>
-            <Text style={s.help}>Paper classes do not force normal topic coverage. Record the paper work itself.</Text>
+            <Text style={s.help}>Choose the subject discussed in this paper class. Paper classes do not force normal topic coverage.</Text>
+            <Text style={s.label}>SUBJECT</Text>
+            <View style={s.wrap}>{available.map((value) => <Pressable key={value} onPress={() => chooseSubject(value)} style={[s.chip, subjectName === value && s.chipOn]}><Text style={[s.chipText, subjectName === value && s.chipTextOn]}>{value}</Text></Pressable>)}</View>
+            <Text style={s.label}>PAPER WORK</Text>
             <View style={s.wrap}>{(["Paper Discussion", "Paper Review", "Paper Correction"] as StudyType[]).map((value) => <Pressable key={value} onPress={() => setPaperActivity(value)} style={[s.chip, paperActivity === value && s.chipOn]}><Text style={[s.chipText, paperActivity === value && s.chipTextOn]}>{value}</Text></Pressable>)}</View>
           </>
         ) : (
