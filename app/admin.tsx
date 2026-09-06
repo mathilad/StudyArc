@@ -99,9 +99,6 @@ export default function AdminScreen() {
         style={StyleSheet.absoluteFill}
       />
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={s.back}>
-          <Ionicons name="arrow-back" size={21} color="#FFF" />
-        </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={s.kicker}>STUDY ARC</Text>
           <Text style={s.title}>Admin Console</Text>
