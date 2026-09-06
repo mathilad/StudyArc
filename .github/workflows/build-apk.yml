@@ -2,9 +2,6 @@ name: Build Study Arc APK
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 concurrency:
   group: study-arc-apk-${{ github.ref }}
