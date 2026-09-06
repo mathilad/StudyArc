@@ -14,15 +14,15 @@ export const AL_STREAMS: ALStreamConfig[] = [
   {
     id: "Physical Science",
     title: "Physical Science / Mathematics",
-    description: "Choose three from the physical-science mathematics group.",
-    subjects: ["Combined Mathematics", "Higher Mathematics", "Physics", "Chemistry"],
+    description: "Choose three from the physical-science mathematics group. ICT may be selected with Combined Mathematics.",
+    subjects: ["Combined Mathematics", "Higher Mathematics", "Physics", "Chemistry", "ICT"],
   },
   {
     id: "Biological Science",
     title: "Biological Science",
-    description: "Biology is required, with two additional approved science/agriculture subjects.",
+    description: "Biology is required, with two additional approved science, agriculture or ICT subjects.",
     requiredSubjects: ["Biology"],
-    subjects: ["Biology", "Chemistry", "Physics", "Mathematics", "Agricultural Science"],
+    subjects: ["Biology", "Chemistry", "Physics", "Mathematics", "Agricultural Science", "ICT"],
   },
   {
     id: "Commerce",
