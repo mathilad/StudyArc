@@ -36,12 +36,23 @@ export async function writeJson(key: string, value: unknown) {
 
 export async function readQueue(): Promise<OfflineMutation[]> { return readJson<OfflineMutation[]>(QUEUE_KEY, []); }
 
+// All providers share this queue. Serialize read-modify-write operations so
+// concurrent profile/stream saves and sync acknowledgements cannot lose entries.
+let queueWrite: Promise<unknown> = Promise.resolve();
+function mutateQueue<T>(change: () => Promise<T>): Promise<T> {
+  const result = queueWrite.then(change);
+  queueWrite = result.catch(() => undefined);
+  return result;
+}
+
 export async function enqueueMutation(mutation: Omit<OfflineMutation, "id" | "createdAt">) {
-  const queue = await readQueue();
-  const item: OfflineMutation = { ...mutation, id: makeUuid(), createdAt: new Date().toISOString() };
-  queue.push(item);
-  await writeJson(QUEUE_KEY, queue);
-  return item;
+  return mutateQueue(async () => {
+    const queue = await readQueue();
+    const item: OfflineMutation = { ...mutation, id: makeUuid(), createdAt: new Date().toISOString() };
+    queue.push(item);
+    await writeJson(QUEUE_KEY, queue);
+    return item;
+  });
 }
 
 export async function queuedMutationsFor(userId: string, kinds: string[]) {
@@ -51,8 +62,10 @@ export async function queuedMutationsFor(userId: string, kinds: string[]) {
 }
 
 export async function removeQueuedMutation(id: string) {
-  const queue = await readQueue();
-  await writeJson(QUEUE_KEY, queue.filter(item => item.id !== id));
+  return mutateQueue(async () => {
+    const queue = await readQueue();
+    await writeJson(QUEUE_KEY, queue.filter(item => item.id !== id));
+  });
 }
 
 export async function queueCount(userId?: string) {
