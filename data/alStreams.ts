@@ -14,8 +14,8 @@ export const AL_STREAMS: ALStreamConfig[] = [
   {
     id: "Physical Science",
     title: "Physical Science / Mathematics",
-    description: "Choose Combined Mathematics, Chemistry and ICT for the ICT subject combination. ICT requires Chemistry.",
-    subjects: ["Combined Mathematics", "Chemistry", "ICT", "Higher Mathematics", "Physics"],
+    description: "Choose Combined Mathematics and Physics, then choose either Chemistry or ICT.",
+    subjects: ["Combined Mathematics", "Physics", "Chemistry", "ICT"],
   },
   {
     id: "Biological Science",
@@ -82,13 +82,15 @@ export function validateSubjectCombination(stream: ALStream, selected: string[])
   if (!config) return "Choose a valid A/L stream.";
   if (selected.length !== 3) return "Choose exactly three A/L subjects.";
   for (const required of config.requiredSubjects ?? []) if (!selected.includes(required)) return `${required} is required for ${config.title}.`;
-  if (selected.includes("ICT")) {
-    const validIctCombination = stream === "Physical Science"
-      ? selected.includes("Combined Mathematics") && selected.includes("Chemistry")
-      : stream === "Biological Science"
-        ? selected.includes("Biology") && selected.includes("Chemistry")
-        : true;
-    if (!validIctCombination) return "ICT can be selected only with Chemistry and your stream's main subject.";
+  if (stream === "Physical Science") {
+    const validPhysicalCombination = selected.includes("Combined Mathematics")
+      && selected.includes("Physics")
+      && (selected.includes("Chemistry") || selected.includes("ICT"));
+    if (!validPhysicalCombination) return "Choose Combined Mathematics, Physics, and either Chemistry or ICT.";
+  }
+  if (selected.includes("ICT") && stream === "Biological Science") {
+    const validBiologyIctCombination = selected.includes("Biology") && selected.includes("Chemistry");
+    if (!validBiologyIctCombination) return "For Biology with ICT, choose Biology, Chemistry and ICT.";
   }
   if (config.coreSubjects?.length && config.minimumCoreSelections) {
     const count = selected.filter(subject => config.coreSubjects!.includes(subject)).length;
