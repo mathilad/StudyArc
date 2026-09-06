@@ -1,5 +1,4 @@
 import "../data/initializeCatalog";
-import { Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import { Platform, View } from "react-native";
@@ -28,27 +27,6 @@ export default function RootLayout() {
     if (Platform.OS !== "web") return;
     const nav = (globalThis as any).navigator;
     if (nav?.serviceWorker && process.env.NODE_ENV === "production") nav.serviceWorker.register("/sw.js").catch(() => undefined);
-
-    // The browser preview can occasionally time out while loading an icon font.
-    // Start the shared fonts before a route needs an icon and handle that failure
-    // locally so completing onboarding never opens the development error screen.
-    void Promise.all([
-      Ionicons.loadFont(),
-      MaterialCommunityIcons.loadFont(),
-      MaterialIcons.loadFont(),
-    ]).catch((error) => console.warn("Study Arc icon fonts will retry when needed:", error));
-
-    const preventFontOverlay = (event: PromiseRejectionEvent) => {
-      const error = event.reason;
-      const message = error instanceof Error ? error.message : String(error ?? "");
-      const stack = error instanceof Error ? error.stack ?? "" : "";
-      if (message.includes("timeout exceeded") && stack.includes("fontfaceobserver")) {
-        event.preventDefault();
-        console.warn("Study Arc continued after an icon-font timeout.");
-      }
-    };
-    window.addEventListener("unhandledrejection", preventFontOverlay);
-    return () => window.removeEventListener("unhandledrejection", preventFontOverlay);
   }, []);
 
   return <View style={{ flex: 1, backgroundColor: "#080D14" }}>
