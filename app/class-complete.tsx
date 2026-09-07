@@ -3,15 +3,30 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useAcademic } from "../context/AcademicContext";
+import { useAcademic, type Assignment, type AssignmentRepeat } from "../context/AcademicContext";
 import { useClassLearning, type ClassLearningRecord } from "../context/ClassLearningContext";
-import { useStudent } from "../context/StudentContext";
+import { useStudent, type ClassSchedule } from "../context/StudentContext";
 import { useStudy, type StudyType } from "../context/StudyContext";
 import { SUBJECTS, expandSubjectChoices, subtopicDisplayName, topicDisplayName } from "../data/subjects";
+import { subjectDisplayName } from "../lib/subjectDisplay";
 import { durationMinutes } from "../lib/time";
 
 const dateKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const addDays = (days: number) => { const d = new Date(); d.setDate(d.getDate() + days); return dateKey(d); };
 const tomorrowIso = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(18, 0, 0, 0); return d.toISOString(); };
+const nextOccurrence = (item: ClassSchedule) => {
+  const now = new Date();
+  let days = (item.dayOfWeek - now.getDay() + 7) % 7;
+  if (days === 0) {
+    const [h, m] = item.startTime.split(":").map(Number);
+    const start = new Date(now);
+    start.setHours(h, m, 0, 0);
+    if (start.getTime() <= now.getTime()) days = 7;
+  }
+  const d = new Date(now);
+  d.setDate(now.getDate() + days);
+  return d;
+};
 
 export default function ClassCompleteScreen() {
   const router = useRouter();
@@ -39,12 +54,21 @@ export default function ClassCompleteScreen() {
   const [breakMinutes, setBreakMinutes] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [homework, setHomework] = useState("");
-  const [homeworkDue, setHomeworkDue] = useState("");
   const [paperActivity, setPaperActivity] = useState<StudyType>("Paper Discussion");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ClassLearningRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const assignmentDefaultSubject = classItem?.subjectName ?? subjectName;
+  const assignmentDefaultConfig = (SUBJECTS as Record<string, any>)[assignmentDefaultSubject];
+  const [assignmentTitle, setAssignmentTitle] = useState("");
+  const [assignmentSubject, setAssignmentSubject] = useState(assignmentDefaultSubject);
+  const [assignmentTopic, setAssignmentTopic] = useState(assignmentDefaultConfig?.topics?.[0]?.title ?? "");
+  const [assignmentDue, setAssignmentDue] = useState("");
+  const [assignmentMinutes, setAssignmentMinutes] = useState("60");
+  const [assignmentRepeat, setAssignmentRepeat] = useState<AssignmentRepeat>("None");
+  const [assignmentEditingId, setAssignmentEditingId] = useState<string | null>(null);
+  const [assignmentSaving, setAssignmentSaving] = useState(false);
 
   const config = (SUBJECTS as Record<string, any>)[subjectName];
   const topic = config?.topics?.find((x: any) => x.title === topicName) ?? config?.topics?.[0];
@@ -52,6 +76,23 @@ export default function ClassCompleteScreen() {
   const recentRecords = records.slice(0, 12);
   const rawMinutes = classItem ? durationMinutes(classItem.startTime, classItem.endTime) : 0;
   const effectiveMinutes = Math.max(0, rawMinutes - breakMinutes);
+
+  const assignmentTopics = (SUBJECTS as Record<string, any>)[assignmentSubject]?.topics ?? [];
+  const assignmentSubjectClasses = useMemo(
+    () => classes.filter((c) => c.subjectName === assignmentSubject),
+    [assignmentSubject, classes],
+  );
+  const nextTheory = useMemo(
+    () => assignmentSubjectClasses.filter((c) => c.classType === "Theory").map((c) => ({ c, date: nextOccurrence(c) })).sort((a, b) => a.date.getTime() - b.date.getTime())[0] ?? null,
+    [assignmentSubjectClasses],
+  );
+  const nextRevision = useMemo(
+    () => assignmentSubjectClasses.filter((c) => c.classType === "Revision").map((c) => ({ c, date: nextOccurrence(c) })).sort((a, b) => a.date.getTime() - b.date.getTime())[0] ?? null,
+    [assignmentSubjectClasses],
+  );
+  const classAssignments = assignments
+    .filter((a) => !a.completed && a.sourceClassId === (classId ?? null))
+    .sort((a, b) => (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999"));
 
   const saveClassTime = async () => {
     if (!classItem || effectiveMinutes <= 0) return;
@@ -154,28 +195,127 @@ export default function ClassCompleteScreen() {
     setMessage("Tomorrow's review was added to your priorities.");
   };
 
+  const chooseAssignmentSubject = (value: string) => {
+    setAssignmentSubject(value);
+    const nextConfig = (SUBJECTS as Record<string, any>)[value];
+    setAssignmentTopic(nextConfig?.topics?.[0]?.title ?? "");
+    setMessage(null);
+  };
+
+  const chooseAssignmentDate = (value: string) => {
+    setAssignmentDue(value);
+    setMessage(null);
+  };
+
+  const chooseAssignmentClass = (row: { c: ClassSchedule; date: Date } | null) => {
+    if (!row) {
+      setMessage("No matching class is scheduled for this subject.");
+      return;
+    }
+    setAssignmentDue(dateKey(row.date));
+    setMessage(`Due date set to the next ${row.c.classType.toLowerCase()} class. This homework stays linked to the class that created it.`);
+  };
+
+  const resetAssignmentForm = () => {
+    const nextSubject = classItem?.subjectName ?? subjectName;
+    const nextConfig = (SUBJECTS as Record<string, any>)[nextSubject];
+    setAssignmentEditingId(null);
+    setAssignmentTitle("");
+    setAssignmentSubject(nextSubject);
+    setAssignmentTopic(nextConfig?.topics?.[0]?.title ?? "");
+    setAssignmentDue("");
+    setAssignmentMinutes("60");
+    setAssignmentRepeat("None");
+  };
+
+  const editAssignment = (assignment: Assignment) => {
+    setAssignmentEditingId(assignment.id);
+    setAssignmentTitle(assignment.title);
+    setAssignmentSubject(assignment.subjectName);
+    setAssignmentTopic(assignment.topicName ?? "");
+    setAssignmentDue(assignment.dueAt ? dateKey(new Date(assignment.dueAt)) : "");
+    setAssignmentMinutes(String(assignment.estimatedMinutes));
+    setAssignmentRepeat(assignment.repeatPattern);
+    setMessage("Editing assignment. Save when your changes are ready.");
+  };
+
+  const saveAssignmentDraft = async (showSuccess = true) => {
+    if (assignmentSaving) return false;
+    if (!assignmentTitle.trim()) {
+      setMessage("Enter an assignment or homework title.");
+      return false;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(assignmentDue)) {
+      setMessage("Add a due date, or use Tomorrow / Next week / Next class.");
+      return false;
+    }
+    const due = new Date(`${assignmentDue}T18:00:00`);
+    if (Number.isNaN(due.getTime())) {
+      setMessage("That due date is not valid.");
+      return false;
+    }
+    const current = assignmentEditingId ? assignments.find((a) => a.id === assignmentEditingId) : null;
+    setAssignmentSaving(true);
+    try {
+      await addAssignment({
+        id: assignmentEditingId ?? undefined,
+        sourceClassId: current?.sourceClassId ?? classId ?? null,
+        title: assignmentTitle.trim(),
+        subjectName: assignmentSubject,
+        topicName: assignmentTopic || null,
+        dueAt: due.toISOString(),
+        estimatedMinutes: Math.max(5, Math.min(1440, Number(assignmentMinutes) || 60)),
+        completed: current?.completed ?? false,
+        repeatPattern: assignmentRepeat,
+        seriesId: current?.seriesId ?? null,
+      });
+      const edited = Boolean(assignmentEditingId);
+      resetAssignmentForm();
+      if (showSuccess) setMessage(edited ? "Assignment updated." : "Assignment added. It is now included in planner priorities.");
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save assignment.");
+      return false;
+    } finally {
+      setAssignmentSaving(false);
+    }
+  };
+
+  const startAssignment = (assignment: Assignment) => router.push({
+    pathname: "/stopwatch",
+    params: {
+      subjectName: assignment.subjectName,
+      topicName: assignment.topicName ?? "General",
+      studyType: "Study Session",
+      assignmentId: assignment.id,
+      assignmentTitle: assignment.title,
+    },
+  });
+
   const finish = async () => {
     setSaving(true);
     try {
-      if(!isPaper&&occurrenceRecords.length===0){
-        const recordingTitle=`Non-attended · Watch recording · ${classItem?.title??subjectName} · ${occurrenceDate}`;
-        if(!assignments.some(a=>!a.completed&&a.sourceClassId===(classId??null)&&a.title===recordingTitle))await addAssignment({sourceClassId:classId??null,title:recordingTitle,subjectName:classItem?.subjectName??subjectName,topicName:null,dueAt:tomorrowIso(),estimatedMinutes:rawMinutes||90,completed:false});
+      if (!isPaper && occurrenceRecords.length === 0) {
+        const recordingTitle = `Non-attended · Watch recording · ${classItem?.title ?? subjectName} · ${occurrenceDate}`;
+        if (!assignments.some((a) => !a.completed && a.sourceClassId === (classId ?? null) && a.title === recordingTitle)) {
+          await addAssignment({
+            sourceClassId: classId ?? null,
+            title: recordingTitle,
+            subjectName: classItem?.subjectName ?? subjectName,
+            topicName: null,
+            dueAt: tomorrowIso(),
+            estimatedMinutes: rawMinutes || 90,
+            completed: false,
+          });
+        }
         router.replace("/assignment");
         return;
       }
-      await saveClassTime();
-      if (homework.trim()) {
-        const due = homeworkDue ? new Date(`${homeworkDue}T18:00:00`).toISOString() : null;
-        await addAssignment({
-          sourceClassId: classId ?? null,
-          title: homework.trim(),
-          subjectName,
-          topicName: isPaper ? null : topicName,
-          dueAt: due,
-          estimatedMinutes: 60,
-          completed: false,
-        });
+      if (assignmentTitle.trim()) {
+        const saved = await saveAssignmentDraft(false);
+        if (!saved) return;
       }
+      await saveClassTime();
       router.replace("/(tabs)");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not finish class.");
@@ -190,10 +330,10 @@ export default function ClassCompleteScreen() {
       <View style={s.head}>
         <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF" /></Pressable>
         <View style={{ flex: 1 }}><Text style={s.title}>{isPaper ? "Paper class complete" : "Class complete"}</Text><Text style={s.sub}>{classItem ? `${classItem.subjectName} · ${classItem.classType}` : "Record this class"}</Text></View>
-        <Pressable disabled={saving} onPress={finish} style={[s.finish, saving && { opacity: 0.55 }]}><Text style={s.finishText}>{saving ? "Saving…" : "Finish"}</Text></Pressable>
+        <Pressable disabled={saving || assignmentSaving} onPress={finish} style={[s.finish, (saving || assignmentSaving) && s.disabled]}><Text style={s.finishText}>{saving ? "Saving…" : "Finish"}</Text></Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
         <View style={s.info}><Ionicons name="information-circle-outline" size={20} color="#C9A8F3" /><Text style={s.infoText}>Class learning stays separate from your own Covered / Not covered syllabus status. Recording a teacher's work never marks a lesson fully covered by you.</Text></View>
 
         <View style={s.timeCard}>
@@ -208,7 +348,7 @@ export default function ClassCompleteScreen() {
             <Text style={s.section}>PAPER ACTIVITY</Text>
             <Text style={s.help}>Choose the subject discussed in this paper class. Paper classes do not force normal topic coverage.</Text>
             <Text style={s.label}>SUBJECT</Text>
-            <View style={s.wrap}>{available.map((value) => <Pressable key={value} onPress={() => chooseSubject(value)} style={[s.chip, subjectName === value && s.chipOn]}><Text style={[s.chipText, subjectName === value && s.chipTextOn]}>{value}</Text></Pressable>)}</View>
+            <View style={s.wrap}>{available.map((value) => <Pressable key={value} onPress={() => chooseSubject(value)} style={[s.chip, subjectName === value && s.chipOn]}><Text style={[s.chipText, subjectName === value && s.chipTextOn]}>{subjectDisplayName(value)}</Text></Pressable>)}</View>
             <Text style={s.label}>PAPER WORK</Text>
             <View style={s.wrap}>{(["Paper Discussion", "Paper Review", "Paper Correction"] as StudyType[]).map((value) => <Pressable key={value} onPress={() => setPaperActivity(value)} style={[s.chip, paperActivity === value && s.chipOn]}><Text style={[s.chipText, paperActivity === value && s.chipTextOn]}>{value}</Text></Pressable>)}</View>
           </>
@@ -216,7 +356,7 @@ export default function ClassCompleteScreen() {
           <>
             <Text style={s.section}>WHAT THE CLASS COVERED</Text>
             <Text style={s.help}>Save as many subject/topic entries as the class actually touched. The class time itself is counted once by its occurrence key.</Text>
-            <View style={s.wrap}>{available.map((value) => <Pressable key={value} onPress={() => chooseSubject(value)} style={[s.chip, subjectName === value && s.chipOn]}><Text style={[s.chipText, subjectName === value && s.chipTextOn]}>{value}</Text></Pressable>)}</View>
+            <View style={s.wrap}>{available.map((value) => <Pressable key={value} onPress={() => chooseSubject(value)} style={[s.chip, subjectName === value && s.chipOn]}><Text style={[s.chipText, subjectName === value && s.chipTextOn]}>{subjectDisplayName(value)}</Text></Pressable>)}</View>
 
             <Text style={s.label}>LESSON / TOPIC</Text>
             <View style={s.topicList}>{(config?.topics ?? []).map((item: any) => <Pressable key={item.id} onPress={() => chooseTopic(item.title)} style={[s.topic, topicName === item.title && s.topicOn]}><View style={s.topicNum}><Text style={s.topicNumText}>{item.unit ?? item.id}</Text></View><Text style={s.topicTitle}>{topicDisplayName(subjectName, item.title, profile.medium)}</Text>{topicName === item.title ? <Ionicons name="checkmark-circle" size={19} color="#B784FF" /> : null}</Pressable>)}</View>
@@ -225,22 +365,60 @@ export default function ClassCompleteScreen() {
             <Text style={s.help}>Select a subtopic even if only part of it was taught. This means “worked on in class,” not “mastered by me.”</Text>
             <View style={s.topicList}>{(topic?.subtopics ?? []).map((value: string) => { const on = selected.includes(value); return <Pressable key={value} onPress={() => setSelected((current) => on ? current.filter((item) => item !== value) : [...current, value])} style={[s.subtopic, on && s.subtopicOn]}><View style={[s.check, on && s.checkOn]}>{on ? <Ionicons name="checkmark" size={13} color="#130A1B" /> : null}</View><View style={{ flex: 1 }}><Text style={s.subtopicText}>{subtopicDisplayName(subjectName, topic?.title ?? topicName, value, profile.medium)}</Text><Text style={s.subtopicMeta}>{on ? "Worked on in this class" : "Not selected"}</Text></View></Pressable>; })}</View>
 
-            <Pressable disabled={saving} onPress={saveCovered} style={[s.saveCovered, saving && { opacity: 0.55 }]}><Ionicons name={editingId ? "save-outline" : "add-circle-outline"} size={18} color="#160B20" /><Text style={s.saveCoveredText}>{editingId ? "Update class-learning entry" : "Save covered entry"}</Text></Pressable>
+            <Pressable disabled={saving} onPress={saveCovered} style={[s.saveCovered, saving && s.disabled]}><Ionicons name={editingId ? "save-outline" : "add-circle-outline"} size={18} color="#160B20" /><Text style={s.saveCoveredText}>{editingId ? "Update class-learning entry" : "Save covered entry"}</Text></Pressable>
             <Pressable onPress={addReview} style={s.review}><Ionicons name="refresh-outline" size={18} color="#D6B9F7" /><View style={{ flex: 1 }}><Text style={s.reviewTitle}>Review this topic tomorrow</Text><Text style={s.reviewSub}>Adds a 45-minute revision priority without marking the topic mastered.</Text></View></Pressable>
 
-            {occurrenceRecords.length > 0 ? <><Text style={s.section}>SAVED FOR THIS CLASS</Text>{occurrenceRecords.map((record) => <View key={record.id} style={s.saved}><Ionicons name="checkmark-circle" size={18} color="#79D29F" /><View style={{ flex: 1 }}><Text style={s.savedTitle}>{record.subjectName} · {topicDisplayName(record.subjectName, record.topicName, profile.medium)}</Text><Text style={s.savedSub}>{record.subtopicNames.length} subtopic{record.subtopicNames.length === 1 ? "" : "s"}</Text></View><Pressable onPress={() => editRecord(record)} style={s.miniButton}><Ionicons name="create-outline" size={16} color="#BED0E5" /></Pressable></View>)}</> : null}
+            {occurrenceRecords.length > 0 ? <><Text style={s.section}>SAVED FOR THIS CLASS</Text>{occurrenceRecords.map((record) => <View key={record.id} style={s.saved}><Ionicons name="checkmark-circle" size={18} color="#79D29F" /><View style={{ flex: 1 }}><Text style={s.savedTitle}>{subjectDisplayName(record.subjectName)} · {topicDisplayName(record.subjectName, record.topicName, profile.medium)}</Text><Text style={s.savedSub}>{record.subtopicNames.length} subtopic{record.subtopicNames.length === 1 ? "" : "s"}</Text></View><Pressable onPress={() => editRecord(record)} style={s.miniButton}><Ionicons name="create-outline" size={16} color="#BED0E5" /></Pressable></View>)}</> : null}
           </>
         )}
 
-        <Text style={s.section}>HOMEWORK</Text>
-        <Text style={s.help}>Optional. Homework becomes a planner deadline.</Text>
-        <TextInput value={homework} onChangeText={setHomework} placeholder="Homework / assignment" placeholderTextColor="#566476" style={s.input} />
-        <TextInput value={homeworkDue} onChangeText={setHomeworkDue} placeholder="Due date (YYYY-MM-DD), optional" placeholderTextColor="#566476" autoCapitalize="none" style={s.input} />
+        <Text style={s.section}>ASSIGNMENT / HOMEWORK</Text>
+        <Text style={s.help}>Optional. This now has the same assignment controls as the main Assignments screen. Add it here, or leave the title empty and finish the class.</Text>
+        <View style={s.assignmentCard}>
+          <Text style={s.label}>TITLE</Text>
+          <TextInput value={assignmentTitle} onChangeText={setAssignmentTitle} placeholder="e.g. Complete Tutorial 07" placeholderTextColor="#586678" style={s.input} />
+
+          <Text style={s.label}>SUBJECT</Text>
+          <View style={s.wrap}>{available.map((value) => <Pressable key={value} onPress={() => chooseAssignmentSubject(value)} style={[s.chip, assignmentSubject === value && s.chipOn]}><Text style={[s.chipText, assignmentSubject === value && s.chipTextOn]}>{subjectDisplayName(value)}</Text></Pressable>)}</View>
+
+          <Text style={s.label}>RELATED TOPIC</Text>
+          <View style={s.wrap}>{assignmentTopics.map((item: any) => <Pressable key={item.id} onPress={() => setAssignmentTopic(item.title)} style={[s.chip, assignmentTopic === item.title && s.chipOn]}><Text style={[s.chipText, assignmentTopic === item.title && s.chipTextOn]}>{topicDisplayName(assignmentSubject, item.title, profile.medium)}</Text></Pressable>)}</View>
+
+          <Text style={s.label}>DUE DATE</Text>
+          <View style={s.quickDates}>
+            <Pressable onPress={() => chooseAssignmentDate(addDays(1))} style={s.dateButton}><Ionicons name="sunny-outline" size={15} color="#D7C2F1" /><Text style={s.dateButtonText}>Tomorrow</Text></Pressable>
+            <Pressable onPress={() => chooseAssignmentDate(addDays(7))} style={s.dateButton}><Ionicons name="calendar-outline" size={15} color="#D7C2F1" /><Text style={s.dateButtonText}>Next week</Text></Pressable>
+          </View>
+          <Text style={s.classHint}>Or make it due at the next class for this subject:</Text>
+          <View style={s.quickDates}>
+            <Pressable onPress={() => chooseAssignmentClass(nextTheory)} style={[s.classButton, !nextTheory && s.disabled]}><Ionicons name="school-outline" size={15} color="#9ECFFF" /><View><Text style={s.classButtonTitle}>Next Theory</Text><Text style={s.classButtonSub}>{nextTheory ? nextTheory.date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "No theory class"}</Text></View></Pressable>
+            <Pressable onPress={() => chooseAssignmentClass(nextRevision)} style={[s.classButton, !nextRevision && s.disabled]}><Ionicons name="refresh-outline" size={15} color="#E4C1FF" /><View><Text style={s.classButtonTitle}>Next Revision</Text><Text style={s.classButtonSub}>{nextRevision ? nextRevision.date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "No revision class"}</Text></View></Pressable>
+          </View>
+          {classItem ? <View style={s.linked}><Ionicons name="link-outline" size={16} color="#82C9F7" /><Text style={s.linkedText}>Linked to this completed class · {classItem.title || subjectDisplayName(classItem.subjectName)} · {classItem.classType}</Text></View> : null}
+
+          <View style={s.row}>
+            <View style={{ flex: 1 }}><Text style={s.label}>DATE</Text><TextInput value={assignmentDue} onChangeText={chooseAssignmentDate} placeholder="YYYY-MM-DD" placeholderTextColor="#586678" autoCapitalize="none" style={s.input} /></View>
+            <View style={{ width: 120 }}><Text style={s.label}>MINUTES</Text><TextInput value={assignmentMinutes} onChangeText={setAssignmentMinutes} keyboardType="number-pad" style={s.input} /></View>
+          </View>
+
+          <Text style={s.label}>REPEAT</Text>
+          <View style={s.wrap}>{(["None", "Daily", "Weekly"] as AssignmentRepeat[]).map((value) => <Pressable key={value} onPress={() => setAssignmentRepeat(value)} style={[s.chip, assignmentRepeat === value && s.chipOn]}><Text style={[s.chipText, assignmentRepeat === value && s.chipTextOn]}>{value === "None" ? "One time" : value}</Text></Pressable>)}</View>
+
+          <Pressable disabled={assignmentSaving} onPress={() => saveAssignmentDraft(true)} style={[s.assignmentPrimary, assignmentSaving && s.disabled]}><Ionicons name={assignmentEditingId ? "save-outline" : "add"} size={18} color="#160B20" /><Text style={s.assignmentPrimaryText}>{assignmentSaving ? "Saving…" : assignmentEditingId ? "Save assignment changes" : "Add assignment"}</Text></Pressable>
+          {assignmentEditingId ? <Pressable onPress={resetAssignmentForm} style={s.cancelEdit}><Text style={s.cancelEditText}>Cancel editing</Text></Pressable> : null}
+        </View>
+
+        {classAssignments.length > 0 ? (
+          <>
+            <Text style={s.section}>ASSIGNMENTS FROM THIS CLASS</Text>
+            {classAssignments.map((assignment) => <View key={assignment.id} style={s.assignmentItem}><Pressable onPress={() => startAssignment(assignment)} style={s.assignmentPlay}><Ionicons name="play-circle-outline" size={24} color="#B784FF" /></Pressable><View style={{ flex: 1 }}><Text style={s.assignmentItemTitle}>{assignment.title}</Text><Text style={s.assignmentItemSub}>{subjectDisplayName(assignment.subjectName)}{assignment.topicName ? ` · ${topicDisplayName(assignment.subjectName, assignment.topicName, profile.medium)}` : ""} · {assignment.estimatedMinutes} min{assignment.repeatPattern !== "None" ? ` · repeats ${assignment.repeatPattern.toLowerCase()}` : ""}{assignment.dueAt ? ` · due ${new Date(assignment.dueAt).toLocaleString()}` : ""}</Text></View><Pressable accessibilityLabel={`Edit ${assignment.title}`} onPress={() => editAssignment(assignment)} style={s.assignmentEdit}><Ionicons name="create-outline" size={18} color="#D8C3F4" /></Pressable></View>)}
+          </>
+        ) : null}
 
         {!isPaper ? (
           <>
             <View style={s.historyHead}><View><Text style={s.historyTitle}>Recent class learning</Text><Text style={s.historySub}>Existing feature preserved: edit or remove mistakes at any time.</Text></View><View style={s.historyCount}><Text style={s.historyCountText}>{records.length}</Text></View></View>
-            {recentRecords.length === 0 ? <View style={s.empty}><Ionicons name="school-outline" size={28} color="#586779" /><Text style={s.emptyTitle}>No class-learning records yet</Text><Text style={s.emptyText}>After a class, save only what the teacher actually worked on.</Text></View> : recentRecords.map((record) => <View key={record.id} style={s.historyCard}><View style={s.historyIcon}><Ionicons name="school-outline" size={18} color="#CDAEF4" /></View><View style={{ flex: 1, minWidth: 0 }}><Text style={s.historySubject}>{record.subjectName}</Text><Text style={s.historyTopic} numberOfLines={2}>{topicDisplayName(record.subjectName, record.topicName, profile.medium)}</Text><Text style={s.historyMeta}>{new Date(`${record.occurrenceDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })} · {record.subtopicNames.length} subtopic{record.subtopicNames.length === 1 ? "" : "s"}</Text></View><View style={s.historyActions}><Pressable onPress={() => editRecord(record)} style={s.historyButton}><Ionicons name="create-outline" size={16} color="#BFD0E5" /></Pressable><Pressable onPress={() => setPendingDelete(record)} style={[s.historyButton, s.historyDelete]}><Ionicons name="trash-outline" size={16} color="#E9A0AD" /></Pressable></View></View>)}
+            {recentRecords.length === 0 ? <View style={s.empty}><Ionicons name="school-outline" size={28} color="#586779" /><Text style={s.emptyTitle}>No class-learning records yet</Text><Text style={s.emptyText}>After a class, save only what the teacher actually worked on.</Text></View> : recentRecords.map((record) => <View key={record.id} style={s.historyCard}><View style={s.historyIcon}><Ionicons name="school-outline" size={18} color="#CDAEF4" /></View><View style={{ flex: 1, minWidth: 0 }}><Text style={s.historySubject}>{subjectDisplayName(record.subjectName)}</Text><Text style={s.historyTopic} numberOfLines={2}>{topicDisplayName(record.subjectName, record.topicName, profile.medium)}</Text><Text style={s.historyMeta}>{new Date(`${record.occurrenceDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })} · {record.subtopicNames.length} subtopic{record.subtopicNames.length === 1 ? "" : "s"}</Text></View><View style={s.historyActions}><Pressable onPress={() => editRecord(record)} style={s.historyButton}><Ionicons name="create-outline" size={16} color="#BFD0E5" /></Pressable><Pressable onPress={() => setPendingDelete(record)} style={[s.historyButton, s.historyDelete]}><Ionicons name="trash-outline" size={16} color="#E9A0AD" /></Pressable></View></View>)}
           </>
         ) : null}
       </ScrollView>
@@ -248,7 +426,7 @@ export default function ClassCompleteScreen() {
       <Modal visible={!!pendingDelete} transparent animationType="fade" onRequestClose={() => !deleting && setPendingDelete(null)}>
         <View style={s.overlay}>
           <Pressable disabled={deleting} style={StyleSheet.absoluteFill} onPress={() => setPendingDelete(null)} />
-          <View style={s.modal}><View style={s.modalIcon}><Ionicons name="trash-outline" size={23} color="#F0A4B1" /></View><Text style={s.modalTitle}>Remove class-learning record?</Text><Text style={s.modalText}>{pendingDelete?.subjectName} · {pendingDelete?.topicName}</Text><Text style={s.modalHelp}>Only this class-learning entry is removed. Manual syllabus coverage and study sessions remain unchanged.</Text><View style={s.modalActions}><Pressable disabled={deleting} onPress={() => setPendingDelete(null)} style={s.cancel}><Text style={s.cancelText}>Keep</Text></Pressable><Pressable disabled={deleting} onPress={removeRecord} style={[s.confirm, deleting && { opacity: 0.55 }]}><Text style={s.confirmText}>{deleting ? "Removing…" : "Remove"}</Text></Pressable></View></View>
+          <View style={s.modal}><View style={s.modalIcon}><Ionicons name="trash-outline" size={23} color="#F0A4B1" /></View><Text style={s.modalTitle}>Remove class-learning record?</Text><Text style={s.modalText}>{pendingDelete?.subjectName} · {pendingDelete?.topicName}</Text><Text style={s.modalHelp}>Only this class-learning entry is removed. Manual syllabus coverage and study sessions remain unchanged.</Text><View style={s.modalActions}><Pressable disabled={deleting} onPress={() => setPendingDelete(null)} style={s.cancel}><Text style={s.cancelText}>Keep</Text></Pressable><Pressable disabled={deleting} onPress={removeRecord} style={[s.confirm, deleting && s.disabled]}><Text style={s.confirmText}>{deleting ? "Removing…" : "Remove"}</Text></Pressable></View></View>
         </View>
       </Modal>
     </View>
@@ -305,6 +483,27 @@ const s = StyleSheet.create({
   savedSub: { color: "#6F967F", fontSize: 9, marginTop: 3 },
   miniButton: { width: 34, height: 34, borderRadius: 11, backgroundColor: "#18222D", alignItems: "center", justifyContent: "center" },
   input: { minHeight: 48, borderRadius: 14, backgroundColor: "#0F161F", borderWidth: 1, borderColor: "#273342", color: "#E8ECF1", paddingHorizontal: 12, fontSize: 11, marginBottom: 8 },
+  assignmentCard: { borderRadius: 19, backgroundColor: "#101720", borderWidth: 1, borderColor: "#293646", padding: 14 },
+  quickDates: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  dateButton: { minHeight: 42, borderRadius: 12, backgroundColor: "#1A1725", borderWidth: 1, borderColor: "#433453", paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 },
+  dateButtonText: { color: "#D8C8EB", fontSize: 9.5, fontWeight: "900" },
+  classHint: { color: "#718092", fontSize: 9, marginTop: 10, marginBottom: 7 },
+  classButton: { minWidth: 150, flex: 1, minHeight: 55, borderRadius: 13, backgroundColor: "#111B27", borderWidth: 1, borderColor: "#294158", paddingHorizontal: 11, flexDirection: "row", alignItems: "center", gap: 8 },
+  classButtonTitle: { color: "#E2EAF1", fontSize: 9.5, fontWeight: "900" },
+  classButtonSub: { color: "#71879A", fontSize: 8, marginTop: 3 },
+  linked: { minHeight: 39, borderRadius: 11, backgroundColor: "#10202A", borderWidth: 1, borderColor: "#28516A", paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 7, marginTop: 8 },
+  linkedText: { flex: 1, color: "#8DBBD7", fontSize: 8.5, fontWeight: "800" },
+  row: { flexDirection: "row", gap: 8 },
+  assignmentPrimary: { height: 49, borderRadius: 14, backgroundColor: "#B784FF", flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", marginTop: 13 },
+  assignmentPrimaryText: { color: "#160B20", fontSize: 10.5, fontWeight: "900" },
+  cancelEdit: { height: 40, alignItems: "center", justifyContent: "center" },
+  cancelEditText: { color: "#A995BF", fontSize: 10, fontWeight: "800" },
+  assignmentItem: { minHeight: 67, borderRadius: 16, backgroundColor: "#101720", borderWidth: 1, borderColor: "#293646", padding: 11, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 7 },
+  assignmentPlay: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
+  assignmentEdit: { width: 36, height: 36, borderRadius: 11, backgroundColor: "#21192C", alignItems: "center", justifyContent: "center" },
+  assignmentItemTitle: { color: "#E8EBEF", fontSize: 11, fontWeight: "900" },
+  assignmentItemSub: { color: "#748194", fontSize: 8.5, lineHeight: 13, marginTop: 3 },
+  disabled: { opacity: 0.45 },
   historyHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 28, marginBottom: 10 },
   historyTitle: { color: "#F0F2F6", fontSize: 18, fontWeight: "900" },
   historySub: { color: "#718092", fontSize: 9.5, marginTop: 3 },
