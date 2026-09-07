@@ -224,501 +224,124 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     if (currentUser.current !== user.id || revision !== profileRevision.current) return;
     const pending = await queuedMutationsFor(user.id, ["student_profile_upsert"]);
     if (currentUser.current !== user.id || revision !== profileRevision.current) return;
-    const cachedProfile = { ...DEFAULT_PROFILE, ...(x.profile ?? {}) };
-    applyProfile(pending.length ? mapProfile(pending[pending.length - 1].payload) : cachedProfile);
-    setClasses(x.classes ?? []);
-    setTestMarks(x.testMarks ?? []);
-    setTopicProgress(x.topicProgress ?? []);
-    setSubtopicCoverage(x.subtopicCoverage ?? []);
-    setDailyReviews(x.dailyReviews ?? []);
-    setLoadedUser(user.id);
-    setLoading(false);
-  }, [applyProfile, user]);
+    const cachedProfile = { ...DEFAULT_PROFILE, .5מ�����k�w��`��ජනය", "සම්බන්ධීකරණය", "ප්‍රජනනය", "චලනය"]),
+      t("BIO-06", "Genetics", ["Mendelian genetics", "Chromosomal basis", "Linkage", "Pedigrees", "Population genetics"], "Unit 06", "ජාන විද්‍යාව", ["මෙන්ඩලීය ජාන විද්‍යාව", "වර්ණදේහීය පදනම", "සම්බන්ධතාව", "වංශාවලි", "ජනගහන ජාන විද්‍යාව"]),
+      t("BIO-07", "Molecular Biology & Recombinant DNA Technology", ["DNA organization", "Replication", "Gene expression", "Mutations", "Recombinant DNA", "Biotechnology"], "Unit 07", "අණුක ජීව විද්‍යාව හා ප්‍රතිසංයෝජිත DNA තාක්ෂණය", ["DNA සංවිධානය", "ප්‍රතිවලනය", "ජාන ප්‍රකාශනය", "විකෘති", "ප්‍රතිසංයෝජිත DNA", "ජෛව තාක්ෂණය"]),
+      t("BIO-08", "Environmental Biology", ["Populations", "Communities", "Ecosystems", "Biodiversity", "Conservation", "Pollution"], "Unit 08", "පාරිසරික ජීව විද්‍යාව", ["ජනගහන", "සමූහ", "පරිසර පද්ධති", "ජෛව විවිධත්වය", "සංරක්ෂණය", "දූෂණය"]),
+      t("BIO-09", "Microbiology", ["Microbial diversity", "Growth", "Control", "Microbes and disease", "Useful microorganisms"], "Unit 09", "ක්ෂුද්‍රජීව විද්‍යාව", ["ක්ෂුද්‍රජීව විවිධත්වය", "වර්ධනය", "පාලනය", "ක්ෂුද්‍රජීවීන් හා රෝග", "ප්‍රයෝජනවත් ක්ෂුද්‍රජීවීන්"]),
+      t("BIO-10", "Applied Biology", ["Health applications", "Agriculture", "Food and industry", "Biological resources", "Modern applications"], "Unit 10", "ව්‍යවහාරික ජීව විද්‍යාව", ["සෞඛ්‍ය යෙදුම්", "කෘෂිකර්මය", "ආහාර හා කර්මාන්ත", "ජීව සම්පත්", "නවීන යෙදුම්"]),
+    ],
+  },
+  Physics: {
+    icon: "atom", color: "#63B8FF", accent: "#2A7DD0",
+    topics: [
+      t("PHY-01", "Measurement", ["SI units", "Dimensions", "Measuring instruments", "Errors and uncertainty"], "Unit 01", "මිනුම්", ["SI ඒකක", "මාන", "මිනුම් උපකරණ", "දෝෂ හා අවිනිශ්චිතතාව"]),
+      t("PHY-02A", "Kinematics", ["Motion in one dimension", "Motion graphs", "Projectile motion"], "Unit 02A", "චලිත විද්‍යාව", ["ඒකමාන චලිතය", "චලිත ප්‍රස්තාර", "ප්‍රක්ෂේප චලිතය"]),
+      t("PHY-02B", "Forces", ["Newton's laws", "Friction", "Equilibrium of forces"], "Unit 02B", "බල", ["නිව්ටන් නියම", "ඝර්ෂණය", "බල සමතුලිතතාව"]),
+      t("PHY-02C", "Momentum", ["Linear momentum", "Impulse", "Collisions and conservation"], "Unit 02C", "ගම්‍යතාව", ["රේඛීය ගම්‍යතාව", "ආවේගය", "ගැටීම් හා සංස්ථිතිය"]),
+      t("PHY-02D", "Work and Energy", ["Work", "Kinetic and potential energy", "Power and energy conservation"], "Unit 02D", "කාර්යය හා ශක්තිය", ["කාර්යය", "චාලක හා විභව ශක්තිය", "ක්ෂමතාව හා ශක්ති සංස්ථිතිය"]),
+      t("PHY-02E", "Rotational Mechanics", ["Angular motion", "Torque", "Angular momentum"], "Unit 02E", "භ්‍රමණ යාන්ත්‍ර විද්‍යාව", ["කෝණික චලිතය", "ව්‍යාවර්තය", "කෝණික ගම්‍යතාව"]),
+      t("PHY-02F", "Fluid Mechanics", ["Pressure in fluids", "Buoyancy", "Fluid flow"], "Unit 02F", "ද්‍රව යාන්ත්‍ර විද්‍යාව", ["ද්‍රව පීඩනය", "උත්ප්ලාවකතාව", "ද්‍රව ප්‍රවාහය"]),
+      t("PHY-03", "Oscillations & Waves", ["SHM", "Wave motion", "Sound", "Interference", "Diffraction", "Geometrical optics"], "Unit 03", "දෝලන හා තරංග", ["සරල අනුවර්තී චලිතය", "තරංග චලිතය", "ශබ්දය", "අන්තරායනය", "විවර්තනය", "ජ්‍යාමිතික ප්‍රකාශ විද්‍යාව"]),
+      t("PHY-LIGHT", "Light", ["Propagation of light", "Reflection", "Refraction", "Total internal reflection", "Prisms and dispersion", "Spherical mirrors", "Thin lenses", "Optical instruments", "Interference", "Diffraction", "Polarization"], "Unit 03 · Light", "ආලෝකය", ["ආලෝකයේ ප්‍රචාරණය", "පරාවර්තනය", "වර්තනය", "පූර්ණ අභ්‍යන්තර පරාවර්තනය", "ප්‍රිස්ම හා වර්ණ වික්ෂේපණය", "ගෝලීය දර්පණ", "තුනී කාච", "ප්‍රකාශ උපකරණ", "අන්තරායනය", "විවර්තනය", "ධ්‍රැවණය"]),
+      t("PHY-04", "Thermal Physics", ["Temperature", "Thermal expansion", "Calorimetry", "Gas laws", "Thermodynamics"], "Unit 04", "තාප භෞතික විද්‍යාව", ["උෂ්ණත්වය", "තාප ප්‍රසාරණය", "තාපමානමිතිය", "වායු නීති", "තාපගති විද්‍යාව"]),
+      t("PHY-05", "Gravitational Field", ["Field strength", "Potential", "Satellites", "Planetary motion"], "Unit 05", "ගුරුත්වාකර්ෂණ ක්ෂේත්‍රය", ["ක්ෂේත්‍ර තීව්‍රතාව", "විභවය", "උපග්‍රහ", "ග්‍රහ චලිතය"]),
+      t("PHY-06", "Electrostatic Field", ["Coulomb law", "Electric field", "Potential", "Capacitance"], "Unit 06", "විද්‍යුත් ස්ථිතික ක්ෂේත්‍රය", ["කූලොම්බ් නීතිය", "විද්‍යුත් ක්ෂේත්‍රය", "විභවය", "ධාරිතාව"]),
+      t("PHY-07", "Magnetic Field", ["Magnetic force", "Fields due to currents", "Electromagnetic induction", "AC principles"], "Unit 07", "චුම්බක ක්ෂේත්‍රය", ["චුම්බක බලය", "ධාරා නිසා ඇති ක්ෂේත්‍ර", "විද්‍යුත් චුම්බක ප්‍රේරණය", "ප්‍රත්‍යාවර්ත ධාරා මූලධර්ම"]),
+      t("PHY-08", "Current Electricity", ["Current and resistance", "DC circuits", "Kirchhoff laws", "Electrical measurements"], "Unit 08", "ධාරා විද්‍යුතය", ["ධාරාව හා ප්‍රතිරෝධය", "සෘජු ධාරා පරිපථ", "කර්චොෆ් නීති", "විද්‍යුත් මිනුම්"]),
+      t("PHY-09", "Electronics", ["Semiconductors", "Diodes", "Transistors", "Operational circuits", "Digital electronics"], "Unit 09", "ඉලෙක්ට්‍රොනික විද්‍යාව", ["අර්ධ සන්නායක", "ඩයෝඩ", "ට්‍රාන්සිස්ටර", "ක්‍රියාකාරී පරිපථ", "ඩිජිටල් ඉලෙක්ට්‍රොනික විද්‍යාව"]),
+      t("PHY-10", "Mechanical Properties of Matter", ["Elasticity", "Surface tension", "Viscosity", "Material behaviour"], "Unit 10", "පදාර්ථයේ යාන්ත්‍රික ගුණ", ["ප්‍රත්‍යාස්ථතාව", "පෘෂ්ඨ ආතතිය", "දුස්ස්‍රාවිතාව", "ද්‍රව්‍ය හැසිරීම"]),
+      t("PHY-11", "Matter & Radiation", ["Thermal radiation", "Photoelectric effect", "Matter waves", "X-rays", "Radioactivity", "Nuclear physics"], "Unit 11", "පදාර්ථය හා විකිරණ", ["තාප විකිරණ", "ප්‍රකාශ විද්‍යුත් ආචරණය", "පදාර්ථ තරංග", "එක්ස් කිරණ", "විකිරණශීලීතාව", "න්‍යෂ්ටික භෞතික විද්‍යාව"]),
+    ],
+  },
+  "Agricultural Science": {
+    icon: "sprout", color: "#E9B35B", accent: "#B77625",
+    topics: [
+      t("AGR-01", "Agricultural Environment", ["Agro-ecosystems", "Climate", "Soil", "Water resources", "Sustainability"], "Grade 12", "කෘෂිකාර්මික පරිසරය", ["කෘෂි පරිසර පද්ධති", "දේශගුණය", "පස", "ජල සම්පත්", "තිරසාරභාවය"]),
+      t("AGR-02", "Soil & Plant Nutrition", ["Soil properties", "Soil fertility", "Plant nutrients", "Fertilizers", "Soil conservation"], "Grade 12", "පස හා ශාක පෝෂණය", ["පසේ ගුණ", "පසේ සාරවත්භාවය", "ශාක පෝෂක", "පොහොර", "පස සංරක්ෂණය"]),
+      t("AGR-03", "Crop Production", ["Land preparation", "Planting material", "Crop establishment", "Cultural practices", "Harvesting"], "Grade 12", "බෝග නිෂ්පාදනය", ["භූමි සකස් කිරීම", "රෝපණ ද්‍රව්‍ය", "බෝග ස්ථාපනය", "වගා ක්‍රියාකාරකම්", "අස්වනු නෙලීම"]),
+      t("AGR-04", "Plant Propagation & Improvement", ["Seeds", "Vegetative propagation", "Nursery management", "Crop improvement"], "Grade 12", "ශාක ප්‍රචාරණය හා වැඩිදියුණු කිරීම", ["බීජ", "ශාකීය ප්‍රචාරණය", "තවාන් කළමනාකරණය", "බෝග වැඩිදියුණු කිරීම"]),
+      t("AGR-05", "Pest, Disease & Weed Management", ["Pest classification", "Crop diseases", "Weeds", "Integrated pest management", "Safe pesticide use"], "Grade 13", "පළිබෝධ, රෝග හා වල්පැළ කළමනාකරණය", ["පළිබෝධ වර්ගීකරණය", "බෝග රෝග", "වල්පැළ", "ඒකාබද්ධ පළිබෝධ කළමනාකරණය", "ආරක්ෂිත පළිබෝධනාශක භාවිතය"]),
+      t("AGR-06", "Animal Production", ["Livestock systems", "Nutrition", "Breeding", "Health", "Housing"], "Grade 13", "සත්ත්ව නිෂ්පාදනය", ["පශු පාලන පද්ධති", "පෝෂණය", "අභිජනනය", "සෞඛ්‍යය", "නවාතැන්"]),
+      t("AGR-07", "Agricultural Engineering", ["Farm power", "Machinery", "Irrigation", "Drainage", "Protected agriculture"], "Grade 13", "කෘෂිකාර්මික ඉංජිනේරු විද්‍යාව", ["ගොවිපළ බලශක්තිය", "යන්ත්‍රෝපකරණ", "වාරිමාර්ග", "ජලාපවහනය", "ආරක්ෂිත කෘෂිකර්මය"]),
+      t("AGR-08", "Post-harvest & Food Technology", ["Post-harvest losses", "Storage", "Processing", "Food quality and safety"], "Grade 13", "පශ්චාත් අස්වනු හා ආහාර තාක්ෂණය", ["පශ්චාත් අස්වනු හානි", "ගබඩා කිරීම", "සැකසීම", "ආහාර ගුණාත්මකභාවය හා ආරක්ෂාව"]),
+      t("AGR-09", "Agribusiness & Farm Management", ["Farm records", "Economics", "Marketing", "Entrepreneurship", "Decision making"], "Grade 13", "කෘෂි ව්‍යාපාර හා ගොවිපළ කළමනාකරණය", ["ගොවිපළ වාර්තා", "ආර්ථික විද්‍යාව", "අලෙවිකරණය", "ව්‍යවසායකත්වය", "තීරණ ගැනීම"]),
+      t("AGR-10", "Sustainable Agriculture", ["Resource management", "Climate challenges", "Organic approaches", "Health and safety", "Current issues"], "Grade 13", "තිරසාර කෘෂිකර්මය", ["සම්පත් කළමනාකරණය", "දේශගුණික අභියෝග", "කාබනික ප්‍රවේශ", "සෞඛ්‍ය හා ආරක්ෂාව", "වත්මන් ගැටලු"]),
+    ],
+  },
+  Chemistry: {
+    icon: "flask-outline", color: "#FF8DA1", accent: "#D84E6B",
+    topics: [
+      t("CHE-01", "Atomic Structure", ["Atomic models", "Electronic structure", "Spectra", "Periodic trends"], "Unit 01", "පරමාණුක ව්‍යුහය", ["පරමාණුක ආකෘති", "ඉලෙක්ට්‍රෝනික ව්‍යුහය", "වර්ණාවලි", "ආවර්තිතා ප්‍රවණතා"]),
+      t("CHE-02", "Structure & Bonding", ["Ionic bonding", "Covalent bonding", "Shapes", "Intermolecular forces", "Solids"], "Unit 02", "ව්‍යුහය හා බන්ධන", ["අයනික බන්ධන", "සහසංයුජ බන්ධන", "අණුක හැඩ", "අන්තර්අණුක බල", "ඝන ද්‍රව්‍ය"]),
+      t("CHE-03", "Chemical Calculations", ["Mole concept", "Stoichiometry", "Solutions", "Titrations"], "Unit 03", "රසායනික ගණනය", ["මෝල් සංකල්පය", "ස්ටොයිකියෝමිතිය", "ද්‍රාවණ", "ටයිට්‍රේෂන්"]),
+      t("CHE-04", "Gaseous State of Matter", ["Gas laws", "Ideal gas equation", "Kinetic theory", "Real gases"], "Unit 04", "පදාර්ථයේ වායුමය තත්ත්වය", ["වායු නීති", "පරිපූර්ණ වායු සමීකරණය", "චාලක වාදය", "සැබෑ වායු"]),
+      t("CHE-05", "Energetics", ["Enthalpy", "Hess law", "Bond energies", "Entropy and feasibility"], "Unit 05", "ශක්ති විද්‍යාව", ["එන්තැල්පිය", "හෙස් නීතිය", "බන්ධන ශක්ති", "එන්ට්‍රොපිය හා ස්වයංසිද්ධතාව"]),
+      t("CHE-06", "Chemistry of s, p & d Block Elements", ["s-block", "p-block", "d-block", "Coordination chemistry", "Qualitative analysis"], "Unit 06", "s, p හා d කාණ්ඩ මූලද්‍රව්‍ය රසායනය", ["s කාණ්ඩය", "p කාණ්ඩය", "d කාණ්ඩය", "සංකීර්ණ සංයෝග රසායනය", "ගුණාත්මක විශ්ලේෂණය"]),
+      t("CHE-07", "Basic Concepts of Organic Chemistry", ["Nomenclature", "Isomerism", "Electronic effects", "Reaction mechanisms"], "Unit 07", "කාබනික රසායනයේ මූලික සංකල්ප", ["නාමකරණය", "සමාවයවිකතාව", "ඉලෙක්ට්‍රෝනික ආචරණ", "ප්‍රතික්‍රියා යාන්ත්‍රණ"]),
+      t("CHE-08", "Hydrocarbons & Halohydrocarbons", ["Alkanes", "Alkenes", "Alkynes", "Aromatic compounds", "Halogeno compounds"], "Unit 08", "හයිඩ්‍රොකාබන හා හැලෝහයිඩ්‍රොකාබන", ["ඇල්කේන", "ඇල්කීන", "ඇල්කයින", "ඇරෝමැටික් සංයෝග", "හැලෝජනිත සංයෝග"]),
+      t("CHE-09", "Oxygen-containing Organic Compounds", ["Alcohols", "Phenols", "Aldehydes", "Ketones", "Carboxylic acids", "Derivatives"], "Unit 09", "ඔක්සිජන් අඩංගු කාබනික සංයෝග", ["ඇල්කොහොල්", "ෆීනෝල්", "ඇල්ඩිහයිඩ", "කීටෝන", "කාබොක්සිලික් අම්ල", "ව්‍යුත්පන්න"]),
+      t("CHE-10", "Nitrogen-containing Organic Compounds", ["Amines", "Amides", "Amino acids", "Nitrogen compounds"], "Unit 10", "නයිට්‍රජන් අඩංගු කාබනික සංයෝග", ["ඇමීන", "ඇමයිඩ", "ඇමයිනෝ අම්ල", "නයිට්‍රජන් සංයෝග"]),
+      t("CHE-11", "Chemical Kinetics", ["Rate laws", "Order", "Activation energy", "Catalysis"], "Unit 11", "රසායනික චාලක විද්‍යාව", ["වේග නීති", "ප්‍රතික්‍රියා අනුපිළිවෙළ", "සක්‍රීයන ශක්තිය", "උත්ප්‍රේරණය"]),
+      t("CHE-12", "Equilibrium", ["Chemical equilibrium", "Acid-base", "Solubility", "Ionic equilibrium"], "Unit 12", "සමතුලිතතාව", ["රසායනික සමතුලිතතාව", "අම්ල-භස්ම", "ද්‍රාව්‍යතාව", "අයනික සමතුලිතතාව"]),
+      t("CHE-13", "Electrochemistry", ["Redox", "Electrochemical cells", "Electrode potentials", "Electrolysis"], "Unit 13", "විද්‍යුත් රසායනය", ["ඔක්සිකරණ-අඩුකිරීම", "විද්‍යුත් රසායනික කෝෂ", "ඉලෙක්ට්‍රෝඩ විභව", "විද්‍යුත් විච්ඡේදනය"]),
+      t("CHE-14", "Industrial Chemistry & Environmental Pollution", ["Industrial processes", "Raw materials", "Polymers", "Air and water pollution", "Green chemistry"], "Unit 14", "කාර්මික රසායනය හා පාරිසරික දූෂණය", ["කාර්මික ක්‍රියාවලි", "අමුද්‍රව්‍ය", "බහුඅණුක", "වායු හා ජල දූෂණය", "හරිත රසායනය"]),
+    ],
+  },
+  ICT: {
+    icon: "laptop", color: "#48D6D2", accent: "#168C91",
+    topics: [
+      t("ICT-01", "Concept of ICT", ["Data and information", "Information systems", "ICT in society", "Emerging trends"], "Competency 01", "තොරතුරු හා සන්නිවේදන තාක්ෂණ සංකල්පය", ["දත්ත හා තොරතුරු", "තොරතුරු පද්ධති", "සමාජයේ ICT", "නව ප්‍රවණතා"]),
+      t("ICT-02", "Computer Fundamentals", ["Hardware", "Software", "Computer architecture", "Input/output", "Storage"], "Competency 02", "පරිගණක මූලධර්ම", ["දෘඩාංග", "මෘදුකාංග", "පරිගණක වාස්තු විද්‍යාව", "ආදානය/ප්‍රතිදානය", "ගබඩා කිරීම"]),
+      t("ICT-03", "Data Representation", ["Number systems", "Boolean logic", "Character encoding", "Digital media"], "Competency 03", "දත්ත නිරූපණය", ["සංඛ්‍යා පද්ධති", "බූලීය තර්කය", "අක්ෂර කේතනය", "ඩිජිටල් මාධ්‍ය"]),
+      t("ICT-04", "Operating Systems", ["Processes", "Memory", "File systems", "Utilities", "User interfaces"], "Competency 04", "මෙහෙයුම් පද්ධති", ["ක්‍රියාවලි", "මතකය", "ගොනු පද්ධති", "උපයෝගිතා", "පරිශීලක අතුරුමුහුණත්"]),
+      t("ICT-05", "Computer Networks", ["Network models", "Media", "Protocols", "Internet", "Network security"], "Competency 05", "පරිගණක ජාල", ["ජාල ආකෘති", "සම්ප්‍රේෂණ මාධ්‍ය", "ප්‍රොටෝකෝල", "අන්තර්ජාලය", "ජාල ආරක්ෂාව"]),
+      t("ICT-06", "Systems Analysis & Design", ["Requirements", "Models", "Development life cycle", "Testing", "Implementation"], "Competency 06", "පද්ධති විශ්ලේෂණය හා සැලසුම", ["අවශ්‍යතා", "ආකෘති", "සංවර්ධන ජීවන චක්‍රය", "පරීක්ෂණය", "ක්‍රියාත්මක කිරීම"]),
+      t("ICT-07", "Database Management", ["Data models", "Relational databases", "Normalization", "SQL", "Database security"], "Competency 07", "දත්ත සමුදා කළමනාකරණය", ["දත්ත ආකෘති", "සම්බන්ධතා දත්ත සමුදා", "සාමාන්‍යකරණය", "SQL", "දත්ත සමුදා ආරක්ෂාව"]),
+      t("ICT-08", "Programming", ["Algorithms", "Control structures", "Functions", "Data structures", "Problem solving"], "Competency 08", "ක්‍රමලේඛනය", ["ඇල්ගොරිතම", "පාලන ව්‍යුහ", "ශ්‍රිත", "දත්ත ව්‍යුහ", "ගැටලු විසඳීම"]),
+      t("ICT-09", "Web Development", ["Web architecture", "HTML", "CSS", "Client/server concepts", "Web applications"], "Competency 09", "වෙබ් සංවර්ධනය", ["වෙබ් වාස්තු විද්‍යාව", "HTML", "CSS", "සේවාදායක/ග්‍රාහක සංකල්ප", "වෙබ් යෙදුම්"]),
+      t("ICT-10", "Internet of Things & New Technologies", ["Sensors", "Embedded systems", "Cloud concepts", "Mobile computing", "AI awareness"], "Competency 10", "වස්තු අන්තර්ජාලය හා නව තාක්ෂණ", ["සංවේදක", "අන්තර්ගත පද්ධති", "වලාකුළු සංකල්ප", "ජංගම පරිගණනය", "කෘත්‍රිම බුද්ධිය පිළිබඳ අවබෝධය"]),
+      t("ICT-11", "Information Security", ["Threats", "Authentication", "Cryptography concepts", "Privacy", "Safe use"], "Competency 11", "තොරතුරු ආරක්ෂාව", ["තර්ජන", "සත්‍යාපනය", "ගුප්තකේතන සංකල්ප", "පෞද්ගලිකත්වය", "ආරක්ෂිත භාවිතය"]),
+      t("ICT-12", "ICT Project & Problem Solving", ["Planning", "Documentation", "Implementation", "Evaluation", "Presentation"], "Competency 12", "ICT ව්‍යාපෘතිය හා ගැටලු විසඳීම", ["සැලසුම් කිරීම", "ලේඛනගත කිරීම", "ක්‍රියාත්මක කිරීම", "ඇගයීම", "ඉදිරිපත් කිරීම"]),
+    ],
+  },
+};
 
-  const refreshStudentData = useCallback(async () => {
-    if (!user) {
-      applyProfile(DEFAULT_PROFILE);
-      setClasses([]);
-      setTestMarks([]);
-      setTopicProgress([]);
-      setSubtopicCoverage([]);
-      setDailyReviews([]);
-      setLoading(false);
+export const ONBOARDING_SUBJECT_GROUPS: { title: string; options: OnboardingSubjectChoice[] }[] = [
+  { title: "Choose your first subject", options: ["Biology", "Combined Mathematics"] },
+  { title: "Choose your second subject", options: ["Physics", "Agricultural Science"] },
+  { title: "Choose your third subject", options: ["Chemistry", "ICT"] },
+];
+
+export function expandSubjectChoices(choices: string[]): SubjectName[] {
+  const result: SubjectName[] = [];
+  choices.forEach((choice) => {
+    if (choice === "Combined Mathematics") {
+      result.push("Pure Mathematics", "Applied Mathematics");
       return;
     }
-    const revision = profileRevision.current;
-    setError(null);
-    if (!isOnline) {
-      await loadCache();
-      return;
-    }
-    try {
-      const [pr, cr, tr, tpr, scr, rr] = await Promise.all([
-        supabase.from("student_profiles").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase.from("class_schedules").select("*").eq("user_id", user.id).order("day_of_week").order("start_time"),
-        supabase.from("test_marks").select("*").eq("user_id", user.id).order("test_date", { ascending: false }),
-        supabase.from("topic_progress").select("*").eq("user_id", user.id),
-        supabase.from("syllabus_coverage").select("*").eq("user_id", user.id),
-        supabase.from("daily_reviews").select("*").eq("user_id", user.id).order("review_date", { ascending: false }).limit(90),
-      ]);
-      if (pr.error) throw pr.error;
-      if (cr.error) throw cr.error;
-      if (tr.error) throw tr.error;
-      if (tpr.error) throw tpr.error;
-      if (scr.error) throw scr.error;
-      if (rr.error) throw rr.error;
-
-      const metadataName = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name.trim() : "";
-      let nextProfile = pr.data ? mapProfile(pr.data) : { ...DEFAULT_PROFILE, fullName: metadataName };
-      if (!pr.data) {
-        const { data, error: e } = await supabase.from("student_profiles").insert({
-          user_id: user.id,
-          full_name: metadataName,
-          medium: "English",
-        }).select("*").single();
-        if (e) throw e;
-        nextProfile = mapProfile(data);
-      } else if (!nextProfile.fullName && metadataName) {
-        nextProfile = { ...nextProfile, fullName: metadataName };
-        await supabase.from("student_profiles").update({ full_name: metadataName }).eq("user_id", user.id);
-      }
-
-      const nextClasses: ClassSchedule[] = (cr.data ?? []).map((r: any) => ({
-        id: r.id,
-        subjectName: r.subject_name,
-        title: r.title,
-        classType: r.class_type,
-        deliveryMode: r.delivery_mode,
-        dayOfWeek: r.day_of_week,
-        startTime: r.start_time,
-        endTime: r.end_time,
-        preReviewMinutes: r.pre_review_minutes,
-        travelMinutes: r.travel_minutes,
-      }));
-
-      const nextTests: TestMark[] = (tr.data ?? []).map((r: any) => {
-        const mcqScore = r.mcq_score == null ? null : Number(r.mcq_score);
-        const mcqTotal = r.mcq_total == null ? null : Number(r.mcq_total);
-        const essayScore = r.essay_score == null ? null : Number(r.essay_score);
-        const essayTotal = r.essay_total == null ? null : Number(r.essay_total);
-        return {
-          id: r.id,
-          subjectName: r.subject_name,
-          testDate: r.test_date,
-          title: r.title,
-          mcqScore,
-          mcqTotal,
-          essayScore,
-          essayTotal,
-          mcqPercent: r.mcq_percent == null ? percent(mcqScore, mcqTotal) : Number(r.mcq_percent),
-          essayPercent: r.essay_percent == null ? percent(essayScore, essayTotal) : Number(r.essay_percent),
-          weakTopics: r.weak_topics ?? [],
-        };
-      });
-
-      const nextTopics: TopicProgress[] = (tpr.data ?? []).map((r: any) => ({
-        id: r.id,
-        subjectName: r.subject_name,
-        topicName: r.topic_name,
-        coverage: Number(r.coverage ?? 0),
-        knowledge: Number(r.knowledge ?? 0),
-        memory: Number(r.memory ?? 0),
-        performance: Number(r.performance ?? 0),
-        lastStudiedAt: r.last_studied_at,
-        nextRecallAt: r.next_recall_at,
-      }));
-
-      const nextCoverage: SubtopicCoverage[] = (scr.data ?? []).map((r: any) => ({
-        id: r.id,
-        subjectName: r.subject_name,
-        topicName: r.topic_name,
-        subtopicName: r.subtopic_name,
-        covered: Boolean(r.covered),
-        source: r.source === "Class" ? "Class" : "Manual",
-        coveredAt: r.covered_at,
-      }));
-
-      const nextReviews: DailyReview[] = (rr.data ?? []).map((r: any) => ({
-        id: r.id,
-        reviewDate: r.review_date,
-        pagesStudied: Number(r.pages_studied ?? 0),
-        pagesRevised: Number(r.pages_revised ?? 0),
-        completedBlocks: Number(r.completed_blocks ?? 0),
-        dayRating: Number(r.day_rating ?? 3),
-        attentionTopics: r.attention_topics ?? [],
-        createdAt: r.created_at,
-      }));
-
-      const pending = await queuedMutationsFor(user.id, ["student_profile_upsert"]);
-      if (currentUser.current !== user.id || revision !== profileRevision.current) return;
-      if (pending.length) nextProfile = mapProfile(pending[pending.length - 1].payload);
-      applyProfile(nextProfile);
-      setClasses(nextClasses);
-      setTestMarks(nextTests);
-      setTopicProgress(nextTopics);
-      setSubtopicCoverage(nextCoverage);
-      setDailyReviews(nextReviews);
-      await writeJson(cacheKey(user.id, "student"), {
-        profile: nextProfile,
-        classes: nextClasses,
-        testMarks: nextTests,
-        topicProgress: nextTopics,
-        subtopicCoverage: nextCoverage,
-        dailyReviews: nextReviews,
-      } satisfies StudentCache);
-    } catch {
-      if (currentUser.current !== user.id || revision !== profileRevision.current) return;
-      await loadCache();
-      setError("Offline copy shown. Changes are saved locally and will sync automatically.");
-    } finally {
-      if (currentUser.current === user.id) {
-        setLoadedUser(user.id);
-        setLoading(false);
-      }
-    }
-  }, [applyProfile, isOnline, loadCache, user]);
-
-  const syncing = useRef<Promise<void> | null>(null);
-  const syncQueue = useCallback(async () => {
-    if (!user || !isOnline) return;
-    if (syncing.current) return syncing.current;
-    const task = (async () => {
-      const q = await queuedMutationsFor(user.id, KINDS);
-      for (const item of q) {
-        try {
-          let e: any = null;
-          const p = item.payload;
-          if (item.kind === "student_profile_upsert") ({ error: e } = await supabase.from("student_profiles").upsert(p, { onConflict: "user_id" }));
-          else if (item.kind === "class_upsert") ({ error: e } = await supabase.from("class_schedules").upsert(p, { onConflict: "id" }));
-          else if (item.kind === "class_delete") ({ error: e } = await supabase.from("class_schedules").delete().eq("id", p.id).eq("user_id", user.id));
-          else if (item.kind === "test_mark_upsert") ({ error: e } = await supabase.from("test_marks").upsert(p, { onConflict: "id" }));
-          else if (item.kind === "test_mark_delete") ({ error: e } = await supabase.from("test_marks").delete().eq("id", p.id).eq("user_id", user.id));
-          else if (item.kind === "topic_progress_upsert") ({ error: e } = await supabase.from("topic_progress").upsert(p, { onConflict: "user_id,subject_name,topic_name" }));
-          else if (item.kind === "syllabus_coverage_upsert") ({ error: e } = await supabase.from("syllabus_coverage").upsert(p, { onConflict: "user_id,subject_name,topic_name,subtopic_name" }));
-          else if (item.kind === "daily_review_upsert") ({ error: e } = await supabase.from("daily_reviews").upsert(p, { onConflict: "user_id,review_date" }));
-          if (e) throw e;
-          if (item.kind === "student_profile_upsert") profileRevision.current += 1;
-          await removeQueuedMutation(item.id);
-        } catch {
-          break;
-        }
-      }
-    })();
-    syncing.current = task;
-    try { await task; } finally { syncing.current = null; }
-  }, [isOnline, user]);
-
-  useEffect(() => {
-    if (authLoading || checking) return;
-    // Flush pending local saves before reading the server's profile.
-    void syncQueue().then(() => refreshStudentData());
-  }, [authLoading, checking, refreshStudentData, syncQueue, syncTick]);
-
-  const saveProfile = useCallback(async (updates: Partial<StudentProfile>) => {
-    if (!user) throw new Error("You must be signed in.");
-    const merged = { ...latestProfile.current, ...updates };
-    // Invalidate reads already in flight before persisting this newer profile.
-    profileRevision.current += 1;
-    await persist(merged, classes, testMarks, topicProgress, subtopicCoverage, dailyReviews);
-    await enqueueMutation({
-      userId: user.id,
-      kind: "student_profile_upsert",
-      payload: {
-        user_id: user.id,
-        full_name: merged.fullName,
-        school: merged.school || null,
-        district: merged.district || null,
-        exam_year: merged.examYear,
-        wake_time: merged.wakeTime,
-        morning_routine_minutes: merged.morningRoutineMinutes,
-        sleep_time: merged.sleepTime,
-        self_study_hours: merged.selfStudyHours,
-        subject_choices: merged.subjectChoices,
-        medium: merged.medium,
-        avatar_url: merged.avatarUrl,
-        onboarding_complete: merged.onboardingComplete,
-        updated_at: new Date().toISOString(),
-      },
-    });
-    profileRevision.current += 1;
-    if (currentUser.current !== user.id) return;
-    applyProfile(merged);
-    if (isOnline) syncQueue().catch(() => undefined);
-    refreshConnectivity().catch(() => undefined);
-  }, [applyProfile, classes, dailyReviews, isOnline, persist, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
-
-  const completeOnboarding = useCallback(async (v: StudentProfile) => saveProfile({ ...v, onboardingComplete: true }), [saveProfile]);
-
-  const addClass = useCallback(async (v: NewClass) => {
-    if (!user) throw new Error("You must be signed in.");
-    const local: ClassSchedule = { ...v, id: v.id ?? makeUuid(), travelMinutes: v.deliveryMode === "Physical" ? 90 : 0 };
-    const next = [...classes.filter(x => x.id !== local.id), local].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
-    setClasses(next);
-    await persist(profile, next, testMarks, topicProgress, subtopicCoverage, dailyReviews);
-    await enqueueMutation({
-      userId: user.id,
-      kind: "class_upsert",
-      payload: {
-        id: local.id,
-        user_id: user.id,
-        subject_name: local.subjectName,
-        title: local.title,
-        class_type: local.classType,
-        delivery_mode: local.deliveryMode,
-        day_of_week: local.dayOfWeek,
-        start_time: local.startTime,
-        end_time: local.endTime,
-        pre_review_minutes: local.preReviewMinutes,
-        travel_minutes: local.travelMinutes,
-      },
-    });
-    if (isOnline) syncQueue().catch(() => undefined);
-    refreshConnectivity().catch(() => undefined);
-  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
-
-  const deleteClass = useCallback(async (id: string) => {
-    if (!user) return;
-    const next = classes.filter(x => x.id !== id);
-    setClasses(next);
-    await persist(profile, next, testMarks, topicProgress, subtopicCoverage, dailyReviews);
-    await enqueueMutation({ userId: user.id, kind: "class_delete", payload: { id } });
-    if (isOnline) syncQueue().catch(() => undefined);
-    refreshConnectivity().catch(() => undefined);
-  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
-
-  const addTestMark = useCallback(async (v: NewTestMark) => {
-    if (!user) throw new Error("You must be signed in.");
-    const local: TestMark = {
-      ...v,
-      id: makeUuid(),
-      mcqPercent: percent(v.mcqScore, v.mcqTotal),
-      essayPercent: percent(v.essayScore, v.essayTotal),
-    };
-    const next = [local, ...testMarks];
-    setTestMarks(next);
-    await persist(profile, classes, next, topicProgress, subtopicCoverage, dailyReviews);
-    await enqueueMutation({
-      userId: user.id,
-      kind: "test_mark_upsert",
-      payload: {
-        id: local.id,
-        user_id: user.id,
-        subject_name: local.subjectName,
-        test_date: local.testDate,
-        title: local.title,
-        mcq_score: local.mcqScore,
-        mcq_total: local.mcqTotal,
-        essay_score: local.essayScore,
-        essay_total: local.essayTotal,
-        mcq_percent: local.mcqPercent,
-        essay_percent: local.essayPercent,
-        weak_topics: local.weakTopics,
-      },
-    });
-    if (isOnline) syncQueue().catch(() => undefined);
-    refreshConnectivity().catch(() => undefined);
-  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
-
-  const deleteTestMark = useCallback(async (id: string) => {
-    if (!user) return;
-    const next = testMarks.filter(x => x.id !== id);
-    setTestMarks(next);
-    await persist(profile, classes, next, topicProgress, subtopicCoverage, dailyReviews);
-    await enqueueMutation({ userId: user.id, kind: "test_mark_delete", payload: { id } });
-    if (isOnline) syncQueue().catch(() => undefined);
-    refreshConnectivity().catch(() => undefined);
-  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
-
-  const upsertTopicProgress = useCallback(async (v: TopicProgressInput) => {
-    if (!user) throw new Error("You must be signed in.");
-    const existing = topicProgress.find(x => x.subjectName === v.subjectName && x.topicName === v.topicName);
-    const local = { ...v, id: existing?.id ?? makeUuid() };
-    const next = [...topicProgress.filter(x => !(x.subjectName === v.subjectName && x.topicName === v.topicName)), local];
-    setTopicProgress(next);
-    await persist(profile, classes, testMarks, next, subtopicCoverage, dailyReviews);
-    await enqueueMutation({
-      userId: user.id,
-      kind: "topic_progress_upsert",
-      payload: {
-        user_id: user.id,
-        subject_name: v.subjectName,
-        topic_name: v.topicName,
-        coverage: v.coverage,
-        knowledge: v.knowledge,
-        memory: v.memory,
-        performance: v.performance,
-        last_studied_at: v.lastStudiedAt,
-        next_recall_at: v.nextRecallAt,
-        updated_at: new Date().toISOString(),
-      },
-    });
-    if (isOnline) syncQueue().catch(() => undefined);
-    refreshConnectivity().catch(() => undefined);
-  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
-
-  const setSubtopicsCovered = useCallback(async (
-    subjectName: string,
-    topicName: string,
-    subtopicNames: string[],
-    covered: boolean,
-    source: "Manual" | "Class" = "Manual",
-  ) => {
-    if (!user) throw new Error("You must be signed in.");
-    if (!subtopicNames.length) return;
-    const topic = findTopic(subjectName as SubjectName, topicName);
-    if (!topic) return;
-    const validNames = subtopicNames.filter(name => topic.subtopics.includes(name));
-    if (!validNames.length) return;
-    const now = new Date().toISOString();
-    const changed: SubtopicCoverage[] = validNames.map(subtopicName => {
-      const existing = subtopicCoverage.find(x => x.subjectName === subjectName && x.topicName === topicName && x.subtopicName === subtopicName);
-      return {
-        id: existing?.id ?? makeUuid(),
-        subjectName,
-        topicName,
-        subtopicName,
-        covered,
-        source,
-        coveredAt: covered ? now : null,
-      };
-    });
-    const names = new Set(validNames);
-    const nextCoverage = [
-      ...subtopicCoverage.filter(x => !(x.subjectName === subjectName && x.topicName === topicName && names.has(x.subtopicName))),
-      ...changed,
-    ];
-    const total = Math.max(1, topic.subtopics.length);
-    const coveredCount = topic.subtopics.filter(subtopic => nextCoverage.some(x => x.subjectName === subjectName && x.topicName === topicName && x.subtopicName === subtopic && x.covered)).length;
-    const coverageScore = Math.round(coveredCount / total * 100);
-    const currentProgress = topicProgress.find(x => x.subjectName === subjectName && x.topicName === topicName);
-    const nextProgressRow: TopicProgress = {
-      id: currentProgress?.id ?? makeUuid(),
-      subjectName,
-      topicName,
-      coverage: coverageScore,
-      knowledge: currentProgress?.knowledge ?? 0,
-      memory: currentProgress?.memory ?? 0,
-      performance: currentProgress?.performance ?? 0,
-      lastStudiedAt: currentProgress?.lastStudiedAt ?? null,
-      nextRecallAt: currentProgress?.nextRecallAt ?? null,
-    };
-    const nextProgress = [...topicProgress.filter(x => !(x.subjectName === subjectName && x.topicName === topicName)), nextProgressRow];
-    setSubtopicCoverage(nextCoverage);
-    setTopicProgress(nextProgress);
-    await persist(profile, classes, testMarks, nextProgress, nextCoverage, dailyReviews);
-    for (const row of changed) {
-      await enqueueMutation({
-        userId: user.id,
-        kind: "syllabus_coverage_upsert",
-        payload: { id: row.id, user_id: user.id, subject_name: subjectName, topic_name: topicName, subtopic_name: row.subtopicName, covered, source, covered_at: row.coveredAt, updated_at: now },
-      });
-    }
-    await enqueueMutation({
-      userId: user.id,
-      kind: "topic_progress_upsert",
-      payload: { user_id: user.id, subject_name: subjectName, topic_name: topicName, coverage: coverageScore, knowledge: nextProgressRow.knowledge, memory: nextProgressRow.memory, performance: nextProgressRow.performance, last_studied_at: nextProgressRow.lastStudiedAt, next_recall_at: nextProgressRow.nextRecallAt, updated_at: now },
-    });
-    if (isOnline) syncQueue().catch(() => undefined);
-    refreshConnectivity().catch(() => undefined);
-  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
-
-  const setSubtopicCovered = useCallback(async (
-    subjectName: string,
-    topicName: string,
-    subtopicName: string,
-    covered: boolean,
-    source: "Manual" | "Class" = "Manual",
-  ) => setSubtopicsCovered(subjectName, topicName, [subtopicName], covered, source), [setSubtopicsCovered]);
-
-  const setLessonCovered = useCallback(async (
-    subjectName: string,
-    topicName: string,
-    covered: boolean,
-    source: "Manual" | "Class" = "Manual",
-  ) => {
-    const topic = findTopic(subjectName as SubjectName, topicName);
-    if (!topic) return;
-    await setSubtopicsCovered(subjectName, topicName, topic.subtopics, covered, source);
-  }, [setSubtopicsCovered]);
-
-  const saveDailyReview = useCallback(async (v: DailyReviewInput) => {
-    if (!user) throw new Error("You must be signed in.");
-    const existing = dailyReviews.find(x => x.reviewDate === v.reviewDate);
-    const local: DailyReview = { ...v, id: existing?.id ?? makeUuid(), createdAt: existing?.createdAt ?? new Date().toISOString() };
-    const next = [local, ...dailyReviews.filter(x => x.reviewDate !== v.reviewDate)].sort((a, b) => b.reviewDate.localeCompare(a.reviewDate));
-    setDailyReviews(next);
-    await persist(profile, classes, testMarks, topicProgress, subtopicCoverage, next);
-    await enqueueMutation({
-      userId: user.id,
-      kind: "daily_review_upsert",
-      payload: {
-        id: local.id,
-        user_id: user.id,
-        review_date: local.reviewDate,
-        pages_studied: local.pagesStudied,
-        pages_revised: local.pagesRevised,
-        completed_blocks: local.completedBlocks,
-        day_rating: local.dayRating,
-        attention_topics: local.attentionTopics,
-        updated_at: new Date().toISOString(),
-      },
-    });
-    if (isOnline) syncQueue().catch(() => undefined);
-    refreshConnectivity().catch(() => undefined);
-  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
-
-  const uploadAvatar = useCallback(async () => {
-    if (!user) throw new Error("You must be signed in.");
-    if (!isOnline) throw new Error("Profile photo upload needs internet. Other profile changes still work offline.");
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: .8 });
-    if (result.canceled || !result.assets?.[0]) return null;
-    const asset = result.assets[0];
-    const response = await fetch(asset.uri);
-    const bytes = await response.arrayBuffer();
-    const ext = asset.fileName?.split(".").pop()?.toLowerCase() || "jpg";
-    const safeExt = ["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg";
-    const path = `${user.id}/avatar-${Date.now()}.${safeExt}`;
-    const { error: e } = await supabase.storage.from("avatars").upload(path, bytes, {
-      contentType: asset.mimeType ?? "image/jpeg",
-      upsert: false,
-    });
-    if (e) throw e;
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    await saveProfile({ avatarUrl: data.publicUrl });
-    return data.publicUrl;
-  }, [isOnline, saveProfile, user]);
-
-  const todayReview = useMemo(() => dailyReviews.find(x => x.reviewDate === dateKey()) ?? null, [dailyReviews]);
-  const value = useMemo<StudentContextValue>(() => ({
-    profile,
-    classes,
-    testMarks,
-    topicProgress,
-    subtopicCoverage,
-    dailyReviews,
-    todayReview,
-    loading: loading || authLoading || (Boolean(user) && loadedUser !== user?.id) || (checking && !latestProfile.current.onboardingComplete),
-    error,
-    refreshStudentData,
-    saveProfile,
-    completeOnboarding,
-    addClass,
-    deleteClass,
-    addTestMark,
-    deleteTestMark,
-    upsertTopicProgress,
-    setSubtopicCovered,
-    setSubtopicsCovered,
-    setLessonCovered,
-    saveDailyReview,
-    uploadAvatar,
-  }), [authLoading, checking, loadedUser, user, profile, classes, testMarks, topicProgress, subtopicCoverage, dailyReviews, todayReview, loading, error, refreshStudentData, saveProfile, completeOnboarding, addClass, deleteClass, addTestMark, deleteTestMark, upsertTopicProgress, setSubtopicCovered, setSubtopicsCovered, setLessonCovered, saveDailyReview, uploadAvatar]);
-
-  return <StudentContext.Provider value={value}>{children}</StudentContext.Provider>;
+    if (choice in SUBJECTS) result.push(choice as SubjectName);
+  });
+  return Array.from(new Set(result));
 }
 
-export function useStudent() {
-  const v = useContext(StudentContext);
-  if (!v) throw new Error("useStudent must be used inside StudentProvider.");
-  return v;
+export function firstTopicFor(subjectName: string): TopicConfig | undefined {
+  return SUBJECTS[subjectName as SubjectName]?.topics[0];
+}
+
+export function findTopic(subjectName: string, topicName: string): TopicConfig | undefined {
+  return SUBJECTS[subjectName as SubjectName]?.topics.find((topic) => topic.title === topicName || topic.id === topicName);
+}
+
+export function topicDisplayName(subjectName: string, topicName: string, medium: StudyMedium = "English") {
+  const topic = findTopic(subjectName, topicName);
+  if (!topic) return topicName;
+  return medium === "Sinhala" ? topic.sinhala : topic.title;
+}
+
+export function subtopicDisplayName(subjectName: string, topicName: string, subtopicName: string, medium: StudyMedium = "English") {
+  const topic = findTopic(subjectName, topicName);
+  if (!topic || medium === "English") return subtopicName;
+  const index = topic.subtopics.indexOf(subtopicName);
+  return index >= 0 ? (topic.subtopicsSinhala[index] ?? subtopicName) : subtopicName;
 }

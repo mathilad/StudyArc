@@ -3,6 +3,7 @@ import * as Linking from "expo-linking";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Platform } from "react-native";
 import { supabase } from "../lib/supabase";
+import { probeOnline } from "../lib/offlineStore";
 
 type AuthResult = { error: string | null; needsEmailConfirmation?: boolean };
 type AuthContextValue = {
@@ -11,6 +12,7 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   signUp: (email: string, password: string) => Promise<AuthResult>;
+  resendSignupEmail: (email: string) => Promise<AuthResult>;
   sendPasswordReset: (email: string) => Promise<AuthResult>;
   updatePassword: (password: string) => Promise<AuthResult>;
   signOut: () => Promise<AuthResult>;
@@ -64,15 +66,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!mounted) return;
       if (error) console.error("Unable to restore Supabase session:", error);
       let restored=data.session??null;
-      if(restored){
-        const{data:current}=await supabase.rpc("is_my_app_session_current");
-        if(!current){
-          const{data:active}=await supabase.from("active_app_sessions").select("session_id").maybeSingle();
-          if(active){await supabase.auth.signOut({scope:"local"});restored=null}
-          else{const{error:claimError}=await supabase.rpc("claim_my_app_session");if(claimError){await supabase.auth.signOut({scope:"local"});restored=null}}
-        }
-      }
       if(mounted){setSession(restored);setLoading(false)}
+      if(restored&&await probeOnline(2500)){
+        try{
+          const{data:current,error:currentError}=await supabase.rpc("is_my_app_session_current");
+          if(currentError)return;
+          if(!current){
+            const{data:active,error:activeError}=await supabase.from("active_app_sessions").select("session_id").maybeSingle();
+            if(activeError)return;
+            if(active){await supabase.auth.signOut({scope:"local"});if(mounted)setSession(null)}
+            else await supabase.rpc("claim_my_app_session");
+          }
+        }catch{/* Preserve the locally restored login if connectivity disappears. */}
+      }
     });
     Linking.getInitialURL().then(acceptAuthUrl).catch(() => undefined);
     const linkSubscription = Linking.addEventListener("url", ({ url }) => { acceptAuthUrl(url).catch(() => undefined); });
@@ -105,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sendPasswordReset = useCallback(async (email: string): Promise<AuthResult> => { try { const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: authRedirect("/reset-password", "recovery") }); if (error) throw error; return { error: null }; } catch (error) { return { error: messageFrom(error) }; } }, []);
+  const resendSignupEmail = useCallback(async (email: string): Promise<AuthResult> => { try { const { error } = await supabase.auth.resend({ type: "signup", email: email.trim().toLowerCase(), options: { emailRedirectTo: authRedirect("/login", "signup") } }); if (error) throw error; return { error: null }; } catch (error) { return { error: messageFrom(error) }; } }, []);
   const updatePassword = useCallback(async (password: string): Promise<AuthResult> => { try { const { error } = await supabase.auth.updateUser({ password }); if (error) throw error; return { error: null }; } catch (error) { return { error: messageFrom(error) }; } }, []);
   const signOut = useCallback(async (): Promise<AuthResult> => {
     setSession(null);
@@ -117,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: messageFrom(error) };
     }
   }, []);
-  const value = useMemo<AuthContextValue>(() => ({ session, user: session?.user ?? null, loading, signIn, signUp, sendPasswordReset, updatePassword, signOut }), [session, loading, signIn, signUp, sendPasswordReset, updatePassword, signOut]);
+  const value = useMemo<AuthContextValue>(() => ({ session, user: session?.user ?? null, loading, signIn, signUp, resendSignupEmail, sendPasswordReset, updatePassword, signOut }), [session, loading, signIn, signUp, resendSignupEmail, sendPasswordReset, updatePassword, signOut]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 export function useAuth() { const value = useContext(AuthContext); if (!value) throw new Error("useAuth must be used inside AuthProvider."); return value; }

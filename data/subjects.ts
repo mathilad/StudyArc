@@ -98,7 +98,12 @@ export const SUBJECTS: Record<SubjectName, SubjectConfig> = {
     icon: "atom", color: "#63B8FF", accent: "#2A7DD0",
     topics: [
       t("PHY-01", "Measurement", ["SI units", "Dimensions", "Measuring instruments", "Errors and uncertainty"], "Unit 01", "මිනුම්", ["SI ඒකක", "මාන", "මිනුම් උපකරණ", "දෝෂ හා අවිනිශ්චිතතාව"]),
-      t("PHY-02", "Mechanics", ["Kinematics", "Forces", "Momentum", "Work and energy", "Rotational mechanics", "Fluid mechanics"], "Unit 02", "යාන්ත්‍ර විද්‍යාව", ["චලිත විද්‍යාව", "බල", "ගම්‍යතාව", "කාර්යය හා ශක්තිය", "භ්‍රමණ යාන්ත්‍ර විද්‍යාව", "ද්‍රව යාන්ත්‍ර විද්‍යාව"]),
+      t("PHY-02A", "Kinematics", ["Motion in one dimension", "Motion graphs", "Projectile motion"], "Unit 02A", "චලිත විද්‍යාව", ["ඒකමාන චලිතය", "චලිත ප්‍රස්තාර", "ප්‍රක්ෂේප චලිතය"]),
+      t("PHY-02B", "Forces", ["Newton's laws", "Friction", "Equilibrium of forces"], "Unit 02B", "බල", ["නිව්ටන් නියම", "ඝර්ෂණය", "බල සමතුලිතතාව"]),
+      t("PHY-02C", "Momentum", ["Linear momentum", "Impulse", "Collisions and conservation"], "Unit 02C", "ගම්‍යතාව", ["රේඛීය ගම්‍යතාව", "ආවේගය", "ගැටීම් හා සංස්ථිතිය"]),
+      t("PHY-02D", "Work and Energy", ["Work", "Kinetic and potential energy", "Power and energy conservation"], "Unit 02D", "කාර්යය හා ශක්තිය", ["කාර්යය", "චාලක හා විභව ශක්තිය", "ක්ෂමතාව හා ශක්ති සංස්ථිතිය"]),
+      t("PHY-02E", "Rotational Mechanics", ["Angular motion", "Torque", "Angular momentum"], "Unit 02E", "භ්‍රමණ යාන්ත්‍ර විද්‍යාව", ["කෝණික චලිතය", "ව්‍යාවර්තය", "කෝණික ගම්‍යතාව"]),
+      t("PHY-02F", "Fluid Mechanics", ["Pressure in fluids", "Buoyancy", "Fluid flow"], "Unit 02F", "ද්‍රව යාන්ත්‍ර විද්‍යාව", ["ද්‍රව පීඩනය", "උත්ප්ලාවකතාව", "ද්‍රව ප්‍රවාහය"]),
       t("PHY-03", "Oscillations & Waves", ["SHM", "Wave motion", "Sound", "Interference", "Diffraction", "Geometrical optics"], "Unit 03", "දෝලන හා තරංග", ["සරල අනුවර්තී චලිතය", "තරංග චලිතය", "ශබ්දය", "අන්තරායනය", "විවර්තනය", "ජ්‍යාමිතික ප්‍රකාශ විද්‍යාව"]),
       t("PHY-LIGHT", "Light", ["Propagation of light", "Reflection", "Refraction", "Total internal reflection", "Prisms and dispersion", "Spherical mirrors", "Thin lenses", "Optical instruments", "Interference", "Diffraction", "Polarization"], "Unit 03 · Light", "ආලෝකය", ["ආලෝකයේ ප්‍රචාරණය", "පරාවර්තනය", "වර්තනය", "පූර්ණ අභ්‍යන්තර පරාවර්තනය", "ප්‍රිස්ම හා වර්ණ වික්ෂේපණය", "ගෝලීය දර්පණ", "තුනී කාච", "ප්‍රකාශ උපකරණ", "අන්තරායනය", "විවර්තනය", "ධ්‍රැවණය"]),
       t("PHY-04", "Thermal Physics", ["Temperature", "Thermal expansion", "Calorimetry", "Gas laws", "Thermodynamics"], "Unit 04", "තාප භෞතික විද්‍යාව", ["උෂ්ණත්වය", "තාප ප්‍රසාරණය", "තාපමානමිතිය", "වායු නීති", "තාපගති විද්‍යාව"]),

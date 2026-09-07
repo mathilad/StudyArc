@@ -64,6 +64,8 @@ export default function ClassFormModal({
     try {
       await onSave(proposal);
       onClose();
+    } catch (error) {
+      Alert.alert("Could not save class", error instanceof Error ? error.message : "Please try again.");
     } finally {
       setSaving(false);
     }
