@@ -8,6 +8,12 @@ on:
     paths:
       - app.json
       - package.json
+      - app/**
+      - components/**
+      - context/**
+      - data/**
+      - lib/**
+      - screens/**
       - .github/workflows/build-apk.yml
 
 permissions:
