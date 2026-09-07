@@ -39,31 +39,29 @@ export default function ClassCompleteScreen() {
   const { records, saveClassLearning, deleteClassLearning } = useClassLearning();
   const { addSession } = useStudy();
   const { assignments, addAssignment } = useAcademic();
+
   const classItem = classes.find((c) => c.id === classId);
   const isPaper = classItem?.classType === "Paper";
   const available = useMemo(() => expandSubjectChoices(profile.subjectChoices), [profile.subjectChoices]);
+  const defaultSubject = initialSubject && available.includes(initialSubject as any)
+    ? initialSubject
+    : (classItem?.subjectName ?? available[0] ?? "Physics");
 
-  const [subjectName, setSubjectName] = useState(
-    initialSubject && available.includes(initialSubject as any)
-      ? initialSubject
-      : (classItem?.subjectName ?? available[0] ?? "Physics"),
-  );
-  const initialConfig = (SUBJECTS as Record<string, any>)[subjectName];
-  const [topicName, setTopicName] = useState(initialConfig?.topics?.[0]?.title ?? "General / uncategorised");
+  const [subjectName, setSubjectName] = useState(defaultSubject);
+  const [topicName, setTopicName] = useState((SUBJECTS as Record<string, any>)[defaultSubject]?.topics?.[0]?.title ?? "General / uncategorised");
   const [selected, setSelected] = useState<string[]>([]);
   const [breakMinutes, setBreakMinutes] = useState(0);
-  const [message, setMessage] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [paperActivity, setPaperActivity] = useState<StudyType>("Paper Discussion");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ClassLearningRecord | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const assignmentDefaultSubject = classItem?.subjectName ?? subjectName;
-  const assignmentDefaultConfig = (SUBJECTS as Record<string, any>)[assignmentDefaultSubject];
+  const assignmentDefaultSubject = classItem?.subjectName ?? defaultSubject;
   const [assignmentTitle, setAssignmentTitle] = useState("");
   const [assignmentSubject, setAssignmentSubject] = useState(assignmentDefaultSubject);
-  const [assignmentTopic, setAssignmentTopic] = useState(assignmentDefaultConfig?.topics?.[0]?.title ?? "");
+  const [assignmentTopic, setAssignmentTopic] = useState((SUBJECTS as Record<string, any>)[assignmentDefaultSubject]?.topics?.[0]?.title ?? "");
   const [assignmentDue, setAssignmentDue] = useState("");
   const [assignmentMinutes, setAssignmentMinutes] = useState("60");
   const [assignmentRepeat, setAssignmentRepeat] = useState<AssignmentRepeat>("None");
@@ -78,10 +76,7 @@ export default function ClassCompleteScreen() {
   const effectiveMinutes = Math.max(0, rawMinutes - breakMinutes);
 
   const assignmentTopics = (SUBJECTS as Record<string, any>)[assignmentSubject]?.topics ?? [];
-  const assignmentSubjectClasses = useMemo(
-    () => classes.filter((c) => c.subjectName === assignmentSubject),
-    [assignmentSubject, classes],
-  );
+  const assignmentSubjectClasses = useMemo(() => classes.filter((c) => c.subjectName === assignmentSubject), [assignmentSubject, classes]);
   const nextTheory = useMemo(
     () => assignmentSubjectClasses.filter((c) => c.classType === "Theory").map((c) => ({ c, date: nextOccurrence(c) })).sort((a, b) => a.date.getTime() - b.date.getTime())[0] ?? null,
     [assignmentSubjectClasses],
@@ -98,7 +93,7 @@ export default function ClassCompleteScreen() {
     if (!classItem || effectiveMinutes <= 0) return;
     await addSession({
       subjectName,
-      topicName: isPaper ? "Paper class" : topicName,
+      topicName: isPaper ? "Paper class" : (topic?.title ?? topicName),
       studyType: isPaper ? paperActivity : "Class",
       startedAt: new Date(`${occurrenceDate}T${classItem.startTime}:00`).toISOString(),
       durationSeconds: effectiveMinutes * 60,
@@ -109,8 +104,7 @@ export default function ClassCompleteScreen() {
 
   const chooseSubject = (value: string) => {
     setSubjectName(value);
-    const nextConfig = (SUBJECTS as Record<string, any>)[value];
-    setTopicName(nextConfig?.topics?.[0]?.title ?? "General / uncategorised");
+    setTopicName((SUBJECTS as Record<string, any>)[value]?.topics?.[0]?.title ?? "General / uncategorised");
     setSelected([]);
     setEditingId(null);
     setMessage(null);
@@ -123,12 +117,31 @@ export default function ClassCompleteScreen() {
     setMessage(null);
   };
 
+  const toggleSubtopic = (value: string) => {
+    setSelected((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
+  };
+
   const editRecord = (record: ClassLearningRecord) => {
     setSubjectName(record.subjectName);
     setTopicName(record.topicName);
     setSelected(record.subtopicNames);
     setEditingId(record.id);
-    setMessage("Editing an existing class-learning record.");
+    setMessage("Editing this class-learning entry. Save or press Finish when ready.");
+  };
+
+  const persistSelectedLearning = async () => {
+    if (isPaper || selected.length === 0) return false;
+    const existing = editingId ? records.find((row) => row.id === editingId) : undefined;
+    await saveClassLearning({
+      id: existing?.id,
+      occurrenceKey: existing?.occurrenceKey,
+      classId: existing?.classId ?? classId ?? null,
+      occurrenceDate: existing?.occurrenceDate ?? occurrenceDate,
+      subjectName,
+      topicName: topic?.title ?? topicName,
+      subtopicNames: selected,
+    });
+    return true;
   };
 
   const saveCovered = async () => {
@@ -137,26 +150,17 @@ export default function ClassCompleteScreen() {
       setMessage("Select at least one subtopic the class worked on.");
       return;
     }
+    if (saving) return;
     setSaving(true);
     try {
-      const existing = editingId ? records.find((row) => row.id === editingId) : undefined;
-      await saveClassLearning({
-        id: existing?.id,
-        occurrenceKey: existing?.occurrenceKey,
-        classId: existing?.classId ?? classId ?? null,
-        occurrenceDate: existing?.occurrenceDate ?? occurrenceDate,
-        subjectName,
-        topicName: topic?.title ?? topicName,
-        subtopicNames: selected,
-      });
+      const wasEditing = Boolean(editingId);
+      await persistSelectedLearning();
       await saveClassTime();
-      setMessage(
-        editingId
-          ? "Class-learning record updated. Your manual syllabus coverage is unchanged."
-          : `Saved ${subjectName} · ${topicDisplayName(subjectName, topic?.title ?? topicName, profile.medium)}. You can add another subject or topic from this same class.`,
-      );
       setSelected([]);
       setEditingId(null);
+      setMessage(wasEditing
+        ? "Class-learning entry updated."
+        : `Saved ${subjectDisplayName(subjectName)} · ${topicDisplayName(subjectName, topic?.title ?? topicName, profile.medium)}. You can add another topic from the same class.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save class learning.");
     } finally {
@@ -174,31 +178,34 @@ export default function ClassCompleteScreen() {
         setSelected([]);
       }
       setPendingDelete(null);
-      setMessage("Class-learning record removed. Study sessions and manual coverage were not changed.");
+      setMessage("Class-learning entry removed.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not remove class-learning record.");
+      setMessage(error instanceof Error ? error.message : "Could not remove class-learning entry.");
     } finally {
       setDeleting(false);
     }
   };
 
   const addReview = async () => {
-    await addAssignment({
-      sourceClassId: classId ?? null,
-      title: `Review ${topicDisplayName(subjectName, topic?.title ?? topicName, profile.medium)}`,
-      subjectName,
-      topicName: topic?.title ?? topicName,
-      dueAt: tomorrowIso(),
-      estimatedMinutes: 45,
-      completed: false,
-    });
-    setMessage("Tomorrow's review was added to your priorities.");
+    try {
+      await addAssignment({
+        sourceClassId: classId ?? null,
+        title: `Review ${topicDisplayName(subjectName, topic?.title ?? topicName, profile.medium)}`,
+        subjectName,
+        topicName: topic?.title ?? topicName,
+        dueAt: tomorrowIso(),
+        estimatedMinutes: 45,
+        completed: false,
+      });
+      setMessage("Tomorrow's review was added to your priorities.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not add review.");
+    }
   };
 
   const chooseAssignmentSubject = (value: string) => {
     setAssignmentSubject(value);
-    const nextConfig = (SUBJECTS as Record<string, any>)[value];
-    setAssignmentTopic(nextConfig?.topics?.[0]?.title ?? "");
+    setAssignmentTopic((SUBJECTS as Record<string, any>)[value]?.topics?.[0]?.title ?? "");
     setMessage(null);
   };
 
@@ -213,16 +220,15 @@ export default function ClassCompleteScreen() {
       return;
     }
     setAssignmentDue(dateKey(row.date));
-    setMessage(`Due date set to the next ${row.c.classType.toLowerCase()} class. This homework stays linked to the class that created it.`);
+    setMessage(`Due date set to the next ${row.c.classType.toLowerCase()} class.`);
   };
 
   const resetAssignmentForm = () => {
     const nextSubject = classItem?.subjectName ?? subjectName;
-    const nextConfig = (SUBJECTS as Record<string, any>)[nextSubject];
     setAssignmentEditingId(null);
     setAssignmentTitle("");
     setAssignmentSubject(nextSubject);
-    setAssignmentTopic(nextConfig?.topics?.[0]?.title ?? "");
+    setAssignmentTopic((SUBJECTS as Record<string, any>)[nextSubject]?.topics?.[0]?.title ?? "");
     setAssignmentDue("");
     setAssignmentMinutes("60");
     setAssignmentRepeat("None");
@@ -271,7 +277,7 @@ export default function ClassCompleteScreen() {
       });
       const edited = Boolean(assignmentEditingId);
       resetAssignmentForm();
-      if (showSuccess) setMessage(edited ? "Assignment updated." : "Assignment added. It is now included in planner priorities.");
+      if (showSuccess) setMessage(edited ? "Assignment updated." : "Assignment added to planner priorities.");
       return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save assignment.");
@@ -293,9 +299,21 @@ export default function ClassCompleteScreen() {
   });
 
   const finish = async () => {
+    if (saving || assignmentSaving) return;
     setSaving(true);
     try {
-      if (!isPaper && occurrenceRecords.length === 0) {
+      let hasLearning = occurrenceRecords.length > 0;
+
+      // Critical: Finish must commit the class data currently selected on screen.
+      // Previously these selections were discarded unless Save covered entry was pressed first.
+      if (!isPaper && selected.length > 0) {
+        await persistSelectedLearning();
+        hasLearning = true;
+        setSelected([]);
+        setEditingId(null);
+      }
+
+      if (!isPaper && !hasLearning) {
         const recordingTitle = `Non-attended · Watch recording · ${classItem?.title ?? subjectName} · ${occurrenceDate}`;
         if (!assignments.some((a) => !a.completed && a.sourceClassId === (classId ?? null) && a.title === recordingTitle)) {
           await addAssignment({
@@ -311,14 +329,16 @@ export default function ClassCompleteScreen() {
         router.replace("/assignment");
         return;
       }
+
       if (assignmentTitle.trim()) {
         const saved = await saveAssignmentDraft(false);
         if (!saved) return;
       }
+
       await saveClassTime();
       router.replace("/(tabs)");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not finish class.");
+      setMessage(error instanceof Error ? error.message : "Could not finish and save this class.");
     } finally {
       setSaving(false);
     }
@@ -329,16 +349,27 @@ export default function ClassCompleteScreen() {
       <LinearGradient colors={["#1A1227", "#080D14", "#080D14"]} style={StyleSheet.absoluteFill} />
       <View style={s.head}>
         <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF" /></Pressable>
-        <View style={{ flex: 1 }}><Text style={s.title}>{isPaper ? "Paper class complete" : "Class complete"}</Text><Text style={s.sub}>{classItem ? `${classItem.subjectName} · ${classItem.classType}` : "Record this class"}</Text></View>
-        <Pressable disabled={saving || assignmentSaving} onPress={finish} style={[s.finish, (saving || assignmentSaving) && s.disabled]}><Text style={s.finishText}>{saving ? "Saving…" : "Finish"}</Text></Pressable>
+        <View style={{ flex: 1 }}>
+          <Text style={s.title}>{isPaper ? "Paper class complete" : "Class complete"}</Text>
+          <Text style={s.sub}>{classItem ? `${subjectDisplayName(classItem.subjectName)} · ${classItem.classType}` : "Record this class"}</Text>
+        </View>
+        <Pressable disabled={saving || assignmentSaving} onPress={finish} style={[s.finish, (saving || assignmentSaving) && s.disabled]}>
+          <Text style={s.finishText}>{saving ? "Saving…" : "Finish & save"}</Text>
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
-        <View style={s.info}><Ionicons name="information-circle-outline" size={20} color="#C9A8F3" /><Text style={s.infoText}>Class learning stays separate from your own Covered / Not covered syllabus status. Recording a teacher's work never marks a lesson fully covered by you.</Text></View>
+        {!classItem ? <View style={s.warning}><Ionicons name="alert-circle-outline" size={19} color="#E5ADBA" /><Text style={s.warningText}>This class could not be found in your schedule. Learning can still be recorded, but class time cannot be attached.</Text></View> : null}
+
+        <View style={s.info}><Ionicons name="information-circle-outline" size={20} color="#C9A8F3" /><Text style={s.infoText}>Choose what the teacher covered. Pressing Finish & save now saves the selections on this screen automatically; you do not have to press the smaller save button first.</Text></View>
 
         <View style={s.timeCard}>
           <View><Text style={s.timeLabel}>CLASS TIME</Text><Text style={s.timeValue}>{effectiveMinutes} min</Text><Text style={s.timeSub}>{rawMinutes} min scheduled − {breakMinutes} min break</Text></View>
-          <View style={s.breakControls}><Pressable onPress={() => setBreakMinutes(Math.max(0, breakMinutes - 5))} style={s.step}><Ionicons name="remove" size={18} color="#D5C2EC" /></Pressable><Text style={s.breakText}>{breakMinutes}m break</Text><Pressable onPress={() => setBreakMinutes(Math.min(Math.max(0, rawMinutes - 5), breakMinutes + 5))} style={s.step}><Ionicons name="add" size={18} color="#D5C2EC" /></Pressable></View>
+          <View style={s.breakControls}>
+            <Pressable onPress={() => setBreakMinutes(Math.max(0, breakMinutes - 5))} style={s.step}><Ionicons name="remove" size={18} color="#D5C2EC" /></Pressable>
+            <Text style={s.breakText}>{breakMinutes}m break</Text>
+            <Pressable onPress={() => setBreakMinutes(Math.min(Math.max(0, rawMinutes - 5), breakMinutes + 5))} style={s.step}><Ionicons name="add" size={18} color="#D5C2EC" /></Pressable>
+          </View>
         </View>
 
         {message ? <View style={s.message}><Text style={s.messageText}>{message}</Text></View> : null}
@@ -346,7 +377,7 @@ export default function ClassCompleteScreen() {
         {isPaper ? (
           <>
             <Text style={s.section}>PAPER ACTIVITY</Text>
-            <Text style={s.help}>Choose the subject discussed in this paper class. Paper classes do not force normal topic coverage.</Text>
+            <Text style={s.help}>Choose what happened in the paper class. Paper classes do not force normal lesson coverage.</Text>
             <Text style={s.label}>SUBJECT</Text>
             <View style={s.wrap}>{available.map((value) => <Pressable key={value} onPress={() => chooseSubject(value)} style={[s.chip, subjectName === value && s.chipOn]}><Text style={[s.chipText, subjectName === value && s.chipTextOn]}>{subjectDisplayName(value)}</Text></Pressable>)}</View>
             <Text style={s.label}>PAPER WORK</Text>
@@ -355,17 +386,19 @@ export default function ClassCompleteScreen() {
         ) : (
           <>
             <Text style={s.section}>WHAT THE CLASS COVERED</Text>
-            <Text style={s.help}>Save as many subject/topic entries as the class actually touched. The class time itself is counted once by its occurrence key.</Text>
+            <Text style={s.help}>Select one subject, lesson and all subtopics touched in class. Save this entry if you want to log another lesson from the same class, or simply press Finish & save.</Text>
+
+            <Text style={s.label}>SUBJECT</Text>
             <View style={s.wrap}>{available.map((value) => <Pressable key={value} onPress={() => chooseSubject(value)} style={[s.chip, subjectName === value && s.chipOn]}><Text style={[s.chipText, subjectName === value && s.chipTextOn]}>{subjectDisplayName(value)}</Text></Pressable>)}</View>
 
             <Text style={s.label}>LESSON / TOPIC</Text>
             <View style={s.topicList}>{(config?.topics ?? []).map((item: any) => <Pressable key={item.id} onPress={() => chooseTopic(item.title)} style={[s.topic, topicName === item.title && s.topicOn]}><View style={s.topicNum}><Text style={s.topicNumText}>{item.unit ?? item.id}</Text></View><Text style={s.topicTitle}>{topicDisplayName(subjectName, item.title, profile.medium)}</Text>{topicName === item.title ? <Ionicons name="checkmark-circle" size={19} color="#B784FF" /> : null}</Pressable>)}</View>
 
             <Text style={s.label}>SUBTOPICS TOUCHED IN CLASS</Text>
-            <Text style={s.help}>Select a subtopic even if only part of it was taught. This means “worked on in class,” not “mastered by me.”</Text>
-            <View style={s.topicList}>{(topic?.subtopics ?? []).map((value: string) => { const on = selected.includes(value); return <Pressable key={value} onPress={() => setSelected((current) => on ? current.filter((item) => item !== value) : [...current, value])} style={[s.subtopic, on && s.subtopicOn]}><View style={[s.check, on && s.checkOn]}>{on ? <Ionicons name="checkmark" size={13} color="#130A1B" /> : null}</View><View style={{ flex: 1 }}><Text style={s.subtopicText}>{subtopicDisplayName(subjectName, topic?.title ?? topicName, value, profile.medium)}</Text><Text style={s.subtopicMeta}>{on ? "Worked on in this class" : "Not selected"}</Text></View></Pressable>; })}</View>
+            <Text style={s.help}>Select a subtopic even if only part of it was taught. This records teacher coverage, not personal mastery.</Text>
+            <View style={s.topicList}>{(topic?.subtopics ?? []).map((value: string) => { const on = selected.includes(value); return <Pressable key={value} onPress={() => toggleSubtopic(value)} style={[s.subtopic, on && s.subtopicOn]}><View style={[s.check, on && s.checkOn]}>{on ? <Ionicons name="checkmark" size={13} color="#130A1B" /> : null}</View><View style={{ flex: 1 }}><Text style={s.subtopicText}>{subtopicDisplayName(subjectName, topic?.title ?? topicName, value, profile.medium)}</Text><Text style={s.subtopicMeta}>{on ? "Will be saved for this class" : "Not selected"}</Text></View></Pressable>; })}</View>
 
-            <Pressable disabled={saving} onPress={saveCovered} style={[s.saveCovered, saving && s.disabled]}><Ionicons name={editingId ? "save-outline" : "add-circle-outline"} size={18} color="#160B20" /><Text style={s.saveCoveredText}>{editingId ? "Update class-learning entry" : "Save covered entry"}</Text></Pressable>
+            <Pressable disabled={saving} onPress={saveCovered} style={[s.saveCovered, saving && s.disabled]}><Ionicons name={editingId ? "save-outline" : "add-circle-outline"} size={18} color="#160B20" /><Text style={s.saveCoveredText}>{editingId ? "Update class-learning entry" : "Save entry & add another"}</Text></Pressable>
             <Pressable onPress={addReview} style={s.review}><Ionicons name="refresh-outline" size={18} color="#D6B9F7" /><View style={{ flex: 1 }}><Text style={s.reviewTitle}>Review this topic tomorrow</Text><Text style={s.reviewSub}>Adds a 45-minute revision priority without marking the topic mastered.</Text></View></Pressable>
 
             {occurrenceRecords.length > 0 ? <><Text style={s.section}>SAVED FOR THIS CLASS</Text>{occurrenceRecords.map((record) => <View key={record.id} style={s.saved}><Ionicons name="checkmark-circle" size={18} color="#79D29F" /><View style={{ flex: 1 }}><Text style={s.savedTitle}>{subjectDisplayName(record.subjectName)} · {topicDisplayName(record.subjectName, record.topicName, profile.medium)}</Text><Text style={s.savedSub}>{record.subtopicNames.length} subtopic{record.subtopicNames.length === 1 ? "" : "s"}</Text></View><Pressable onPress={() => editRecord(record)} style={s.miniButton}><Ionicons name="create-outline" size={16} color="#BED0E5" /></Pressable></View>)}</> : null}
@@ -373,7 +406,7 @@ export default function ClassCompleteScreen() {
         )}
 
         <Text style={s.section}>ASSIGNMENT / HOMEWORK</Text>
-        <Text style={s.help}>Optional. This now has the same assignment controls as the main Assignments screen. Add it here, or leave the title empty and finish the class.</Text>
+        <Text style={s.help}>Optional. Homework from this class has the same controls as the main Assignments screen.</Text>
         <View style={s.assignmentCard}>
           <Text style={s.label}>TITLE</Text>
           <TextInput value={assignmentTitle} onChangeText={setAssignmentTitle} placeholder="e.g. Complete Tutorial 07" placeholderTextColor="#586678" style={s.input} />
@@ -391,10 +424,10 @@ export default function ClassCompleteScreen() {
           </View>
           <Text style={s.classHint}>Or make it due at the next class for this subject:</Text>
           <View style={s.quickDates}>
-            <Pressable onPress={() => chooseAssignmentClass(nextTheory)} style={[s.classButton, !nextTheory && s.disabled]}><Ionicons name="school-outline" size={15} color="#9ECFFF" /><View><Text style={s.classButtonTitle}>Next Theory</Text><Text style={s.classButtonSub}>{nextTheory ? nextTheory.date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "No theory class"}</Text></View></Pressable>
-            <Pressable onPress={() => chooseAssignmentClass(nextRevision)} style={[s.classButton, !nextRevision && s.disabled]}><Ionicons name="refresh-outline" size={15} color="#E4C1FF" /><View><Text style={s.classButtonTitle}>Next Revision</Text><Text style={s.classButtonSub}>{nextRevision ? nextRevision.date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "No revision class"}</Text></View></Pressable>
+            <Pressable disabled={!nextTheory} onPress={() => chooseAssignmentClass(nextTheory)} style={[s.classButton, !nextTheory && s.disabled]}><Ionicons name="school-outline" size={15} color="#9ECFFF" /><View><Text style={s.classButtonTitle}>Next Theory</Text><Text style={s.classButtonSub}>{nextTheory ? nextTheory.date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "No theory class"}</Text></View></Pressable>
+            <Pressable disabled={!nextRevision} onPress={() => chooseAssignmentClass(nextRevision)} style={[s.classButton, !nextRevision && s.disabled]}><Ionicons name="refresh-outline" size={15} color="#E4C1FF" /><View><Text style={s.classButtonTitle}>Next Revision</Text><Text style={s.classButtonSub}>{nextRevision ? nextRevision.date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "No revision class"}</Text></View></Pressable>
           </View>
-          {classItem ? <View style={s.linked}><Ionicons name="link-outline" size={16} color="#82C9F7" /><Text style={s.linkedText}>Linked to this completed class · {classItem.title || subjectDisplayName(classItem.subjectName)} · {classItem.classType}</Text></View> : null}
+          {classItem ? <View style={s.linked}><Ionicons name="link-outline" size={16} color="#82C9F7" /><Text style={s.linkedText}>Linked to this class · {classItem.title || subjectDisplayName(classItem.subjectName)} · {classItem.classType}</Text></View> : null}
 
           <View style={s.row}>
             <View style={{ flex: 1 }}><Text style={s.label}>DATE</Text><TextInput value={assignmentDue} onChangeText={chooseAssignmentDate} placeholder="YYYY-MM-DD" placeholderTextColor="#586678" autoCapitalize="none" style={s.input} /></View>
@@ -408,25 +441,24 @@ export default function ClassCompleteScreen() {
           {assignmentEditingId ? <Pressable onPress={resetAssignmentForm} style={s.cancelEdit}><Text style={s.cancelEditText}>Cancel editing</Text></Pressable> : null}
         </View>
 
-        {classAssignments.length > 0 ? (
-          <>
-            <Text style={s.section}>ASSIGNMENTS FROM THIS CLASS</Text>
-            {classAssignments.map((assignment) => <View key={assignment.id} style={s.assignmentItem}><Pressable onPress={() => startAssignment(assignment)} style={s.assignmentPlay}><Ionicons name="play-circle-outline" size={24} color="#B784FF" /></Pressable><View style={{ flex: 1 }}><Text style={s.assignmentItemTitle}>{assignment.title}</Text><Text style={s.assignmentItemSub}>{subjectDisplayName(assignment.subjectName)}{assignment.topicName ? ` · ${topicDisplayName(assignment.subjectName, assignment.topicName, profile.medium)}` : ""} · {assignment.estimatedMinutes} min{assignment.repeatPattern !== "None" ? ` · repeats ${assignment.repeatPattern.toLowerCase()}` : ""}{assignment.dueAt ? ` · due ${new Date(assignment.dueAt).toLocaleString()}` : ""}</Text></View><Pressable accessibilityLabel={`Edit ${assignment.title}`} onPress={() => editAssignment(assignment)} style={s.assignmentEdit}><Ionicons name="create-outline" size={18} color="#D8C3F4" /></Pressable></View>)}
-          </>
-        ) : null}
+        {classAssignments.length > 0 ? <><Text style={s.section}>ASSIGNMENTS FROM THIS CLASS</Text>{classAssignments.map((assignment) => <View key={assignment.id} style={s.assignmentItem}><Pressable onPress={() => startAssignment(assignment)} style={s.assignmentPlay}><Ionicons name="play-circle-outline" size={24} color="#B784FF" /></Pressable><View style={{ flex: 1 }}><Text style={s.assignmentItemTitle}>{assignment.title}</Text><Text style={s.assignmentItemSub}>{subjectDisplayName(assignment.subjectName)}{assignment.topicName ? ` · ${topicDisplayName(assignment.subjectName, assignment.topicName, profile.medium)}` : ""} · {assignment.estimatedMinutes} min{assignment.repeatPattern !== "None" ? ` · repeats ${assignment.repeatPattern.toLowerCase()}` : ""}{assignment.dueAt ? ` · due ${new Date(assignment.dueAt).toLocaleString()}` : ""}</Text></View><Pressable onPress={() => editAssignment(assignment)} style={s.assignmentEdit}><Ionicons name="create-outline" size={18} color="#D8C3F4" /></Pressable></View>)}</> : null}
 
-        {!isPaper ? (
-          <>
-            <View style={s.historyHead}><View><Text style={s.historyTitle}>Recent class learning</Text><Text style={s.historySub}>Existing feature preserved: edit or remove mistakes at any time.</Text></View><View style={s.historyCount}><Text style={s.historyCountText}>{records.length}</Text></View></View>
-            {recentRecords.length === 0 ? <View style={s.empty}><Ionicons name="school-outline" size={28} color="#586779" /><Text style={s.emptyTitle}>No class-learning records yet</Text><Text style={s.emptyText}>After a class, save only what the teacher actually worked on.</Text></View> : recentRecords.map((record) => <View key={record.id} style={s.historyCard}><View style={s.historyIcon}><Ionicons name="school-outline" size={18} color="#CDAEF4" /></View><View style={{ flex: 1, minWidth: 0 }}><Text style={s.historySubject}>{subjectDisplayName(record.subjectName)}</Text><Text style={s.historyTopic} numberOfLines={2}>{topicDisplayName(record.subjectName, record.topicName, profile.medium)}</Text><Text style={s.historyMeta}>{new Date(`${record.occurrenceDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })} · {record.subtopicNames.length} subtopic{record.subtopicNames.length === 1 ? "" : "s"}</Text></View><View style={s.historyActions}><Pressable onPress={() => editRecord(record)} style={s.historyButton}><Ionicons name="create-outline" size={16} color="#BFD0E5" /></Pressable><Pressable onPress={() => setPendingDelete(record)} style={[s.historyButton, s.historyDelete]}><Ionicons name="trash-outline" size={16} color="#E9A0AD" /></Pressable></View></View>)}
-          </>
-        ) : null}
+        {!isPaper ? <><View style={s.historyHead}><View><Text style={s.historyTitle}>Recent class learning</Text><Text style={s.historySub}>Edit or remove mistakes at any time.</Text></View><View style={s.historyCount}><Text style={s.historyCountText}>{records.length}</Text></View></View>{recentRecords.length === 0 ? <View style={s.empty}><Ionicons name="school-outline" size={28} color="#586779" /><Text style={s.emptyTitle}>No class-learning records yet</Text><Text style={s.emptyText}>Save what the teacher actually worked on after each class.</Text></View> : recentRecords.map((record) => <View key={record.id} style={s.historyCard}><View style={s.historyIcon}><Ionicons name="school-outline" size={18} color="#CDAEF4" /></View><View style={{ flex: 1, minWidth: 0 }}><Text style={s.historySubject}>{subjectDisplayName(record.subjectName)}</Text><Text style={s.historyTopic} numberOfLines={2}>{topicDisplayName(record.subjectName, record.topicName, profile.medium)}</Text><Text style={s.historyMeta}>{new Date(`${record.occurrenceDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })} · {record.subtopicNames.length} subtopic{record.subtopicNames.length === 1 ? "" : "s"}</Text></View><View style={s.historyActions}><Pressable onPress={() => editRecord(record)} style={s.historyButton}><Ionicons name="create-outline" size={16} color="#BFD0E5" /></Pressable><Pressable onPress={() => setPendingDelete(record)} style={[s.historyButton, s.historyDelete]}><Ionicons name="trash-outline" size={16} color="#E9A0AD" /></Pressable></View></View>)}</> : null}
       </ScrollView>
 
       <Modal visible={!!pendingDelete} transparent animationType="fade" onRequestClose={() => !deleting && setPendingDelete(null)}>
         <View style={s.overlay}>
           <Pressable disabled={deleting} style={StyleSheet.absoluteFill} onPress={() => setPendingDelete(null)} />
-          <View style={s.modal}><View style={s.modalIcon}><Ionicons name="trash-outline" size={23} color="#F0A4B1" /></View><Text style={s.modalTitle}>Remove class-learning record?</Text><Text style={s.modalText}>{pendingDelete?.subjectName} · {pendingDelete?.topicName}</Text><Text style={s.modalHelp}>Only this class-learning entry is removed. Manual syllabus coverage and study sessions remain unchanged.</Text><View style={s.modalActions}><Pressable disabled={deleting} onPress={() => setPendingDelete(null)} style={s.cancel}><Text style={s.cancelText}>Keep</Text></Pressable><Pressable disabled={deleting} onPress={removeRecord} style={[s.confirm, deleting && s.disabled]}><Text style={s.confirmText}>{deleting ? "Removing…" : "Remove"}</Text></Pressable></View></View>
+          <View style={s.modal}>
+            <View style={s.modalIcon}><Ionicons name="trash-outline" size={23} color="#F0A4B1" /></View>
+            <Text style={s.modalTitle}>Remove class-learning entry?</Text>
+            <Text style={s.modalText}>{pendingDelete ? `${subjectDisplayName(pendingDelete.subjectName)} · ${topicDisplayName(pendingDelete.subjectName, pendingDelete.topicName, profile.medium)}` : ""}</Text>
+            <Text style={s.modalHelp}>Only this class-learning entry is removed. Study sessions and personal syllabus coverage stay unchanged.</Text>
+            <View style={s.modalActions}>
+              <Pressable disabled={deleting} onPress={() => setPendingDelete(null)} style={s.cancel}><Text style={s.cancelText}>Keep</Text></Pressable>
+              <Pressable disabled={deleting} onPress={removeRecord} style={[s.confirm, deleting && s.disabled]}><Text style={s.confirmText}>{deleting ? "Removing…" : "Remove"}</Text></Pressable>
+            </View>
+          </View>
         </View>
       </Modal>
     </View>
@@ -439,11 +471,13 @@ const s = StyleSheet.create({
   back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#151C27", alignItems: "center", justifyContent: "center" },
   title: { color: "#F5F6F8", fontSize: 21, fontWeight: "900" },
   sub: { color: "#748194", fontSize: 10, marginTop: 3 },
-  finish: { height: 42, paddingHorizontal: 16, borderRadius: 14, backgroundColor: "#B784FF", alignItems: "center", justifyContent: "center" },
-  finishText: { color: "#150C1D", fontWeight: "900" },
+  finish: { minHeight: 42, paddingHorizontal: 14, borderRadius: 14, backgroundColor: "#B784FF", alignItems: "center", justifyContent: "center" },
+  finishText: { color: "#150C1D", fontWeight: "900", fontSize: 10.5 },
   content: { padding: 20, paddingBottom: 48, maxWidth: 780, width: "100%", alignSelf: "center" },
+  warning: { borderRadius: 15, backgroundColor: "#24161C", borderWidth: 1, borderColor: "#5A323D", padding: 12, flexDirection: "row", gap: 9, marginBottom: 10 },
+  warningText: { flex: 1, color: "#D8A5B0", fontSize: 10, lineHeight: 16 },
   info: { borderRadius: 17, backgroundColor: "#171321", borderWidth: 1, borderColor: "#463659", padding: 13, flexDirection: "row", gap: 9, marginBottom: 10 },
-  infoText: { flex: 1, color: "#9486A2", fontSize: 10.5, lineHeight: 17 },
+  infoText: { flex: 1, color: "#A394B2", fontSize: 10.5, lineHeight: 17 },
   timeCard: { borderRadius: 20, backgroundColor: "#111923", borderWidth: 1, borderColor: "#2C3948", padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   timeLabel: { color: "#728094", fontSize: 8, fontWeight: "900", letterSpacing: 1.2 },
   timeValue: { color: "#F0F2F6", fontSize: 23, fontWeight: "900", marginTop: 4 },
@@ -455,12 +489,12 @@ const s = StyleSheet.create({
   messageText: { color: "#8BD4A7", fontSize: 10.5, lineHeight: 16, fontWeight: "700" },
   section: { color: "#8090A3", fontSize: 9, fontWeight: "900", letterSpacing: 1.3, marginTop: 24, marginBottom: 7 },
   help: { color: "#718092", fontSize: 10.5, lineHeight: 16, marginBottom: 10 },
+  label: { color: "#778496", fontSize: 8, fontWeight: "900", letterSpacing: 1.1, marginTop: 17, marginBottom: 8 },
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   chip: { minHeight: 37, paddingHorizontal: 11, borderRadius: 12, backgroundColor: "#111923", borderWidth: 1, borderColor: "#2A3747", alignItems: "center", justifyContent: "center" },
   chipOn: { backgroundColor: "#34244D", borderColor: "#7656A8" },
   chipText: { color: "#8190A2", fontSize: 9.5, fontWeight: "800" },
   chipTextOn: { color: "#F1E8FC" },
-  label: { color: "#778496", fontSize: 8, fontWeight: "900", letterSpacing: 1.1, marginTop: 17, marginBottom: 8 },
   topicList: { gap: 7 },
   topic: { minHeight: 58, borderRadius: 15, backgroundColor: "#101720", borderWidth: 1, borderColor: "#263241", padding: 10, flexDirection: "row", alignItems: "center", gap: 9 },
   topicOn: { borderColor: "#654987", backgroundColor: "#171321" },
@@ -482,8 +516,8 @@ const s = StyleSheet.create({
   savedTitle: { color: "#D9ECE1", fontSize: 10.5, fontWeight: "900" },
   savedSub: { color: "#6F967F", fontSize: 9, marginTop: 3 },
   miniButton: { width: 34, height: 34, borderRadius: 11, backgroundColor: "#18222D", alignItems: "center", justifyContent: "center" },
-  input: { minHeight: 48, borderRadius: 14, backgroundColor: "#0F161F", borderWidth: 1, borderColor: "#273342", color: "#E8ECF1", paddingHorizontal: 12, fontSize: 11, marginBottom: 8 },
   assignmentCard: { borderRadius: 19, backgroundColor: "#101720", borderWidth: 1, borderColor: "#293646", padding: 14 },
+  input: { minHeight: 48, borderRadius: 14, backgroundColor: "#0F161F", borderWidth: 1, borderColor: "#273342", color: "#E8ECF1", paddingHorizontal: 12, fontSize: 11, marginBottom: 8 },
   quickDates: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   dateButton: { minHeight: 42, borderRadius: 12, backgroundColor: "#1A1725", borderWidth: 1, borderColor: "#433453", paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 },
   dateButtonText: { color: "#D8C8EB", fontSize: 9.5, fontWeight: "900" },
