@@ -18,10 +18,12 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const messageFrom = (error: unknown) => error instanceof Error ? error.message : "Something went wrong. Please try again.";
-const authRedirect = (path: "/login" | "/reset-password", flow: "signup" | "recovery") => Linking.createURL(path, {
-  ...(Platform.OS !== "web" ? { scheme: "studyarc" } : {}),
-  queryParams: { auth_flow: flow },
-});
+const authRedirect = (path: "/login" | "/reset-password", flow: "signup" | "recovery") => {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    return `${window.location.origin}${process.env.EXPO_BASE_URL ?? ""}${path}?auth_flow=${flow}`;
+  }
+  return Linking.createURL(path, { scheme: "studyarc", queryParams: { auth_flow: flow } });
+};
 
 function parseUrlParams(url: string) {
   const result: Record<string, string> = {};

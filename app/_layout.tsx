@@ -35,7 +35,9 @@ export default function RootLayout() {
     webGlobal.addEventListener?.("unhandledrejection", ignoreIconFontTimeout);
     Font.loadAsync({ ...Ionicons.font, ...MaterialCommunityIcons.font, ...MaterialIcons.font }).catch(() => undefined);
     const nav = webGlobal.navigator;
-    if (nav?.serviceWorker && process.env.NODE_ENV === "production") nav.serviceWorker.register("/sw.js").catch(() => undefined);
+    if (nav?.serviceWorker && process.env.NODE_ENV === "production") {
+      nav.serviceWorker.register(`${process.env.EXPO_BASE_URL ?? ""}/sw.js`).catch(() => undefined);
+    }
     return () => webGlobal.removeEventListener?.("unhandledrejection", ignoreIconFontTimeout);
   }, []);
 

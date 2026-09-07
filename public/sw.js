@@ -1,5 +1,6 @@
 const CACHE = "study-arc-shell-v2";
-const CORE = ["/", "/manifest.json", "/icon.png", "/favicon.png"];
+const BASE = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+const CORE = [`${BASE}/`, `${BASE}/manifest.json`, `${BASE}/icon.png`, `${BASE}/favicon.png`];
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(CORE)).catch(() => undefined));
   self.skipWaiting();
@@ -25,7 +26,7 @@ self.addEventListener("fetch", (event) => {
       .catch(async () => {
         const cached = await caches.match(request);
         if (cached) return cached;
-        if (request.mode === "navigate") return (await caches.match("/")) || Response.error();
+        if (request.mode === "navigate") return (await caches.match(`${BASE}/`)) || Response.error();
         return Response.error();
       }),
   );
