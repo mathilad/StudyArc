@@ -29,6 +29,7 @@ export default function ClassFormModal({
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("11:00");
   const [preReviewMinutes, setPreReviewMinutes] = useState(30);
+  const [travelMinutes, setTravelMinutes] = useState(90);
   const [clock, setClock] = useState<"start" | "end" | null>(null);
   const [saving, setSaving] = useState(false);
   const editing = Boolean(initialValue);
@@ -43,6 +44,7 @@ export default function ClassFormModal({
       setStartTime(initialValue.startTime);
       setEndTime(initialValue.endTime);
       setPreReviewMinutes(initialValue.preReviewMinutes);
+      setTravelMinutes(initialValue.travelMinutes);
       return;
     }
     setSubjectName((current) => subjects.includes(current) ? current : (subjects[0] ?? "Physics"));
@@ -52,6 +54,7 @@ export default function ClassFormModal({
     setStartTime("08:00");
     setEndTime("11:00");
     setPreReviewMinutes(30);
+    setTravelMinutes(90);
   }, [initialValue, subjects, visible]);
 
   const title = useMemo(() => `${subjectName} ${classType}`, [subjectName, classType]);
@@ -82,7 +85,7 @@ export default function ClassFormModal({
       startTime,
       endTime,
       preReviewMinutes,
-      travelMinutes: deliveryMode === "Physical" ? 90 : 0,
+      travelMinutes: deliveryMode === "Physical" ? travelMinutes : 0,
     };
     const conflicts = validateClassSchedule(proposal, classes, profile.wakeTime, profile.sleepTime, initialValue?.id);
     if (conflicts.length) {
@@ -112,11 +115,11 @@ export default function ClassFormModal({
             <View style={s.wrap}>{DAYS.map((x, i) => <Pressable key={x} onPress={() => setDayOfWeek(i)} style={[s.day, dayOfWeek === i && s.dayActive]}><Text style={[s.dayText, dayOfWeek === i && s.chipTextActive]}>{x}</Text></Pressable>)}</View>
 
             <Text style={s.label}>CLASS TYPE</Text>
-            <View style={s.wrap}>{(["Theory", "Revision", "Paper", "Extra Class"] as const).map((x) => <Pressable key={x} onPress={() => setClassType(x)} style={[s.chip, classType === x && s.chipActive]}><Text style={[s.chipText, classType === x && s.chipTextActive]}>{x}</Text></Pressable>)}</View>
+            <View style={s.wrap}>{(["Theory", "Revision", "Paper", "Extra Class", "Paper Discussion"] as const).map((x) => <Pressable key={x} onPress={() => setClassType(x)} style={[s.chip, classType === x && s.chipActive]}><Text style={[s.chipText, classType === x && s.chipTextActive]}>{x}</Text></Pressable>)}</View>
 
             <Text style={s.label}>HOW DO YOU ATTEND?</Text>
             <View style={s.modeRow}>{(["Physical", "Online"] as const).map((x) => <Pressable key={x} onPress={() => setDeliveryMode(x)} style={[s.mode, deliveryMode === x && s.modeActive]}><Ionicons name={x === "Physical" ? "location-outline" : "videocam-outline"} size={20} color={deliveryMode === x ? "#FFF" : "#8490A0"} /><Text style={[s.modeText, deliveryMode === x && s.chipTextActive]}>{x}</Text></Pressable>)}</View>
-            {deliveryMode === "Physical" && <View style={s.info}><Ionicons name="car-outline" size={18} color="#D7B8FF" /><Text style={s.infoText}>Study Arc automatically reserves <Text style={s.bold}>1h 30m travel time before and after</Text> this class and warns when another class leaves too little travel time.</Text></View>}
+            {deliveryMode === "Physical" && <><View style={s.info}><Ionicons name="car-outline" size={18} color="#D7B8FF" /><Text style={s.infoText}>Travel is reserved <Text style={s.bold}>before and after</Text> this class. The default is 1h 30m each way, and you can customize it.</Text></View><Text style={s.label}>TRAVEL EACH WAY</Text><View style={s.stepper}><Pressable onPress={() => setTravelMinutes(Math.max(0, travelMinutes - 15))} style={s.step}><Ionicons name="remove" size={22} color="#D8C4F3" /></Pressable><View style={s.stepCenter}><Text style={s.stepValue}>{Math.floor(travelMinutes/60)}h {travelMinutes%60}m</Text><Text style={s.stepSub}>before and after this class</Text></View><Pressable onPress={() => setTravelMinutes(Math.min(360, travelMinutes + 15))} style={s.step}><Ionicons name="add" size={22} color="#D8C4F3" /></Pressable></View></>}
 
             <Text style={s.label}>TIME</Text>
             <View style={s.timeRow}>

@@ -8,7 +8,9 @@ import { useOffline } from "./OfflineContext";
 
 export type Exam = { id: string; name: string; examType: string; startsOn: string | null; endsOn: string | null; isMainExam: boolean };
 export type ExamComponent = { id: string; examId: string; subjectName: string; componentName: string; examAt: string | null };
-export type Assignment = { id: string; sourceClassId: string | null; title: string; subjectName: string; topicName: string | null; dueAt: string | null; estimatedMinutes: number; completed: boolean };
+export type AssignmentRepeat = "None" | "Daily" | "Weekly";
+export type Assignment = { id: string; sourceClassId: string | null; title: string; subjectName: string; topicName: string | null; dueAt: string | null; estimatedMinutes: number; completed: boolean; repeatPattern: AssignmentRepeat; seriesId: string | null };
+type AssignmentInput=Omit<Assignment,"id"|"repeatPattern"|"seriesId">&{id?:string;repeatPattern?:AssignmentRepeat;seriesId?:string|null};
 export type PaperTopicResult = { id: string; subjectName: string; topicName: string; paperLabel: string | null; performancePercent: number | null; weaknessPercent: number | null; source: "Manual" | "Paper" | "Test"; recordedAt: string };
 
 type Cache = { stream: ALStream | null; exams: Exam[]; components: ExamComponent[]; assignments: Assignment[]; paperTopicResults: PaperTopicResult[] };
@@ -35,7 +37,7 @@ const AcademicContext = createContext<{
   deleteExam: (id: string) => Promise<void>;
   addExamComponent: (value: Omit<ExamComponent, "id"> & { id?: string }) => Promise<string>;
   deleteExamComponent: (id: string) => Promise<void>;
-  addAssignment: (value: Omit<Assignment, "id"> & { id?: string }) => Promise<string>;
+  addAssignment: (value: AssignmentInput) => Promise<string>;
   setAssignmentCompleted: (id: string, completed: boolean) => Promise<void>;
   addPaperTopicResult: (value: Omit<PaperTopicResult, "id" | "recordedAt">) => Promise<string>;
   refreshAcademicData: () => Promise<void>;
@@ -43,7 +45,7 @@ const AcademicContext = createContext<{
 
 const mapExam = (r: any): Exam => ({ id: r.id, name: r.name, examType: r.exam_type, startsOn: r.starts_on, endsOn: r.ends_on, isMainExam: Boolean(r.is_main_exam) });
 const mapComponent = (r: any): ExamComponent => ({ id: r.id, examId: r.exam_id, subjectName: r.subject_name, componentName: r.component_name, examAt: r.exam_at });
-const mapAssignment = (r: any): Assignment => ({ id: r.id, sourceClassId: r.source_class_id, title: r.title, subjectName: r.subject_name, topicName: r.topic_name, dueAt: r.due_at, estimatedMinutes: Number(r.estimated_minutes ?? 60), completed: Boolean(r.completed) });
+const mapAssignment = (r: any): Assignment => ({ id: r.id, sourceClassId: r.source_class_id, title: r.title, subjectName: r.subject_name, topicName: r.topic_name, dueAt: r.due_at, estimatedMinutes: Number(r.estimated_minutes ?? 60), completed: Boolean(r.completed),repeatPattern:(r.repeat_pattern??"None") as AssignmentRepeat,seriesId:r.series_id??null });
 const mapPaperTopic = (r: any): PaperTopicResult => ({ id: r.id, subjectName: r.subject_name, topicName: r.topic_name, paperLabel: r.paper_label, performancePercent: r.performance_percent == null ? null : Number(r.performance_percent), weaknessPercent: r.weakness_percent == null ? null : Number(r.weakness_percent), source: r.source, recordedAt: r.recorded_at });
 
 export function AcademicProvider({ children }: { children: React.ReactNode }) {
@@ -92,6 +94,7 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
     if (!user) { setState(DEFAULT_CACHE); setLoading(false); return; }
     if (!isOnline) { await loadCache(); return; }
     try {
+      await supabase.rpc("sync_my_missed_class_recordings");
       const [profileResult, examsResult, componentsResult, assignmentsResult, paperResults] = await Promise.all([
         supabase.from("student_profiles").select("stream").eq("user_id", user.id).maybeSingle(),
         supabase.from("exams").select("*").eq("user_id", user.id).order("starts_on", { ascending: true }),
@@ -168,22 +171,29 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
     if (isOnline) syncQueue().catch(() => undefined);
   }, [isOnline, persist, state, syncQueue, user]);
 
-  const addAssignment = useCallback(async (value: Omit<Assignment, "id"> & { id?: string }) => {
+  const addAssignment = useCallback(async (value: AssignmentInput) => {
     if (!user) throw new Error("You must be signed in.");
-    const local: Assignment = { ...value, id: value.id ?? makeUuid() };
+    const id=value.id??makeUuid();const local: Assignment = { ...value, id,repeatPattern:value.repeatPattern??"None",seriesId:value.seriesId??(value.repeatPattern&&value.repeatPattern!=="None"?id:null) };
     const next = { ...state, assignments: [...state.assignments.filter(x => x.id !== local.id), local] };
     setState(next);
     await persist(next);
-    await enqueueMutation({ userId: user.id, kind: "assignment_upsert", payload: { id: local.id, user_id: user.id, source_class_id: local.sourceClassId, title: local.title, subject_name: local.subjectName, topic_name: local.topicName, due_at: local.dueAt, estimated_minutes: local.estimatedMinutes, completed: local.completed, updated_at: new Date().toISOString() } });
+    await enqueueMutation({ userId: user.id, kind: "assignment_upsert", payload: { id: local.id, user_id: user.id, source_class_id: local.sourceClassId, title: local.title, subject_name: local.subjectName, topic_name: local.topicName, due_at: local.dueAt, estimated_minutes: local.estimatedMinutes, completed: local.completed,repeat_pattern:local.repeatPattern,series_id:local.seriesId, updated_at: new Date().toISOString() } });
     if (isOnline) syncQueue().catch(() => undefined);
     return local.id;
   }, [isOnline, persist, state, syncQueue, user]);
 
   const setAssignmentCompleted = useCallback(async (id: string, completed: boolean) => {
     const current = state.assignments.find(x => x.id === id);
-    if (!current) return;
-    await addAssignment({ ...current, completed });
-  }, [addAssignment, state.assignments]);
+    if (!current||!user) return;
+    const changed={...current,completed};let nextAssignments=state.assignments.map(x=>x.id===id?changed:x);const rows=[changed];
+    if(completed&&current.repeatPattern!=="None"){
+      const nextDue=current.dueAt?new Date(current.dueAt):new Date();nextDue.setDate(nextDue.getDate()+(current.repeatPattern==="Daily"?1:7));
+      const next:Assignment={...current,id:makeUuid(),dueAt:nextDue.toISOString(),completed:false,seriesId:current.seriesId??current.id};nextAssignments=[...nextAssignments,next];rows.push(next);
+    }
+    const nextState={...state,assignments:nextAssignments};setState(nextState);await persist(nextState);
+    for(const row of rows)await enqueueMutation({userId:user.id,kind:"assignment_upsert",payload:{id:row.id,user_id:user.id,source_class_id:row.sourceClassId,title:row.title,subject_name:row.subjectName,topic_name:row.topicName,due_at:row.dueAt,estimated_minutes:row.estimatedMinutes,completed:row.completed,repeat_pattern:row.repeatPattern,series_id:row.seriesId,updated_at:new Date().toISOString()}});
+    if(isOnline)syncQueue().catch(()=>undefined);
+  }, [isOnline,persist,state,syncQueue,user]);
 
   const addPaperTopicResult = useCallback(async (value: Omit<PaperTopicResult, "id" | "recordedAt">) => {
     if (!user) throw new Error("You must be signed in.");

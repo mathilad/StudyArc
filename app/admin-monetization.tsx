@@ -19,6 +19,7 @@ import {
   type PaymentMethod,
 } from "../context/MonetizationContext";
 import { supabase } from "../lib/supabase";
+import InlineActionLoader from "../components/InlineActionLoader";
 
 const money = (n: number) => `LKR ${Math.round(n).toLocaleString()}`;
 type AdminPayment = {
@@ -31,6 +32,7 @@ type AdminPayment = {
   submitted_at: string;
   plan: { name: string } | null;
 };
+type Refund = { id:string; payment_id:string; amount_lkr:number; reason:string; status:string; provider_refund_id:string|null; requested_at:string; payment:{payment_reference:string}|null };
 
 export default function AdminMonetizationScreen() {
   const router = useRouter();
@@ -42,10 +44,15 @@ export default function AdminMonetizationScreen() {
     [newOnly, setNewOnly] = useState(true),
     [methods, setMethods] = useState<PaymentMethod[]>([]),
     [pending, setPending] = useState<AdminPayment[]>([]),
+    [refundable, setRefundable] = useState<AdminPayment[]>([]),
+    [refunds, setRefunds] = useState<Refund[]>([]),
     [stats, setStats] = useState<any>(null),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState<string | null>(null);
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
+  const [refundReason,setRefundReason]=useState<Record<string,string>>({});
+  const [refundWindow,setRefundWindow]=useState("14");
+  const [revokeOnRefund,setRevokeOnRefund]=useState(true);
   const [bankName, setBankName] = useState(""),
     [branch, setBranch] = useState(""),
     [holder, setHolder] = useState(""),
@@ -64,11 +71,13 @@ export default function AdminMonetizationScreen() {
         { data: methodRows, error: me },
         { data: paymentRows, error: pe },
         { data: statData, error: ste },
+        { data: approvedRows, error: ae },
+        { data: refundRows, error: re },
       ] = await Promise.all([
         supabase
           .from("app_settings")
           .select("key,value")
-          .in("key", ["paid_mode_enabled", "paid_mode_new_users_only"]),
+          .in("key", ["paid_mode_enabled", "paid_mode_new_users_only","refund_window_days","revoke_access_on_refund"]),
         supabase.from("payment_methods").select("*").order("display_order"),
         supabase
           .from("payments")
@@ -78,13 +87,17 @@ export default function AdminMonetizationScreen() {
           .eq("status", "PENDING")
           .order("submitted_at"),
         supabase.rpc("admin_monetization_stats"),
+        supabase.from("payments").select("id,user_id,amount_lkr,payment_reference,status,submitted_at,subscription_plans(name)").eq("status","APPROVED").order("submitted_at",{ascending:false}).limit(20),
+        supabase.from("payment_refunds").select("id,payment_id,amount_lkr,reason,status,provider_refund_id,requested_at,payments(payment_reference)").order("requested_at",{ascending:false}).limit(30),
       ]);
-      if (se || me || pe || ste) throw se ?? me ?? pe ?? ste;
+      if (se || me || pe || ste || ae || re) throw se ?? me ?? pe ?? ste ?? ae ?? re;
       const byKey = Object.fromEntries(
         (settingRows ?? []).map((r: any) => [r.key, r.value]),
       );
       setPaidMode(Boolean(byKey.paid_mode_enabled));
       setNewOnly(byKey.paid_mode_new_users_only !== false);
+      setRefundWindow(String(byKey.refund_window_days ?? 14));
+      setRevokeOnRefund(byKey.revoke_access_on_refund !== false);
       setMethods(
         (methodRows ?? []).map((r: any) => ({
           id: r.id,
@@ -105,6 +118,8 @@ export default function AdminMonetizationScreen() {
           plan: r.subscription_plans ?? null,
         })),
       );
+      setRefundable((approvedRows??[]).map((r:any)=>({...r,plan:r.subscription_plans??null})));
+      setRefunds((refundRows??[]).map((r:any)=>({...r,payment:r.payments??null})));
       setStats(statData);
     } catch (e) {
       setMessage(
@@ -269,6 +284,28 @@ export default function AdminMonetizationScreen() {
     }
     if (data?.signedUrl) Linking.openURL(data.signedUrl);
   };
+  const saveRefundSettings=async()=>{
+    const days=Number(refundWindow);
+    if(!Number.isInteger(days)||days<1||days>180){setMessage("Refund window must be 1 to 180 days.");return;}
+    setBusy(true);
+    try{const{error}=await supabase.rpc("admin_update_refund_settings",{window_days:days,revoke_access:revokeOnRefund});if(error)throw error;setMessage("Refund settings saved.");await load();}
+    catch(e){setMessage(e instanceof Error?e.message:"Could not save refund settings.");}
+    finally{setBusy(false);}
+  };
+  const createRefund=async(paymentId:string)=>{
+    const reason=refundReason[paymentId]?.trim();
+    if(!reason){setMessage("Enter a reason before creating the refund.");return;}
+    setBusy(true);
+    try{const{error}=await supabase.rpc("admin_create_refund",{target_payment:paymentId,refund_reason:reason});if(error)throw error;setRefundReason(d=>({...d,[paymentId]:""}));setMessage("Manual refund record added.");await Promise.all([load(),refreshMonetization()]);}
+    catch(e){setMessage(e instanceof Error?e.message:"Could not create refund.");}
+    finally{setBusy(false);}
+  };
+  const removeRefund=async(id:string)=>{
+    setBusy(true);
+    try{const{error}=await supabase.rpc("admin_remove_refund",{target_refund:id});if(error)throw error;setMessage("Unprocessed refund request removed.");await load();}
+    catch(e){setMessage(e instanceof Error?e.message:"Could not remove refund.");}
+    finally{setBusy(false);}
+  };
 
   return (
     <View style={s.root}>
@@ -296,6 +333,7 @@ export default function AdminMonetizationScreen() {
             <Text style={s.messageText}>{message}</Text>
           </View>
         ) : null}
+        {busy ? <InlineActionLoader label="Saving changes…" /> : null}
         <Text style={s.section}>OVERVIEW</Text>
         <View style={s.grid}>
           <Metric
@@ -322,6 +360,16 @@ export default function AdminMonetizationScreen() {
             label="BLOCKED USERS"
             value={Number(stats?.blockedUsers ?? 0).toLocaleString()}
           />
+          <Metric label="REFUNDED" value={money(Number(stats?.refundedTotal ?? 0))}/>
+          <Metric label="NET REVENUE" value={money(Number(stats?.netRevenue ?? stats?.revenueThisMonth ?? 0))}/>
+          <Metric label="PAYMENT SUCCESS" value={`${Number(stats?.paymentSuccessRate ?? 0).toFixed(1)}%`}/>
+        </View>
+
+        <Text style={s.section}>REFUND SETTINGS</Text>
+        <View style={s.card}>
+          <Field label="REFUND WINDOW (DAYS)" value={refundWindow} onChange={setRefundWindow}/>
+          <Toggle title="Revoke Premium after refund" subtitle="Immediately ends access purchased by a successfully refunded payment." value={revokeOnRefund} onPress={()=>canConfigure&&setRevokeOnRefund(v=>!v)}/>
+          <Pressable disabled={!canConfigure||busy} onPress={saveRefundSettings} style={[s.primary,(!canConfigure||busy)&&{opacity:.5}]}><Text style={s.primaryText}>{canConfigure?"Save refund settings":"Super Admin only"}</Text></Pressable>
         </View>
 
         <Text style={s.section}>PAID MODE</Text>
@@ -504,6 +552,13 @@ export default function AdminMonetizationScreen() {
             </View>
           ))
         )}
+
+        <Text style={s.section}>CREATE REFUND · ADMIN ONLY</Text>
+        <Text style={s.help}>Record refunds handled through bank transfer or another manual method. These controls are visible only to administrators.</Text>
+        {refundable.length===0?<View style={s.empty}><Text style={s.emptyText}>No approved payments available.</Text></View>:refundable.map(p=><View key={p.id} style={s.refundCard}><View style={{flex:1}}><Text style={s.paymentRef}>{p.payment_reference}</Text><Text style={s.paymentMeta}>{p.plan?.name??"Plan"} · {money(p.amount_lkr)}</Text><TextInput value={refundReason[p.id]??""} onChangeText={v=>setRefundReason(d=>({...d,[p.id]:v}))} placeholder="Reason for refund" placeholderTextColor="#596678" style={s.input}/></View><Pressable disabled={busy||!(refundReason[p.id]??"").trim()} onPress={()=>createRefund(p.id)} style={[s.refundButton,(busy||!(refundReason[p.id]??"").trim())&&{opacity:.5}]}><Ionicons name="return-down-back-outline" size={16} color="#FFDDE4"/><Text style={s.refundButtonText}>ADD REFUND</Text></Pressable></View>)}
+
+        <Text style={s.section}>REFUND HISTORY</Text>
+        {refunds.length===0?<View style={s.empty}><Text style={s.emptyText}>No refunds recorded.</Text></View>:refunds.map(r=><View key={r.id} style={s.payment}><View style={{flex:1}}><Text style={s.paymentRef}>{r.payment?.payment_reference??r.payment_id.slice(0,8)}</Text><Text style={s.paymentMeta}>{money(r.amount_lkr)} · {r.status}</Text><Text style={s.paymentMeta}>{r.reason} · {new Date(r.requested_at).toLocaleString()}</Text>{r.provider_refund_id?<Text style={s.paymentMeta}>Provider refund {r.provider_refund_id}</Text>:null}</View>{["REQUESTED","FAILED","CANCELLED"].includes(r.status)?<Pressable disabled={busy} onPress={()=>removeRefund(r.id)} style={s.reject}><Ionicons name="trash-outline" size={16} color="#FFDCE2"/></Pressable>:null}</View>)}
       </ScrollView>
     </View>
   );
@@ -857,4 +912,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  refundCard:{minHeight:105,borderRadius:17,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:12,flexDirection:"row",alignItems:"center",gap:10,marginBottom:7},
+  refundButton:{minWidth:82,minHeight:42,borderRadius:11,backgroundColor:"#6D3040",alignItems:"center",justifyContent:"center",gap:3,paddingHorizontal:8},
+  refundButtonText:{color:"#FFDDE4",fontSize:7.5,fontWeight:"900"},
 });

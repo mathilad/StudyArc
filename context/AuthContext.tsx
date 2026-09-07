@@ -60,15 +60,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) { console.error("Unable to complete Study Arc auth link:", error); }
     };
 
-    supabase.auth.getSession().then(({ data, error }) => { if (!mounted) return; if (error) console.error("Unable to restore Supabase session:", error); setSession(data.session ?? null); setLoading(false); });
+    supabase.auth.getSession().then(async({ data, error }) => {
+      if (!mounted) return;
+      if (error) console.error("Unable to restore Supabase session:", error);
+      let restored=data.session??null;
+      if(restored){
+        const{data:current}=await supabase.rpc("is_my_app_session_current");
+        if(!current){
+          const{data:active}=await supabase.from("active_app_sessions").select("session_id").maybeSingle();
+          if(active){await supabase.auth.signOut({scope:"local"});restored=null}
+          else{const{error:claimError}=await supabase.rpc("claim_my_app_session");if(claimError){await supabase.auth.signOut({scope:"local"});restored=null}}
+        }
+      }
+      if(mounted){setSession(restored);setLoading(false)}
+    });
     Linking.getInitialURL().then(acceptAuthUrl).catch(() => undefined);
     const linkSubscription = Linking.addEventListener("url", ({ url }) => { acceptAuthUrl(url).catch(() => undefined); });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => { setSession(nextSession); setLoading(false); });
     return () => { mounted = false; linkSubscription.remove(); listener.subscription.unsubscribe(); };
   }, []);
 
+  useEffect(()=>{
+    if(!session?.user.id)return;
+    const channel=supabase.channel(`single-session-${session.user.id}`).on("postgres_changes",{event:"UPDATE",schema:"public",table:"active_app_sessions",filter:`user_id=eq.${session.user.id}`},()=>{
+      void(async()=>{try{const{data}=await supabase.rpc("is_my_app_session_current");if(!data){await supabase.auth.signOut({scope:"local"});setSession(null)}}catch{}})();
+    }).subscribe();
+    return()=>{supabase.removeChannel(channel)};
+  },[session?.user.id]);
+
   const signIn = useCallback(async (email: string, password: string): Promise<AuthResult> => {
-    try { const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }); if (error) throw error; return { error: null }; }
+    try { const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password }); if (error) throw error; const{error:claimError}=await supabase.rpc("claim_my_app_session");if(claimError)throw claimError;return { error: null }; }
     catch (error) { return { error: messageFrom(error) }; }
   }, []);
 

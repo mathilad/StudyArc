@@ -17,7 +17,7 @@ import { supabase } from "../lib/supabase";
 import { format12Hour } from "../lib/time";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const FILTERS = ["All", "Theory", "Revision", "Paper", "Extra Class"] as const;
+const FILTERS = ["All", "Theory", "Revision", "Paper", "Extra Class", "Paper Discussion"] as const;
 type ClassFilter = (typeof FILTERS)[number];
 type PendingDelete = { kind: "class" | "protected"; id: string; title: string; subject?: string };
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
@@ -103,7 +103,7 @@ export default function Classes() {
     const updated: ClassSchedule = {
       ...value,
       id: editingClass.id,
-      travelMinutes: value.deliveryMode === "Physical" ? 90 : 0,
+      travelMinutes: value.deliveryMode === "Physical" ? value.travelMinutes : 0,
     };
     const nextClasses = classes
       .map(c => c.id === editingClass.id ? updated : c)

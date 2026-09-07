@@ -109,6 +109,8 @@ export default function StopWatchScreen() {
     paperYear?: string | string[];
     paperSection?: string | string[];
     attemptNo?: string | string[];
+    assignmentId?: string | string[];
+    assignmentTitle?: string | string[];
   }>();
 
   const subjectName = (
@@ -176,7 +178,7 @@ export default function StopWatchScreen() {
 
   const [laps, setLaps] = useState<Lap[]>([]);
 
-  const [simpleView, setSimpleView] = useState(false);
+  const [simpleView, setSimpleView] = useState(true);
 
   const [stopModalVisible, setStopModalVisible] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -479,6 +481,8 @@ export default function StopWatchScreen() {
           subjectName: activeSubjectName ?? "Quick Study",
           topicName: activeTopicName ?? "General",
           studyType: activeStudyType,
+          assignmentId:Array.isArray(params.assignmentId)?params.assignmentId[0]:params.assignmentId,
+          assignmentTitle:Array.isArray(params.assignmentTitle)?params.assignmentTitle[0]:params.assignmentTitle,
         },
       });
     } catch (error) {

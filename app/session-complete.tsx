@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAppConfig } from "../context/AppConfigContext";
+import { useAcademic } from "../context/AcademicContext";
 import { useStudy, type StudyType } from "../context/StudyContext";
 import { useStudent } from "../context/StudentContext";
 import { SUBJECTS, expandSubjectChoices, topicDisplayName } from "../data/subjects";
@@ -14,7 +15,8 @@ const allowedTypes:StudyType[]=["Study Session","Revision","Tute Questions","Pas
 
 export default function SessionComplete(){
  const router=useRouter();
- const p=useLocalSearchParams<{sessionId?:string;duration?:string;subjectName?:string;topicName?:string;studyType?:string}>();
+ const p=useLocalSearchParams<{sessionId?:string;duration?:string;subjectName?:string;topicName?:string;studyType?:string;assignmentId?:string;assignmentTitle?:string}>();
+ const{setAssignmentCompleted}=useAcademic();
  const{sessions,updateSessionAnalysis,updateSessionClassification}=useStudy();
  const{profile,topicProgress,subtopicCoverage}=useStudent();
  const{settings}=useAppConfig();
@@ -31,7 +33,7 @@ export default function SessionComplete(){
  const topics=SUBJECTS[subjectName as keyof typeof SUBJECTS]?.topics??[];
  const readiness=useMemo(()=>calculateReadiness(subjects,topicProgress,subtopicCoverage,sessions,settings),[sessions,settings,subjects,subtopicCoverage,topicProgress]);
  const chooseSubject=(value:string)=>{setSubjectName(value);setTopicName(SUBJECTS[value as keyof typeof SUBJECTS]?.topics[0]?.title??"General")};
- const save=async()=>{setSaving(true);try{if(p.sessionId){await updateSessionClassification(p.sessionId,subjectName,topicName,studyType);await updateSessionAnalysis(p.sessionId,{focusRating:focus,understandingRating:understanding,sessionNote:note.trim()||null})}router.replace("/(tabs)")}finally{setSaving(false)}};
+ const save=async()=>{setSaving(true);try{if(p.sessionId){await updateSessionClassification(p.sessionId,subjectName,topicName,studyType);await updateSessionAnalysis(p.sessionId,{focusRating:focus,understandingRating:understanding,sessionNote:note.trim()||null})}if(p.assignmentId)await setAssignmentCompleted(p.assignmentId,true);router.replace("/(tabs)")}finally{setSaving(false)}};
  const keep=()=>router.replace({pathname:"/stopwatch",params:{subjectName,topicName,studyType}});
  const displayTopic=topicDisplayName(subjectName,topicName,profile.medium);
  return <View style={s.root}><LinearGradient colors={["#2C1941","#121424","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.topbar}><View><Text style={s.topKicker}>SESSION COMPLETE</Text><Text style={s.topTitle}>Nice work.</Text></View><Pressable disabled={saving} onPress={save} style={s.saveTop}><Ionicons name="checkmark" size={16} color="#160C20"/><Text style={s.saveTopText}>{saving?"Saving…":"Save"}</Text></Pressable></View><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>

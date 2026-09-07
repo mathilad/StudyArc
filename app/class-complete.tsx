@@ -23,7 +23,7 @@ export default function ClassCompleteScreen() {
   const { profile, classes } = useStudent();
   const { records, saveClassLearning, deleteClassLearning } = useClassLearning();
   const { addSession } = useStudy();
-  const { addAssignment } = useAcademic();
+  const { assignments, addAssignment } = useAcademic();
   const classItem = classes.find((c) => c.id === classId);
   const isPaper = classItem?.classType === "Paper";
   const available = useMemo(() => expandSubjectChoices(profile.subjectChoices), [profile.subjectChoices]);
@@ -157,6 +157,12 @@ export default function ClassCompleteScreen() {
   const finish = async () => {
     setSaving(true);
     try {
+      if(!isPaper&&occurrenceRecords.length===0){
+        const recordingTitle=`Non-attended · Watch recording · ${classItem?.title??subjectName} · ${occurrenceDate}`;
+        if(!assignments.some(a=>!a.completed&&a.sourceClassId===(classId??null)&&a.title===recordingTitle))await addAssignment({sourceClassId:classId??null,title:recordingTitle,subjectName:classItem?.subjectName??subjectName,topicName:null,dueAt:tomorrowIso(),estimatedMinutes:rawMinutes||90,completed:false});
+        router.replace("/assignment");
+        return;
+      }
       await saveClassTime();
       if (homework.trim()) {
         const due = homeworkDue ? new Date(`${homeworkDue}T18:00:00`).toISOString() : null;

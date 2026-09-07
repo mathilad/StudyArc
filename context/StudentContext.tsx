@@ -12,6 +12,7 @@ export type StudentProfile = {
   district: string;
   examYear: number | null;
   wakeTime: string;
+  morningRoutineMinutes: number;
   sleepTime: string;
   selfStudyHours: number;
   subjectChoices: string[];
@@ -24,7 +25,7 @@ export type ClassSchedule = {
   id: string;
   subjectName: string;
   title: string;
-  classType: "Theory" | "Revision" | "Paper" | "Extra Class";
+  classType: "Theory" | "Revision" | "Paper" | "Extra Class" | "Paper Discussion";
   deliveryMode: "Physical" | "Online";
   dayOfWeek: number;
   startTime: string;
@@ -91,6 +92,7 @@ const DEFAULT_PROFILE: StudentProfile = {
   district: "",
   examYear: null,
   wakeTime: "06:00",
+  morningRoutineMinutes: 90,
   sleepTime: "22:30",
   selfStudyHours: 3,
   subjectChoices: [],
@@ -154,6 +156,7 @@ const mapProfile = (r: any): StudentProfile => ({
   district: r?.district ?? "",
   examYear: r?.exam_year ?? null,
   wakeTime: r?.wake_time ?? "06:00",
+  morningRoutineMinutes: Number(r?.morning_routine_minutes ?? 90),
   sleepTime: r?.sleep_time ?? "22:30",
   selfStudyHours: Number(r?.self_study_hours ?? 3),
   subjectChoices: r?.subject_choices ?? [],
@@ -427,6 +430,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
         district: merged.district || null,
         exam_year: merged.examYear,
         wake_time: merged.wakeTime,
+        morning_routine_minutes: merged.morningRoutineMinutes,
         sleep_time: merged.sleepTime,
         self_study_hours: merged.selfStudyHours,
         subject_choices: merged.subjectChoices,
