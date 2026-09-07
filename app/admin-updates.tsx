@@ -9,7 +9,7 @@ import { supabase } from "../lib/supabase";
 
 export default function AdminUpdatesScreen() {
   const router=useRouter(); const { session }=useAuth(); const { isAdmin, role }=useAppConfig();
-  const [version,setVersion]=useState("1.0.6"),[title,setTitle]=useState("Study Arc update available"),[message,setMessage]=useState("Download the newest version for the latest improvements."),[url,setUrl]=useState(""),[status,setStatus]=useState<string|null>(null),[sending,setSending]=useState(false);
+  const [version,setVersion]=useState("1.1.3"),[title,setTitle]=useState("Study Arc v1.1.3 is ready"),[message,setMessage]=useState("Syllabus coverage now measures completed subtopics against your complete selected syllabus."),[url,setUrl]=useState("https://github.com/mathilad/StudyArc/releases/download/v1.1.3/StudyArc-v1.1.3.apk"),[status,setStatus]=useState<string|null>(null),[sending,setSending]=useState(false);
   if(!session)return <Redirect href="/login"/>; if(!isAdmin)return <Redirect href="/(tabs)"/>;
   const send=async()=>{setSending(true);setStatus(null);try{const{error}=await supabase.rpc("admin_publish_app_update",{p_version:version,p_title:title,p_message:message,p_download_url:url});if(error)throw error;setStatus("Update notification sent to all signed-in users.");}catch(e:any){setStatus(e?.message??"Could not send the update notification.");}finally{setSending(false);}};
   const canSend=role==="super_admin";

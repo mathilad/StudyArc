@@ -6,6 +6,7 @@ import{Pressable,ScrollView,StyleSheet,Text,View}from"react-native";
 import{useStudent}from"../context/StudentContext";
 import{useStudy,type StudySession}from"../context/StudyContext";
 import{expandSubjectChoices}from"../data/subjects";
+import{calculateSyllabusCoverage}from"../lib/readiness";
 
 const dayStart=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();
 const fmt=(sec:number)=>{const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h?`${h}h ${m}m`:`${m}m`};
@@ -26,7 +27,7 @@ export default function ReportsScreen(){
  const avgWeek=subjects.length?Object.values(subjectWeek).reduce((a,b)=>a+b,0)/subjects.length:0;
  const lowBalance=subjects.filter(s=>(subjectWeek[s]??0)<avgWeek*.45).sort((a,b)=>(subjectWeek[a]??0)-(subjectWeek[b]??0));
  const papers=week.filter(s=>s.studyType==="Past Papers").length;
- const manualRows=subtopicCoverage.filter(x=>x.source==="Manual"),covered=manualRows.filter(x=>x.covered),coveragePct=manualRows.length?Math.round(covered.length/manualRows.length*100):0;
+ const coveragePct=useMemo(()=>calculateSyllabusCoverage(subjects,subtopicCoverage),[subjects,subtopicCoverage]);
  const priorityTopics=[...topicProgress].sort((a,b)=>(a.knowledge+a.memory+a.performance)-(b.knowledge+b.memory+b.performance)).slice(0,4);
  const monthSec=sum(month),priorSec=sum(priorMonth),monthDelta=priorSec?Math.round((monthSec-priorSec)/priorSec*100):monthSec?100:0;
  const monthPapers=month.filter(s=>s.studyType==="Past Papers").length,priorPapers=priorMonth.filter(s=>s.studyType==="Past Papers").length;

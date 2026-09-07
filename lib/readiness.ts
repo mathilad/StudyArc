@@ -1,6 +1,7 @@
 import type { AppSettings } from "../context/AppConfigContext";
 import type { SubtopicCoverage, TopicProgress } from "../context/StudentContext";
 import type { StudySession } from "../context/StudyContext";
+import { SUBJECTS } from "../data/subjects";
 
 export type ReadinessBreakdown = {
   examReadiness: number;
@@ -14,6 +15,27 @@ export type ReadinessBreakdown = {
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
 const daysAgo = (iso: string) => (Date.now() - new Date(iso).getTime()) / 86400000;
 
+export function calculateSyllabusCoverage(subjects: string[], coverage: SubtopicCoverage[]) {
+  const selected = new Set(subjects);
+  const syllabusKeys = new Set<string>();
+  for (const [subjectName, subject] of Object.entries(SUBJECTS)) {
+    if (!selected.has(subjectName)) continue;
+    for (const topic of subject.topics) {
+      for (const subtopic of topic.subtopics) {
+        syllabusKeys.add(`${subjectName}::${topic.title}::${subtopic}`);
+      }
+    }
+  }
+  if (!syllabusKeys.size) return 0;
+  const coveredKeys = new Set(
+    coverage
+      .filter(row => row.source === "Manual" && row.covered && selected.has(row.subjectName))
+      .map(row => `${row.subjectName}::${row.topicName}::${row.subtopicName}`)
+      .filter(key => syllabusKeys.has(key)),
+  );
+  return clamp(coveredKeys.size / syllabusKeys.size * 100);
+}
+
 export function calculateReadiness(
   subjects: string[],
   progress: TopicProgress[],
@@ -23,12 +45,9 @@ export function calculateReadiness(
 ): ReadinessBreakdown {
   const subjectSet = new Set(subjects);
   const relevantProgress = progress.filter(p => subjectSet.has(p.subjectName));
-  const relevantCoverage = coverage.filter(c => subjectSet.has(c.subjectName) && c.source === "Manual");
   const relevantSessions = sessions.filter(s => subjectSet.has(s.subjectName));
 
-  const syllabusCoverage = relevantProgress.length
-    ? relevantProgress.reduce((sum, p) => sum + p.coverage, 0) / relevantProgress.length
-    : relevantCoverage.length ? relevantCoverage.filter(c => c.covered).length / relevantCoverage.length * 100 : 0;
+  const syllabusCoverage = calculateSyllabusCoverage(subjects, coverage);
 
   const topicMastery = relevantProgress.length
     ? relevantProgress.reduce((sum, p) => sum + p.knowledge * .35 + p.memory * .35 + p.performance * .30, 0) / relevantProgress.length
