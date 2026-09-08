@@ -1,0 +1,128 @@
+name: Build Study Arc iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - app.json
+      - package.json
+      - app/**
+      - components/**
+      - context/**
+      - data/**
+      - lib/**
+      - screens/**
+      - .github/workflows/build-ios.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: study-arc-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+
+    steps:
+      - name: Checkout Study Arc
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type-check app
+        run: npm run typecheck
+
+      - name: Lint app
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Show Study Arc configuration
+        run: npx expo config --type public
+
+      - name: Generate iOS project
+        run: npx expo prebuild --platform ios --non-interactive --clean
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install --repo-update
+
+      - name: Build unsigned iPhone app
+        run: |
+          set -euo pipefail
+
+          WORKSPACE=$(find ios -maxdepth 1 -name "*.xcworkspace" -type d | head -n 1 || true)
+          PROJECT=$(find ios -maxdepth 1 -name "*.xcodeproj" -type d | head -n 1 || true)
+
+          if [ -n "$WORKSPACE" ]; then
+            SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+            xcodebuild \
+              -workspace "$WORKSPACE" \
+              -scheme "$SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath ios/build \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              build
+          elif [ -n "$PROJECT" ]; then
+            SCHEME=$(basename "$PROJECT" .xcodeproj)
+            xcodebuild \
+              -project "$PROJECT" \
+              -scheme "$SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath ios/build \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              build
+          else
+            echo "No iOS Xcode project was generated."
+            exit 1
+          fi
+
+      - name: Package unsigned IPA
+        run: |
+          set -euo pipefail
+          mkdir -p output/Payload
+
+          APP=$(find ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" -type d | head -n 1 || true)
+
+          if [ -z "$APP" ]; then
+            echo "iPhone app bundle was not generated."
+            exit 1
+          fi
+
+          ditto "$APP" "output/Payload/$(basename "$APP")"
+          cd output
+          /usr/bin/zip -qry StudyArc-v1.1.4-unsigned.ipa Payload
+          rm -rf Payload
+
+      - name: Upload Study Arc iOS IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: StudyArc-v1.1.4-iOS-IPA
+          path: output/StudyArc-v1.1.4-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish public v1.1.4 iOS IPA
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.1.4
+          name: Study Arc v1.1.4
+          files: output/StudyArc-v1.1.4-unsigned.ipa
