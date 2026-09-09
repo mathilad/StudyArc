@@ -20,7 +20,11 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const messageFrom = (error: unknown) => error instanceof Error ? error.message : "Something went wrong. Please try again.";
+const SIGNUP_SUCCESS_URL = "https://mathilad.github.io/studyarcweb/account-created.html";
 const authRedirect = (path: "/login" | "/reset-password", flow: "signup" | "recovery") => {
+  if (flow === "signup") {
+    return `${SIGNUP_SUCCESS_URL}?target=login&auth_flow=signup`;
+  }
   if (Platform.OS === "web" && typeof window !== "undefined") {
     return `${window.location.origin}${process.env.EXPO_BASE_URL ?? ""}${path}?auth_flow=${flow}`;
   }
