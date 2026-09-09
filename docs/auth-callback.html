@@ -21,7 +21,18 @@
   <script>
     (function(){
       var params=new URLSearchParams(window.location.search);
-      var target=params.get('target')==='reset-password'?'reset-password':'login';
+      var requestedTarget=params.get('target');
+
+      if(requestedTarget==='account-created'){
+        params.delete('target');
+        if(!params.get('auth_flow'))params.set('auth_flow','signup');
+        var successQuery=params.toString();
+        var successUrl='https://mathilad.github.io/studyarcweb/account-created.html'+(successQuery?'?'+successQuery:'')+(window.location.hash||'');
+        window.location.replace(successUrl);
+        return;
+      }
+
+      var target=requestedTarget==='reset-password'?'reset-password':'login';
       params.delete('target');
       var query=params.toString();
       var deep='studyarc://'+target+(query?'?'+query:'')+(window.location.hash||'');
