@@ -56,10 +56,12 @@ export default function AppUpdateNotice() {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => {
-        if (active) setNotice((data as UpdateNotice | null) ?? null);
-      })
-      .catch(() => undefined);
+      .then(
+        ({ data }) => {
+          if (active) setNotice((data as UpdateNotice | null) ?? null);
+        },
+        () => undefined,
+      );
 
     return () => {
       active = false;
@@ -89,7 +91,7 @@ export default function AppUpdateNotice() {
         <Text style={s.message}>{notice.message}</Text>
         <Pressable
           style={s.download}
-          onPress={() => Linking.openURL(notice.download_url).catch(() => undefined)}
+          onPress={() => Linking.openURL(notice.download_url).then(undefined, () => undefined)}
         >
           <Ionicons name="download-outline" size={16} color="#160B20" />
           <Text style={s.downloadText}>Download update</Text>
