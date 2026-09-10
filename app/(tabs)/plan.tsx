@@ -1,1 +1,1 @@
-export { default } from "../../screens/PlanScreen";
+export { default } from "../../screens/PlanWithAssignments";

@@ -1,1 +1,1 @@
-export { default } from "../../screens/more";
+export { default } from "../../screens/MoreWithPrivacy";

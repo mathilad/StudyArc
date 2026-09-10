@@ -1,9 +1,11 @@
 import { router } from "expo-router";
 import React, { useEffect, useMemo } from "react";
 import { Platform } from "react-native";
+import { useAcademic } from "../context/AcademicContext";
 import { usePlanning } from "../context/PlanningContext";
 import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
 import { useStudent } from "../context/StudentContext";
+import { scheduleAssignmentReminders } from "../lib/assignmentNotifications";
 import { generateDailyPlan } from "../lib/planner";
 import { scheduleDailyReviewReminder, scheduleStudyReminders } from "../lib/notifications";
 import { supabase } from "../lib/supabase";
@@ -12,6 +14,7 @@ const defaults={next_session:true,class_reminders:true,revision_reminders:true,p
 
 export default function NotificationScheduler(){
   const{profile,classes,topicProgress,testMarks,subtopicCoverage}=useStudent();
+  const{assignments}=useAcademic();
   const{preferences}=usePlanning();
   const{protectedTimes,classWeekOverrides}=useScheduleAdjustments();
   const today=useMemo(()=>new Date(),[]);
@@ -55,8 +58,9 @@ export default function NotificationScheduler(){
       });
       await scheduleStudyReminders(today,filtered);
       await scheduleDailyReviewReminder(profile);
+      await scheduleAssignmentReminders(assignments);
     })().catch(()=>undefined);
     return()=>{cancelled=true};
-  },[plan,profile,today]);
+  },[assignments,plan,profile,today]);
   return null;
 }

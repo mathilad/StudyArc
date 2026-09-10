@@ -101,10 +101,10 @@ export function validateSubjectCombination(stream: ALStream, selected: string[])
 }
 
 export const paperComponentsForSubject = (subject: string): string[] => {
-  if (["Physics", "Chemistry", "Biology", "Agricultural Science"].includes(subject)) return ["MCQ", "Structured / Essay"];
-  if (subject === "Combined Mathematics") return ["Paper I", "Paper II"];
-  if (["Engineering Technology", "Biosystems Technology", "Science for Technology"].includes(subject)) return ["Paper I", "Paper II"];
-  return ["Paper I", "Paper II"];
+  if (["Pure Mathematics", "Applied Mathematics", "Combined Mathematics"].includes(subject)) return ["Part A", "Part B", "Full Paper"];
+  if (["Physics", "Chemistry", "Biology", "Agricultural Science"].includes(subject)) return ["MCQ", "Structured", "Essay", "Full MCQ Paper", "Full Essay Paper"];
+  if (["Engineering Technology", "Biosystems Technology", "Science for Technology"].includes(subject)) return ["Paper I", "Paper II", "Full Paper"];
+  return ["Paper I", "Paper II", "Full Paper"];
 };
 
 export const plannerSubjectsFromChoices = (choices: string[]) => {
