@@ -7,9 +7,7 @@
     "scheme": "studyarc",
     "userInterfaceStyle": "dark",
     "icon": "./assets/images/icon.png",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.1.5",
     "updates": {
       "enabled": true,
       "url": "https://aliqufgpassfhwobjsoh.supabase.co/functions/v1/studyarc-updates",
