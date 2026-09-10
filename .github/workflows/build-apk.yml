@@ -67,14 +67,22 @@ jobs:
       - name: Generate Android project
         run: npx expo prebuild --platform android --non-interactive --clean
 
+      - name: Optimize release size
+        run: |
+          cat >> android/gradle.properties <<'PROPS'
+          android.enableMinifyInReleaseBuilds=true
+          android.enableShrinkResourcesInReleaseBuilds=true
+          reactNativeArchitectures=arm64-v8a
+          PROPS
+
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
-      - name: Build Study Arc APK
+      - name: Build minimum-size arm64 Study Arc APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
 
-      - name: Prepare Study Arc APK
+      - name: Prepare Study Arc v1.1.6 files
         run: |
           mkdir -p output
 
@@ -88,20 +96,69 @@ jobs:
             exit 1
           fi
 
-          cp "$APK" output/StudyArc-v1.1.5.apk
+          cp "$APK" output/StudyArc-v1.1.6-arm64-min.apk
 
-      - name: Upload Study Arc APK
+          python - <<'PY'
+          import os, zipfile
+
+          roots = [
+              "app", "assets", "components", "constants", "context", "data",
+              "desktop", "hooks", "lib", "plugins", "public", "screens", "scripts", "types"
+          ]
+          top = [
+              ".env.example", "app.json", "eas.json", "eslint.config.js", "expo-env.d.ts",
+              "package.json", "package-lock.json", "tsconfig.json", "BUILD_APK_WINDOWS.bat", "INSTALL_WINDOWS.bat"
+          ]
+          skip = {
+              "assets/images/react-logo.png", "assets/images/react-logo@2x.png",
+              "assets/images/react-logo@3x.png", "assets/images/partial-react-logo.png"
+          }
+          files = []
+          for root in roots:
+              if not os.path.exists(root):
+                  continue
+              for base, dirs, names in os.walk(root):
+                  dirs[:] = [d for d in dirs if d not in {"node_modules", ".expo", "dist", "build"}]
+                  for name in names:
+                      path = os.path.join(base, name).replace("\\", "/")
+                      if path not in skip:
+                          files.append(path)
+          files.extend(path for path in top if os.path.exists(path))
+          files = sorted(set(files))
+
+          out = "output/StudyArc-v1.1.6-min-source.zip"
+          with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+              for path in files:
+                  zf.write(path, f"StudyArc-v1.1.6/{path}")
+          print(f"Created {out} with {len(files)} files")
+          PY
+
+          ls -lh output
+
+      - name: Upload minimum APK ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v1.1.5-APK
-          path: output/StudyArc-v1.1.5.apk
+          name: StudyArc-v1.1.6-Min-APK
+          path: output/StudyArc-v1.1.6-arm64-min.apk
           if-no-files-found: error
+          compression-level: 9
           retention-days: 30
 
-      - name: Publish public v1.1.5 APK
+      - name: Upload minimum source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: StudyArc-v1.1.6-Min-Source
+          path: output/StudyArc-v1.1.6-min-source.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+
+      - name: Publish public v1.1.6 release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.5
-          name: Study Arc v1.1.5
+          tag_name: v1.1.6
+          name: Study Arc v1.1.6
           generate_release_notes: true
-          files: output/StudyArc-v1.1.5.apk
+          files: |
+            output/StudyArc-v1.1.6-arm64-min.apk
+            output/StudyArc-v1.1.6-min-source.zip
