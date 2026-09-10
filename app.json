@@ -6,12 +6,11 @@
     "orientation": "default",
     "scheme": "studyarc",
     "userInterfaceStyle": "dark",
-
     "icon": "./assets/images/icon.png",
-
     "plugins": [
       "expo-router",
       "expo-notifications",
+      "./plugins/withStudyTimerService",
       [
         "expo-splash-screen",
         {
@@ -29,7 +28,6 @@
         }
       ]
     ],
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studyarc.app",
@@ -39,7 +37,6 @@
         "UIViewControllerBasedStatusBarAppearance": false
       }
     },
-
     "android": {
       "package": "com.studyarc.app",
       "versionCode": 14,
@@ -50,18 +47,15 @@
         "backgroundColor": "#080D14"
       }
     },
-
     "androidStatusBar": {
       "hidden": true,
       "translucent": true,
       "backgroundColor": "#080D14"
     },
-
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
-
     "experiments": {
       "typedRoutes": false,
       "baseUrl": "/StudyArc"
