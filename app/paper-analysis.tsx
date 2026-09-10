@@ -24,7 +24,7 @@ export default function PaperAnalysisScreen(){
     const mcq=avg(marks.map(x=>x.mcqPercent).filter((x):x is number=>x!=null));
     const essay=avg(marks.map(x=>x.essayPercent).filter((x):x is number=>x!=null));
     const weakness=new Map<string,number>();
-    marks.forEach(mark=>mark.weakTopics.forEach(topic=>weakness.set(topic,(weakness.get(topic)??0)+1));
+    marks.forEach(mark=>mark.weakTopics.forEach(topic=>weakness.set(topic,(weakness.get(topic)??0)+1)));
     topicRows.forEach(row=>weakness.set(row.topicName,(weakness.get(row.topicName)??0)+(row.weaknessPercent??0)/25));
     topicProgress.filter(x=>x.subjectName===subject).forEach(row=>{const mastery=(row.knowledge+row.memory+row.performance)/3;if(mastery<60)weakness.set(row.topicName,(weakness.get(row.topicName)??0)+(60-mastery)/20)});
     const weak=[...weakness.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4).map(x=>x[0]);
