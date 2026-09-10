@@ -13,6 +13,7 @@ on:
       - context/**
       - data/**
       - lib/**
+      - plugins/**
       - screens/**
       - .github/workflows/build-ios.yml
 
@@ -109,20 +110,20 @@ jobs:
 
           ditto "$APP" "output/Payload/$(basename "$APP")"
           cd output
-          /usr/bin/zip -qry StudyArc-v1.1.4-unsigned.ipa Payload
+          /usr/bin/zip -qry StudyArc-v1.1.5-unsigned.ipa Payload
           rm -rf Payload
 
       - name: Upload Study Arc iOS IPA
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v1.1.4-iOS-IPA
-          path: output/StudyArc-v1.1.4-unsigned.ipa
+          name: StudyArc-v1.1.5-iOS-IPA
+          path: output/StudyArc-v1.1.5-unsigned.ipa
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish public v1.1.4 iOS IPA
+      - name: Publish public v1.1.5 iOS IPA
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.4
-          name: Study Arc v1.1.4
-          files: output/StudyArc-v1.1.4-unsigned.ipa
+          tag_name: v1.1.5
+          name: Study Arc v1.1.5
+          files: output/StudyArc-v1.1.5-unsigned.ipa

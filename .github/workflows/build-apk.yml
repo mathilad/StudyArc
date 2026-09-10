@@ -13,6 +13,7 @@ on:
       - context/**
       - data/**
       - lib/**
+      - plugins/**
       - screens/**
       - .github/workflows/build-apk.yml
 
@@ -87,20 +88,20 @@ jobs:
             exit 1
           fi
 
-          cp "$APK" output/StudyArc-v1.1.4.apk
+          cp "$APK" output/StudyArc-v1.1.5.apk
 
       - name: Upload Study Arc APK
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v1.1.4-APK
-          path: output/StudyArc-v1.1.4.apk
+          name: StudyArc-v1.1.5-APK
+          path: output/StudyArc-v1.1.5.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish public v1.1.4 APK
+      - name: Publish public v1.1.5 APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.4
-          name: Study Arc v1.1.4
+          tag_name: v1.1.5
+          name: Study Arc v1.1.5
           generate_release_notes: true
-          files: output/StudyArc-v1.1.4.apk
+          files: output/StudyArc-v1.1.5.apk

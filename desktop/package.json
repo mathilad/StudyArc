@@ -1,0 +1,28 @@
+{
+  "name": "study-arc-desktop",
+  "version": "1.1.5",
+  "private": true,
+  "description": "Study Arc Windows desktop shell",
+  "main": "main.cjs",
+  "scripts": {
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^38.1.2",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.studyarc.desktop",
+    "productName": "Study Arc",
+    "artifactName": "StudyArc-v${version}-Windows.${ext}",
+    "files": [
+      "main.cjs",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
+  }
+}
