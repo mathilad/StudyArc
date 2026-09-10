@@ -8,6 +8,13 @@ on:
     paths:
       - app.json
       - package.json
+      - app/**
+      - components/**
+      - context/**
+      - data/**
+      - lib/**
+      - plugins/**
+      - screens/**
       - desktop/**
       - .github/workflows/build-windows.yml
 
