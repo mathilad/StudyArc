@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="78%">
+      <stop offset="0" stop-color="#0c1b2d"/>
+      <stop offset="0.58" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#030812"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d6bd8"/>
+      <stop offset="0.5" stop-color="#19bfff"/>
+      <stop offset="1" stop-color="#174bba"/>
+    </linearGradient>
+    <linearGradient id="aGrad" x1="0.12" y1="0.05" x2="0.9" y2="0.95">
+      <stop offset="0" stop-color="#32f3ef"/>
+      <stop offset="0.45" stop-color="#1aa8ff"/>
+      <stop offset="0.75" stop-color="#2468ff"/>
+      <stop offset="1" stop-color="#6b43ff"/>
+    </linearGradient>
+    <linearGradient id="arcGrad" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#138fff"/>
+      <stop offset="0.45" stop-color="#56d9ff"/>
+      <stop offset="1" stop-color="#8ff8ff"/>
+    </linearGradient>
+    <linearGradient id="arcText" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#24b7ff"/>
+      <stop offset="1" stop-color="#08d9f2"/>
+    </linearGradient>
+    <filter id="glow" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="168" fill="url(#bg)"/>
+  <rect x="28" y="28" width="968" height="968" rx="145" fill="none" stroke="url(#rim)" stroke-width="5" opacity="0.72" filter="url(#soft)"/>
+
+  <g filter="url(#glow)">
+    <path fill="url(#aGrad)" fill-rule="evenodd" d="M252 640 L406 258 Q432 194 480 194 Q529 194 556 258 L708 640 H588 L543 519 H414 L370 640 Z M449 424 H509 L479 336 Z"/>
+  </g>
+
+  <path d="M244 651 C342 520 484 455 662 405 C730 386 786 360 842 319" fill="none" stroke="#03101e" stroke-width="40" stroke-linecap="round" opacity="0.82"/>
+  <path d="M244 651 C342 520 484 455 662 405 C730 386 786 360 842 319" fill="none" stroke="url(#arcGrad)" stroke-width="24" stroke-linecap="round" filter="url(#soft)"/>
+
+  <g transform="translate(865 291)" filter="url(#soft)">
+    <path d="M0 -42 C7 -13 13 -7 42 0 C13 7 7 13 0 42 C-7 13 -13 7 -42 0 C-13 -7 -7 -13 0 -42Z" fill="#baf9ff"/>
+    <path d="M0 -31 C5 -10 10 -5 31 0 C10 5 5 10 0 31 C-5 10 -10 5 -31 0 C-10 -5 -5 -10 0 -31Z" fill="#efffff" opacity="0.75"/>
+  </g>
+
+  <g font-family="Arial, DejaVu Sans, sans-serif" font-weight="800" dominant-baseline="alphabetic">
+    <text x="158" y="844" font-size="126" fill="#f8fbff" letter-spacing="-5" textLength="470" lengthAdjust="spacingAndGlyphs">Study</text>
+    <text x="616" y="844" font-size="126" fill="url(#arcText)" letter-spacing="-4" textLength="250" lengthAdjust="spacingAndGlyphs">Arc</text>
+  </g>
+</svg>
