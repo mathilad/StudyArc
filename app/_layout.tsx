@@ -6,15 +6,19 @@ import { Stack } from "expo-router";
 import { Platform, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
+import ActiveStudyCloudSync from "../components/ActiveStudyCloudSync";
 import AppUpdateNotice from "../components/AppUpdateNotice";
 import NotificationScheduler from "../components/NotificationScheduler";
 import OfflineStatusBanner from "../components/OfflineStatusBanner";
 import OfficialExamSync from "../components/OfficialExamSync";
+import WidgetSync from "../components/WidgetSync";
 import { AcademicCatalogProvider } from "../context/AcademicCatalogContext";
 import { AcademicProvider } from "../context/AcademicContext";
 import { AppConfigProvider } from "../context/AppConfigContext";
+import { AssignmentEnhancementsProvider } from "../context/AssignmentEnhancementsContext";
 import { AuthProvider } from "../context/AuthContext";
 import { ClassLearningProvider } from "../context/ClassLearningContext";
+import { IntelligenceProvider } from "../context/IntelligenceContext";
 import { MonetizationProvider } from "../context/MonetizationContext";
 import { OfflineProvider } from "../context/OfflineContext";
 import { PerformanceProvider, usePerformance } from "../context/PerformanceContext";
@@ -42,18 +46,20 @@ function RootContent() {
   }, []);
 
   return <View style={{ flex: 1, backgroundColor: "#080D14" }}>
-    <AuthProvider><AppConfigProvider><OfflineProvider><MonetizationProvider><StudentProvider><AcademicCatalogProvider><AcademicProvider><ClassLearningProvider><PlanningProvider><ScheduleAdjustmentsProvider><PhaseProvider><StudyProvider><SocialProvider>
+    <AuthProvider><AppConfigProvider><OfflineProvider><MonetizationProvider><StudentProvider><AcademicCatalogProvider><AcademicProvider><AssignmentEnhancementsProvider><ClassLearningProvider><PlanningProvider><ScheduleAdjustmentsProvider><PhaseProvider><StudyProvider><IntelligenceProvider><SocialProvider>
       <StatusBar hidden />
       <OfficialExamSync />
       <NotificationScheduler />
+      <ActiveStudyCloudSync />
+      <WidgetSync />
       <Stack screenOptions={{ headerShown: false, animation: performanceMode ? "none" : "slide_from_right", contentStyle: { backgroundColor: "#080D14" } }}>
         <Stack.Screen name="index" /><Stack.Screen name="login" /><Stack.Screen name="signup" /><Stack.Screen name="forgot-password" /><Stack.Screen name="reset-password" /><Stack.Screen name="onboarding" /><Stack.Screen name="plan-building" /><Stack.Screen name="access" /><Stack.Screen name="(tabs)" />
-        <Stack.Screen name="search" /><Stack.Screen name="quick-add" /><Stack.Screen name="plan-insights" />
+        <Stack.Screen name="search" /><Stack.Screen name="quick-add" /><Stack.Screen name="plan-insights" /><Stack.Screen name="intelligence" /><Stack.Screen name="mistake-bank" /><Stack.Screen name="mini-mock" /><Stack.Screen name="paper-lab" /><Stack.Screen name="smart-capture" /><Stack.Screen name="focus-lab" /><Stack.Screen name="journey" /><Stack.Screen name="recovery" /><Stack.Screen name="free-time" /><Stack.Screen name="audio-recall" /><Stack.Screen name="feynman" /><Stack.Screen name="focus-shield" /><Stack.Screen name="offline-pack" /><Stack.Screen name="calendar-sync" /><Stack.Screen name="exam-simulation" /><Stack.Screen name="question-bank" />
         <Stack.Screen name="subject" /><Stack.Screen name="topic" /><Stack.Screen name="stopwatch" /><Stack.Screen name="manual-session" /><Stack.Screen name="session-complete" /><Stack.Screen name="past-paper" /><Stack.Screen name="paper-stopwatch" /><Stack.Screen name="paper-analysis" /><Stack.Screen name="revision" /><Stack.Screen name="classes" /><Stack.Screen name="class-reminder" /><Stack.Screen name="profile" /><Stack.Screen name="study-phase" /><Stack.Screen name="test-mark" /><Stack.Screen name="notifications" /><Stack.Screen name="notification-settings" /><Stack.Screen name="leaderboard" /><Stack.Screen name="leaderboard-settings" /><Stack.Screen name="performance-settings" /><Stack.Screen name="friends" /><Stack.Screen name="bonus-work" /><Stack.Screen name="daily-review" /><Stack.Screen name="about" /><Stack.Screen name="contact" /><Stack.Screen name="privacy" /><Stack.Screen name="terms" /><Stack.Screen name="data-controls" /><Stack.Screen name="reports" /><Stack.Screen name="assignment" /><Stack.Screen name="planner-controls" /><Stack.Screen name="admin" /><Stack.Screen name="admin-updates" /><Stack.Screen name="admin-monetization" /><Stack.Screen name="admin-users" /><Stack.Screen name="admin-catalog" /><Stack.Screen name="admin-planner-health" /><Stack.Screen name="admin-exam-sync" /><Stack.Screen name="exams" />
       </Stack>
       <AppUpdateNotice />
       <OfflineStatusBanner />
-    </SocialProvider></StudyProvider></PhaseProvider></ScheduleAdjustmentsProvider></PlanningProvider></ClassLearningProvider></AcademicProvider></AcademicCatalogProvider></StudentProvider></MonetizationProvider></OfflineProvider></AppConfigProvider></AuthProvider>
+    </SocialProvider></IntelligenceProvider></StudyProvider></PhaseProvider></ScheduleAdjustmentsProvider></PlanningProvider></ClassLearningProvider></AssignmentEnhancementsProvider></AcademicProvider></AcademicCatalogProvider></StudentProvider></MonetizationProvider></OfflineProvider></AppConfigProvider></AuthProvider>
   </View>;
 }
 
