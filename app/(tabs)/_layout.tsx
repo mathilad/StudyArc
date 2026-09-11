@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import React from "react";
+import { Image, Text, View } from "react-native";
 import StudyArcLoader from "../../components/StudyArcLoader";
 import { useAppConfig } from "../../context/AppConfigContext";
 import { useAuth } from "../../context/AuthContext";
@@ -21,7 +22,23 @@ export default function TabsLayout() {
 
   return (
     <Tabs screenOptions={({ route }) => ({
-      headerShown: false,
+      headerShown: true,
+      headerTitleAlign: "left",
+      headerShadowVisible: false,
+      headerTintColor: "#F7FBFF",
+      headerStyle: { backgroundColor: "#0B1119" },
+      headerTitle: () => (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Image
+            source={require("../../assets/images/icon.png")}
+            resizeMode="contain"
+            style={{ width: 30, height: 30, borderRadius: 8, marginRight: 9 }}
+          />
+          <Text style={{ color: "#F7FBFF", fontSize: 19, fontWeight: "900", letterSpacing: 0.2 }}>
+            StudyArc
+          </Text>
+        </View>
+      ),
       sceneStyle: { backgroundColor: "#080D14" },
       tabBarActiveTintColor: "#C59AFF",
       tabBarInactiveTintColor: "#667386",

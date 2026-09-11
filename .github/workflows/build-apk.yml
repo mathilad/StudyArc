@@ -9,12 +9,15 @@ on:
       - app.json
       - package.json
       - app/**
+      - assets/**
       - components/**
       - context/**
       - data/**
       - lib/**
       - plugins/**
+      - public/**
       - screens/**
+      - scripts/**
       - supabase/**
       - .github/workflows/build-apk.yml
 
@@ -98,6 +101,7 @@ jobs:
           fi
 
           cp "$APK" output/StudyArc-v1.1.8-arm64-min.apk
+          (cd output && zip -9 StudyArc-v1.1.8-arm64-min.zip StudyArc-v1.1.8-arm64-min.apk)
 
           python - <<'PY'
           import os, zipfile
@@ -139,10 +143,10 @@ jobs:
       - name: Upload minimum APK ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v1.1.8-Min-APK
-          path: output/StudyArc-v1.1.8-arm64-min.apk
+          name: StudyArc-v1.1.8-Min-APK-ZIP
+          path: output/StudyArc-v1.1.8-arm64-min.zip
           if-no-files-found: error
-          compression-level: 9
+          compression-level: 0
           retention-days: 30
 
       - name: Upload minimum source ZIP
@@ -162,4 +166,5 @@ jobs:
           generate_release_notes: true
           files: |
             output/StudyArc-v1.1.8-arm64-min.apk
+            output/StudyArc-v1.1.8-arm64-min.zip
             output/StudyArc-v1.1.8-min-source.zip

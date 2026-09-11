@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Study Arc",
+    "name": "StudyArc",
     "slug": "study-arc",
     "version": "1.1.8",
     "orientation": "default",
@@ -19,20 +19,21 @@
       "expo-notifications",
       "expo-document-picker",
       "./plugins/withStudyTimerService",
+      "./plugins/withStudyArcNotificationBranding",
       "./plugins/withOptionalFocusOverlay",
       "./plugins/withStudyArcWidget",
       [
         "expo-audio",
         {
-          "microphonePermission": "Study Arc uses your microphone only when you choose Audio Recall or a StudyArc AI voice message.",
+          "microphonePermission": "StudyArc uses your microphone only when you choose Audio Recall or a StudyArc AI voice message.",
           "recordAudioAndroid": true
         }
       ],
       [
         "expo-calendar",
         {
-          "calendarPermission": "Study Arc accesses your calendar only when you choose Calendar Sync.",
-          "remindersPermission": "Study Arc accesses reminders only when you choose Calendar Sync."
+          "calendarPermission": "StudyArc accesses your calendar only when you choose Calendar Sync.",
+          "remindersPermission": "StudyArc accesses reminders only when you choose Calendar Sync."
         }
       ],
       [
@@ -40,14 +41,14 @@
         {
           "backgroundColor": "#080D14",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 1,
+          "imageWidth": 260,
           "resizeMode": "contain"
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Study Arc uses your photo library only when you choose a profile picture, Smart Capture, or attach school work to StudyArc AI.",
+          "photosPermission": "StudyArc uses your photo library only when you choose a profile picture, Smart Capture, or attach school work to StudyArc AI.",
           "microphonePermission": false
         }
       ]
