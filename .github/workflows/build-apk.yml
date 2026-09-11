@@ -15,6 +15,7 @@ on:
       - lib/**
       - plugins/**
       - screens/**
+      - supabase/**
       - .github/workflows/build-apk.yml
 
 permissions:
@@ -82,7 +83,7 @@ jobs:
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
 
-      - name: Prepare Study Arc v1.1.6 files
+      - name: Prepare Study Arc v1.1.8 files
         run: |
           mkdir -p output
 
@@ -96,14 +97,14 @@ jobs:
             exit 1
           fi
 
-          cp "$APK" output/StudyArc-v1.1.6-arm64-min.apk
+          cp "$APK" output/StudyArc-v1.1.8-arm64-min.apk
 
           python - <<'PY'
           import os, zipfile
 
           roots = [
               "app", "assets", "components", "constants", "context", "data",
-              "desktop", "hooks", "lib", "plugins", "public", "screens", "scripts", "types"
+              "desktop", "hooks", "lib", "plugins", "public", "screens", "scripts", "types", "supabase"
           ]
           top = [
               ".env.example", "app.json", "eas.json", "eslint.config.js", "expo-env.d.ts",
@@ -126,10 +127,10 @@ jobs:
           files.extend(path for path in top if os.path.exists(path))
           files = sorted(set(files))
 
-          out = "output/StudyArc-v1.1.6-min-source.zip"
+          out = "output/StudyArc-v1.1.8-min-source.zip"
           with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
               for path in files:
-                  zf.write(path, f"StudyArc-v1.1.6/{path}")
+                  zf.write(path, f"StudyArc-v1.1.8/{path}")
           print(f"Created {out} with {len(files)} files")
           PY
 
@@ -138,8 +139,8 @@ jobs:
       - name: Upload minimum APK ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v1.1.6-Min-APK
-          path: output/StudyArc-v1.1.6-arm64-min.apk
+          name: StudyArc-v1.1.8-Min-APK
+          path: output/StudyArc-v1.1.8-arm64-min.apk
           if-no-files-found: error
           compression-level: 9
           retention-days: 30
@@ -147,18 +148,18 @@ jobs:
       - name: Upload minimum source ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v1.1.6-Min-Source
-          path: output/StudyArc-v1.1.6-min-source.zip
+          name: StudyArc-v1.1.8-Min-Source
+          path: output/StudyArc-v1.1.8-min-source.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
 
-      - name: Publish public v1.1.6 release
+      - name: Publish public v1.1.8 release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.1.6
-          name: Study Arc v1.1.6
+          tag_name: v1.1.8
+          name: Study Arc v1.1.8
           generate_release_notes: true
           files: |
-            output/StudyArc-v1.1.6-arm64-min.apk
-            output/StudyArc-v1.1.6-min-source.zip
+            output/StudyArc-v1.1.8-arm64-min.apk
+            output/StudyArc-v1.1.8-min-source.zip
