@@ -18,8 +18,8 @@
       "expo-router",
       "expo-notifications",
       "expo-document-picker",
-      "./plugins/withStudyTimerService",
       "./plugins/withStudyArcNotificationBranding",
+      "./plugins/withStudyTimerService",
       "./plugins/withOptionalFocusOverlay",
       "./plugins/withStudyArcWidget",
       [
