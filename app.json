@@ -24,7 +24,7 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Study Arc uses your microphone only when you choose Audio Recall.",
+          "microphonePermission": "Study Arc uses your microphone only when you choose Audio Recall or a StudyArc AI voice message.",
           "recordAudioAndroid": true
         }
       ],
@@ -47,7 +47,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Study Arc uses your photo library only when you choose a profile picture or Smart Capture school work.",
+          "photosPermission": "Study Arc uses your photo library only when you choose a profile picture, Smart Capture, or attach school work to StudyArc AI.",
           "microphonePermission": false
         }
       ]
