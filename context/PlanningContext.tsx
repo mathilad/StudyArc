@@ -1,7 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { DEFAULT_PLANNING_PREFERENCES, setRuntimePlanningPreferences, type PlanningPreferences } from "../lib/planningRuntime";
+import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
+import { useOffline } from "./OfflineContext";
 
 const PlanningContext = createContext<{
   preferences: PlanningPreferences;
@@ -12,6 +14,7 @@ const PlanningContext = createContext<{
 } | null>(null);
 
 const keyFor = (userId: string) => `@study-arc/planning-preferences/v3/${userId}`;
+const dirtyKeyFor = (userId: string) => `@study-arc/planning-preferences-dirty/v3/${userId}`;
 
 function normalize(value: Partial<PlanningPreferences> | null | undefined): PlanningPreferences {
   const block = value?.maxStudyBlockMinutes;
@@ -34,44 +37,106 @@ function normalize(value: Partial<PlanningPreferences> | null | undefined): Plan
 
 export function PlanningProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { isOnline } = useOffline();
   const [preferences, setPreferences] = useState<PlanningPreferences>(DEFAULT_PLANNING_PREFERENCES);
   const [loading, setLoading] = useState(true);
+  const [dirty, setDirty] = useState(false);
+
+  const applyLocal = useCallback((next: PlanningPreferences) => {
+    setPreferences(next);
+    setRuntimePlanningPreferences(next);
+  }, []);
+
+  const pushRemote = useCallback(async (next: PlanningPreferences) => {
+    if (!user || !isOnline) return false;
+    const { error } = await supabase.from("planning_preferences").upsert({
+      user_id: user.id,
+      preferences: next,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+    return !error;
+  }, [isOnline, user]);
 
   useEffect(() => {
     let live = true;
-    if (!user) {
-      setPreferences(DEFAULT_PLANNING_PREFERENCES);
-      setRuntimePlanningPreferences(DEFAULT_PLANNING_PREFERENCES);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    Promise.all([
-      AsyncStorage.getItem(keyFor(user.id)),
-      AsyncStorage.getItem(`@study-arc/planning-preferences/v2/${user.id}`),
-      AsyncStorage.getItem(`@study-arc/planning-preferences/v1/${user.id}`),
-    ]).then(([rawV3, rawV2, rawV1]) => {
-      if (!live) return;
-      const raw = rawV3 ?? rawV2 ?? rawV1;
-      const next = normalize(raw ? JSON.parse(raw) : null);
-      setPreferences(next);
-      setRuntimePlanningPreferences(next);
-      setLoading(false);
-      AsyncStorage.setItem(keyFor(user.id), JSON.stringify(next)).catch(() => undefined);
-    }).catch(() => {
-      if (!live) return;
-      setPreferences(DEFAULT_PLANNING_PREFERENCES);
-      setRuntimePlanningPreferences(DEFAULT_PLANNING_PREFERENCES);
-      setLoading(false);
-    });
+    const load = async () => {
+      if (!user) {
+        applyLocal(DEFAULT_PLANNING_PREFERENCES);
+        setDirty(false);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        const [rawV3, rawV2, rawV1, dirtyRaw] = await Promise.all([
+          AsyncStorage.getItem(keyFor(user.id)),
+          AsyncStorage.getItem(`@study-arc/planning-preferences/v2/${user.id}`),
+          AsyncStorage.getItem(`@study-arc/planning-preferences/v1/${user.id}`),
+          AsyncStorage.getItem(dirtyKeyFor(user.id)),
+        ]);
+        if (!live) return;
+        const raw = rawV3 ?? rawV2 ?? rawV1;
+        let next = normalize(raw ? JSON.parse(raw) : null);
+        const localDirty = dirtyRaw === "1";
+        applyLocal(next);
+        setDirty(localDirty);
+        await AsyncStorage.setItem(keyFor(user.id), JSON.stringify(next));
+
+        if (isOnline) {
+          if (localDirty) {
+            if (await pushRemote(next)) {
+              setDirty(false);
+              await AsyncStorage.removeItem(dirtyKeyFor(user.id));
+            }
+          } else {
+            const { data, error } = await supabase.from("planning_preferences").select("preferences").eq("user_id", user.id).maybeSingle();
+            if (!error && data?.preferences) {
+              next = normalize(data.preferences as Partial<PlanningPreferences>);
+              if (!live) return;
+              applyLocal(next);
+              await AsyncStorage.setItem(keyFor(user.id), JSON.stringify(next));
+            } else if (!error) {
+              await pushRemote(next);
+            }
+          }
+        }
+      } catch {
+        if (live) applyLocal(DEFAULT_PLANNING_PREFERENCES);
+      } finally {
+        if (live) setLoading(false);
+      }
+    };
+    load();
     return () => { live = false; };
-  }, [user]);
+  }, [applyLocal, isOnline, pushRemote, user?.id]);
 
   const persist = useCallback(async (next: PlanningPreferences) => {
-    setPreferences(next);
-    setRuntimePlanningPreferences(next);
-    if (user) await AsyncStorage.setItem(keyFor(user.id), JSON.stringify(next));
-  }, [user]);
+    applyLocal(next);
+    if (!user) return;
+    await AsyncStorage.setItem(keyFor(user.id), JSON.stringify(next));
+    if (!isOnline) {
+      setDirty(true);
+      await AsyncStorage.setItem(dirtyKeyFor(user.id), "1");
+      return;
+    }
+    const ok = await pushRemote(next);
+    if (ok) {
+      setDirty(false);
+      await AsyncStorage.removeItem(dirtyKeyFor(user.id));
+    } else {
+      setDirty(true);
+      await AsyncStorage.setItem(dirtyKeyFor(user.id), "1");
+    }
+  }, [applyLocal, isOnline, pushRemote, user]);
+
+  useEffect(() => {
+    if (!user || !isOnline || !dirty) return;
+    pushRemote(preferences).then(async ok => {
+      if (!ok) return;
+      setDirty(false);
+      await AsyncStorage.removeItem(dirtyKeyFor(user.id));
+    }).catch(() => undefined);
+  }, [dirty, isOnline, preferences, pushRemote, user]);
 
   const updatePreferences = useCallback(async (updates: Partial<PlanningPreferences>) => {
     await persist(normalize({ ...preferences, ...updates }));
