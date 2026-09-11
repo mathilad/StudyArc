@@ -11,15 +11,20 @@ const PlanningContext = createContext<{
   resetDefaults: () => Promise<void>;
 } | null>(null);
 
-const keyFor = (userId: string) => `@study-arc/planning-preferences/v2/${userId}`;
+const keyFor = (userId: string) => `@study-arc/planning-preferences/v3/${userId}`;
 
 function normalize(value: Partial<PlanningPreferences> | null | undefined): PlanningPreferences {
   const block = value?.maxStudyBlockMinutes;
   const maxStudyBlockMinutes: PlanningPreferences["maxStudyBlockMinutes"] = block === 60 || block === 90 || block === 120 || block === 180 ? block : 180;
+  const energy = value?.energyPreference;
+  const energyPreference: PlanningPreferences["energyPreference"] = energy === "Morning" || energy === "Afternoon" || energy === "Evening" ? energy : "Auto";
   return {
     maxStudyBlockMinutes,
     countClassTimeTowardTarget: value?.countClassTimeTowardTarget !== false,
     catchUpMode: value?.catchUpMode === true,
+    energyPreference,
+    adaptiveBreaks: value?.adaptiveBreaks !== false,
+    burnoutGuard: value?.burnoutGuard !== false,
     weeklySubjectAdjustments: {
       ...DEFAULT_PLANNING_PREFERENCES.weeklySubjectAdjustments,
       ...(value?.weeklySubjectAdjustments ?? {}),
@@ -43,11 +48,12 @@ export function PlanningProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     Promise.all([
       AsyncStorage.getItem(keyFor(user.id)),
+      AsyncStorage.getItem(`@study-arc/planning-preferences/v2/${user.id}`),
       AsyncStorage.getItem(`@study-arc/planning-preferences/v1/${user.id}`),
-    ]).then(([rawV2, rawV1]) => {
+    ]).then(([rawV3, rawV2, rawV1]) => {
       if (!live) return;
-      const parsed = rawV2 ? JSON.parse(rawV2) : rawV1 ? JSON.parse(rawV1) : null;
-      const next = normalize(parsed);
+      const raw = rawV3 ?? rawV2 ?? rawV1;
+      const next = normalize(raw ? JSON.parse(raw) : null);
       setPreferences(next);
       setRuntimePlanningPreferences(next);
       setLoading(false);
