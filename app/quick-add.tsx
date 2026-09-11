@@ -15,7 +15,8 @@ export default function QuickAddScreen() {
   const firstSubject = subjects[0] ?? "Physics";
 
   const actions: Action[] = [
-    { title: "Start general study", subtitle: "Start immediately. Subject and lesson can be classified after the session.", icon: "play-circle-outline", primary: true, run: () => router.push({ pathname: "/stopwatch", params: { subjectName: "Quick Study", topicName: "General", studyType: "Study Session" } }) },
+    { title: "StudyArc AI", subtitle: "Type, send a photo/PDF, or record a voice message. Review suggested changes before they are saved.", icon: "sparkles-outline", primary: true, run: () => router.push("/ai-assistant") },
+    { title: "Start general study", subtitle: "Start immediately. Subject and lesson can be classified after the session.", icon: "play-circle-outline", run: () => router.push({ pathname: "/stopwatch", params: { subjectName: "Quick Study", topicName: "General", studyType: "Study Session" } }) },
     { title: "Start past paper", subtitle: "Choose subject, lesson, year and the correct paper section.", icon: "documents-outline", run: () => router.push({ pathname: "/past-paper", params: { subjectName: firstSubject } }) },
     { title: "Add assignment", subtitle: "Homework, class work, deadlines and estimated time.", icon: "clipboard-outline", run: () => router.push("/assignment") },
     { title: "Add test result", subtitle: "Record marks and weak topics so the planner can react.", icon: "stats-chart-outline", run: () => router.push("/test-mark") },
