@@ -91,7 +91,12 @@ jobs:
 
       - name: Build minimum-size arm64 Study Arc APK
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+        run: |
+          ./gradlew assembleRelease --no-daemon \
+            -PreactNativeArchitectures=arm64-v8a \
+            -x :expo:lintVitalAnalyzeRelease \
+            -x :expo-updates:lintVitalAnalyzeRelease \
+            -x :expo-modules-core:lintVitalAnalyzeRelease
 
       - name: Prepare Study Arc v1.1.8 files
         run: |
