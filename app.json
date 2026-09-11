@@ -2,12 +2,12 @@
   "expo": {
     "name": "Study Arc",
     "slug": "study-arc",
-    "version": "1.1.6",
+    "version": "1.1.8",
     "orientation": "default",
     "scheme": "studyarc",
     "userInterfaceStyle": "dark",
     "icon": "./assets/images/icon.png",
-    "runtimeVersion": "1.1.5",
+    "runtimeVersion": "1.1.8",
     "updates": {
       "enabled": true,
       "url": "https://aliqufgpassfhwobjsoh.supabase.co/functions/v1/studyarc-updates",
@@ -17,7 +17,24 @@
     "plugins": [
       "expo-router",
       "expo-notifications",
+      "expo-document-picker",
       "./plugins/withStudyTimerService",
+      "./plugins/withOptionalFocusOverlay",
+      "./plugins/withStudyArcWidget",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Study Arc uses your microphone only when you choose Audio Recall.",
+          "recordAudioAndroid": true
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Study Arc accesses your calendar only when you choose Calendar Sync.",
+          "remindersPermission": "Study Arc accesses reminders only when you choose Calendar Sync."
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -30,7 +47,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Study Arc uses your photo library only when you choose a profile picture.",
+          "photosPermission": "Study Arc uses your photo library only when you choose a profile picture or Smart Capture school work.",
           "microphonePermission": false
         }
       ]
@@ -38,7 +55,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studyarc.app",
-      "buildNumber": "16",
+      "buildNumber": "18",
       "infoPlist": {
         "UIStatusBarHidden": true,
         "UIViewControllerBasedStatusBarAppearance": false
@@ -46,7 +63,7 @@
     },
     "android": {
       "package": "com.studyarc.app",
-      "versionCode": 16,
+      "versionCode": 18,
       "predictiveBackGestureEnabled": false,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
