@@ -9,7 +9,7 @@ import{expandSubjectChoices}from"../data/subjects";
 import{analyseAnswerSheet,pickCaptureSource,type CaptureAsset}from"../lib/visionCapture";
 
 const TYPES:MistakeType[]=["Concept gap","Memory error","Calculation error","Misread question","Time-management issue","Careless error"];
-const numberOrNull=(value:any)=>{const n=Number(value);return Number.isFinite(n)?n:null};
+const numberOrNull=(value:any)=>{if(value==null||value==="")return null;const n=Number(value);return Number.isFinite(n)?n:null};
 
 export default function AnswerSheetAnalysis(){
  const router=useRouter();
