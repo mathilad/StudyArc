@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, Tabs, useRouter } from "expo-router";
+import { Redirect, Tabs, useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import StudyArcLoader from "../../components/StudyArcLoader";
@@ -10,6 +10,8 @@ import { useStudent } from "../../context/StudentContext";
 
 export default function TabsLayout() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ fromHome?: string | string[] }>();
+  const fromHome = (Array.isArray(params.fromHome) ? params.fromHome[0] : params.fromHome) === "1";
   const { session, loading: authLoading } = useAuth();
   const { profile, loading: studentLoading } = useStudent();
   const { access, loading: accessLoading } = useMonetization();
@@ -30,8 +32,18 @@ export default function TabsLayout() {
         headerShadowVisible: false,
         headerTintColor: "#F7FBFF",
         headerStyle: { backgroundColor: "#0B1119" },
-        headerTitleContainerStyle: { left: 16 },
+        headerTitleContainerStyle: { left: fromHome && route.name !== "index" ? 2 : 16 },
+        headerLeftContainerStyle: { left: 10 },
         headerRightContainerStyle: { right: 14 },
+        headerLeft: fromHome && route.name !== "index" ? () => (
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={10}
+            style={{ width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#151B24", borderWidth: 1, borderColor: "#273241" }}
+          >
+            <Ionicons name="arrow-back" size={20} color="#F7FBFF" />
+          </Pressable>
+        ) : undefined,
         headerTitle: () => (
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Image
