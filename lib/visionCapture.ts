@@ -22,12 +22,18 @@ export async function pickCaptureSource(source:"camera"|"library"|"document"):Pr
  if(result.canceled||!result.assets?.[0])return null;const a=result.assets[0];const file=new File(a.uri);const base64=await file.base64();return{base64,mimeType:a.mimeType??(a.name.toLowerCase().endsWith(".pdf")?"application/pdf":"image/jpeg"),filename:a.name,previewUri:(a.mimeType??"").startsWith("image/")?a.uri:null};
 }
 
+const withEngine=(data:any)=>({
+ ...(data?.analysis??{}),
+ _engine:typeof data?.engine==="string"?data.engine:null,
+ _model:typeof data?.model==="string"?data.model:null,
+});
+
 export async function analyseCapture(kind:CaptureKind,asset:CaptureAsset){
  const{data,error}=await supabase.functions.invoke("studyarc-vision",{body:{kind,base64:asset.base64,mimeType:asset.mimeType,filename:asset.filename}});
  if(error)throw new Error(error.message||"Could not analyse this upload.");
  if(data?.error)throw new Error(data.message||data.error);
  if(!data?.analysis||typeof data.analysis!=="object")throw new Error("StudyArc Vision returned an invalid analysis.");
- return data.analysis as Record<string,any>;
+ return withEngine(data) as Record<string,any>;
 }
 
 function syllabusCatalog(subjectNames?:string[]){
@@ -52,5 +58,5 @@ export async function analyseAnswerSheet(answer:CaptureAsset,reference?:CaptureA
  if(error)throw new Error(error.message||"Could not analyse this answer sheet.");
  if(data?.error)throw new Error(data.message||data.error);
  if(!data?.analysis||typeof data.analysis!=="object")throw new Error("StudyArc Vision returned an invalid answer-sheet analysis.");
- return data.analysis as Record<string,any>;
+ return withEngine(data) as Record<string,any>;
 }
