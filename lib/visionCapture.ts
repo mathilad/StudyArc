@@ -1,6 +1,7 @@
 import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
+import { SUBJECTS, type SubjectName } from "../data/subjects";
 import { supabase } from "./supabase";
 
 export type CaptureKind="homework"|"tute"|"test_result"|"paper_marking"|"answer_sheet";
@@ -29,7 +30,15 @@ export async function analyseCapture(kind:CaptureKind,asset:CaptureAsset){
  return data.analysis as Record<string,any>;
 }
 
-export async function analyseAnswerSheet(answer:CaptureAsset,reference?:CaptureAsset|null){
+function syllabusCatalog(subjectNames?:string[]){
+ const selected=(subjectNames?.length?subjectNames:Object.keys(SUBJECTS)).filter((name):name is SubjectName=>name in SUBJECTS);
+ return selected.map(subjectName=>({
+  subjectName,
+  topics:SUBJECTS[subjectName].topics.map(topic=>({title:topic.title,subtopics:topic.subtopics})),
+ }));
+}
+
+export async function analyseAnswerSheet(answer:CaptureAsset,reference?:CaptureAsset|null,subjectNames?:string[]){
  const{data,error}=await supabase.functions.invoke("studyarc-vision",{body:{
   kind:"answer_sheet",
   base64:answer.base64,
@@ -38,6 +47,7 @@ export async function analyseAnswerSheet(answer:CaptureAsset,reference?:CaptureA
   referenceBase64:reference?.base64??null,
   referenceMimeType:reference?.mimeType??null,
   referenceFilename:reference?.filename??null,
+  syllabusCatalog:syllabusCatalog(subjectNames),
  }});
  if(error)throw new Error(error.message||"Could not analyse this answer sheet.");
  if(data?.error)throw new Error(data.message||data.error);
