@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Redirect, Tabs } from "expo-router";
+import { Redirect, Tabs, useRouter } from "expo-router";
 import React from "react";
-import { Image, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import StudyArcLoader from "../../components/StudyArcLoader";
 import { useAppConfig } from "../../context/AppConfigContext";
 import { useAuth } from "../../context/AuthContext";
@@ -9,10 +9,12 @@ import { useMonetization } from "../../context/MonetizationContext";
 import { useStudent } from "../../context/StudentContext";
 
 export default function TabsLayout() {
+  const router = useRouter();
   const { session, loading: authLoading } = useAuth();
   const { profile, loading: studentLoading } = useStudent();
   const { access, loading: accessLoading } = useMonetization();
   const { isAdmin, refreshing: adminLoading } = useAppConfig();
+
   if (authLoading || (session && adminLoading)) return <StudyArcLoader compact />;
   if (!session) return <Redirect href="/login" />;
   if (isAdmin) return <Redirect href="/admin" />;
@@ -21,45 +23,77 @@ export default function TabsLayout() {
   if (!access || ["BLOCKED", "PAYMENT_REQUIRED", "PAYMENT_PENDING"].includes(access.state)) return <Redirect href="/access" />;
 
   return (
-    <Tabs screenOptions={({ route }) => ({
-      headerShown: true,
-      headerTitleAlign: "left",
-      headerShadowVisible: false,
-      headerTintColor: "#F7FBFF",
-      headerStyle: { backgroundColor: "#0B1119" },
-      headerTitle: () => (
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Image
-            source={require("../../assets/images/icon.png")}
-            resizeMode="contain"
-            style={{ width: 30, height: 30, borderRadius: 8, marginRight: 9 }}
-          />
-          <Text style={{ color: "#F7FBFF", fontSize: 19, fontWeight: "900", letterSpacing: 0.2 }}>
-            StudyArc
-          </Text>
-        </View>
-      ),
-      sceneStyle: { backgroundColor: "#080D14" },
-      tabBarActiveTintColor: "#C59AFF",
-      tabBarInactiveTintColor: "#667386",
-      tabBarStyle: { backgroundColor: "#0B1119", borderTopColor: "#1F2A38", height: 72, paddingBottom: 10, paddingTop: 8 },
-      tabBarLabelStyle: { fontSize: 11, fontWeight: "800" },
-      tabBarIcon: ({ color, size }) => {
-        const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-          index: "home-outline",
-          plan: "calendar-outline",
-          sessions: "time-outline",
-          statistics: "analytics-outline",
-          more: "grid-outline",
-        };
-        return <Ionicons name={icons[route.name] ?? "ellipse-outline"} size={size} color={color} />;
-      },
-    })}>
+    <Tabs
+      screenOptions={({ route }) => ({
+        headerShown: true,
+        headerTitleAlign: "left",
+        headerShadowVisible: false,
+        headerTintColor: "#F7FBFF",
+        headerStyle: { backgroundColor: "#0B1119" },
+        headerTitleContainerStyle: { left: 16 },
+        headerRightContainerStyle: { right: 14 },
+        headerTitle: () => (
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Image
+              source={require("../../assets/images/icon.png")}
+              resizeMode="contain"
+              style={{ width: 30, height: 30, borderRadius: 8, marginRight: 9 }}
+            />
+            <Text style={{ color: "#F7FBFF", fontSize: 19, fontWeight: "900", letterSpacing: 0.2 }}>
+              StudyArc
+            </Text>
+          </View>
+        ),
+        headerRight: () => (
+          <Pressable
+            onPress={() => router.push("/notifications")}
+            hitSlop={10}
+            style={({ pressed }) => ({
+              width: 38,
+              height: 38,
+              borderRadius: 12,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: pressed ? "#211B2D" : "#151B24",
+              borderWidth: 1,
+              borderColor: "#273241",
+            })}
+          >
+            <Ionicons name="notifications-outline" size={21} color="#E7DDF4" />
+          </Pressable>
+        ),
+        sceneStyle: { backgroundColor: "#080D14" },
+        tabBarActiveTintColor: "#C59AFF",
+        tabBarInactiveTintColor: "#667386",
+        tabBarStyle: {
+          backgroundColor: "#0B1119",
+          borderTopColor: "#1F2A38",
+          height: 74,
+          paddingBottom: 10,
+          paddingTop: 7,
+        },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "800" },
+        tabBarIcon: ({ color, size }) => {
+          const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
+            index: "home-outline",
+            study: "library-outline",
+            subjects: "book-outline",
+            timer: "timer-outline",
+            plan: "calendar-outline",
+            more: "grid-outline",
+          };
+          return <Ionicons name={icons[route.name] ?? "ellipse-outline"} size={size} color={color} />;
+        },
+      })}
+    >
       <Tabs.Screen name="index" options={{ title: "Home" }} />
+      <Tabs.Screen name="study" options={{ title: "Study" }} />
+      <Tabs.Screen name="subjects" options={{ title: "Subjects" }} />
+      <Tabs.Screen name="timer" options={{ title: "Timer" }} />
       <Tabs.Screen name="plan" options={{ title: "Plan" }} />
-      <Tabs.Screen name="sessions" options={{ title: "Sessions" }} />
-      <Tabs.Screen name="statistics" options={{ title: "Analytics" }} />
       <Tabs.Screen name="more" options={{ title: "More" }} />
+      <Tabs.Screen name="sessions" options={{ href: null }} />
+      <Tabs.Screen name="statistics" options={{ href: null }} />
     </Tabs>
   );
 }
