@@ -22,7 +22,8 @@ const CORE: Tool[] = [
 ];
 
 const TOOLS: Tool[] = [
-  { title: "Analyze answer sheet", subtitle: "Upload your written answers, optionally add a marking scheme, and import weak questions", icon: "camera-outline", route: "/answer-sheet-analysis" },
+  { title: "Analyze answer sheet", subtitle: "Upload written answers, identify lessons and adapt your future study plan", icon: "camera-outline", route: "/answer-sheet-analysis" },
+  { title: "Overall analysis", subtitle: "See test marks, scanned question accuracy, levels and weak lessons together", icon: "stats-chart-outline", route: "/overall-analysis" },
   { title: "Recovery planner", subtitle: "Rebuild the plan when you fall behind instead of stacking overdue work", icon: "trail-sign-outline", route: "/recovery" },
   { title: "Paper performance", subtitle: "See section performance, weak lessons and paper-practice trends", icon: "analytics-outline", route: "/paper-analysis" },
   { title: "Exam simulator", subtitle: "Run a full timed exam-style session", icon: "timer-outline", route: "/exam-simulation" },
