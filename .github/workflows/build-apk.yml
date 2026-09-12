@@ -26,7 +26,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: study-arc-apk-${{ github.ref }}
+  group: study-arc-apk-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
