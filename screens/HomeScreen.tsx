@@ -1,102 +1,195 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import AnimatedEntrance from "../components/AnimatedEntrance";
 import Screen from "../components/Screen";
 import { useAcademic } from "../context/AcademicContext";
-import { useAppConfig } from "../context/AppConfigContext";
-import { usePlanning } from "../context/PlanningContext";
-import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
-import { useSocial } from "../context/SocialContext";
 import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
-import { expandSubjectChoices, topicDisplayName } from "../data/subjects";
-import { daysUntilExam, isFullWorkMode } from "../lib/exams";
-import { countUnreadNotifications } from "../lib/notificationReadState";
-import { buildNotificationFeed, scheduleDailyReviewReminder, scheduleStudyReminders } from "../lib/notifications";
-import { generateDailyPlan, recommendTaskNow, type PlanBlock } from "../lib/planner";
-import { calculateReadiness } from "../lib/readiness";
-import { elapsedFromPersistedTimer, readActiveStudyTimer, type PersistedStudyTimer } from "../lib/timerPersistence";
-import { durationMinutes, parseTime } from "../lib/time";
+import { expandSubjectChoices } from "../data/subjects";
+import { daysUntilExam } from "../lib/exams";
 
-const fmtStudy=(sec:number)=>{const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h?`${h}h ${m}m`:`${m}m`};
-const blockIcon=(type:PlanBlock["type"]):keyof typeof Ionicons.glyphMap=>type==="study"?"book-outline":type==="revision"?"refresh-outline":type==="class"?"school-outline":type==="travel"?"car-outline":type==="meal"?"restaurant-outline":type==="break"?"cafe-outline":"time-outline";
+const formatStudy = (seconds: number) => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
+};
 
-export default function HomeScreen(){
-  const router=useRouter();
-  const{settings}=useAppConfig();
-  const{profile,classes,testMarks,topicProgress,subtopicCoverage,todayReview}=useStudent();
-  const{assignments}=useAcademic();
-  const{preferences}=usePlanning();
-  const{protectedTimes,classWeekOverrides}=useScheduleAdjustments();
-  const{todaySeconds,sessions}=useStudy();
-  const{myRank,friends,pendingRequests}=useSocial();
-  const[activeTimer,setActiveTimer]=useState<PersistedStudyTimer|null>(null);
-  const[unreadCount,setUnreadCount]=useState(0);
-  const[,setTimerTick]=useState(0);
-  const today=useMemo(()=>new Date(),[]);
-  const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
-  const plan=useMemo(()=>generateDailyPlan(today,profile,classes,topicProgress,testMarks,subtopicCoverage),[today,profile,classes,topicProgress,testMarks,subtopicCoverage,protectedTimes,classWeekOverrides,preferences]);
-  const readiness=useMemo(()=>calculateReadiness(subjects,topicProgress,subtopicCoverage,sessions,settings),[sessions,settings,subjects,subtopicCoverage,topicProgress]);
-  const deadlines=useMemo(()=>assignments.filter(item=>!item.completed&&item.dueAt).sort((a,b)=>new Date(a.dueAt!).getTime()-new Date(b.dueAt!).getTime()).slice(0,3),[assignments]);
-  const urgent=deadlines[0]&&new Date(deadlines[0].dueAt!).getTime()-Date.now()<2*86400000?deadlines[0]:null;
-  const baseRecommendation=useMemo(()=>recommendTaskNow(90,profile,topicProgress,testMarks,subtopicCoverage),[profile,subtopicCoverage,testMarks,topicProgress]);
-  const whatNow=urgent?{subjectName:urgent.subjectName,topicName:urgent.topicName??"General",minutes:Math.min(urgent.estimatedMinutes,90),studyType:"Study Session" as const,reason:`${urgent.title} is due soon.`}:baseRecommendation;
-  const feed=useMemo(()=>buildNotificationFeed(today,profile,plan,topicProgress,classes,Boolean(todayReview),sessions),[classes,plan,profile,sessions,today,topicProgress,todayReview]);
-  const notificationIds=useMemo(()=>[...feed.map(item=>item.id),...pendingRequests.map(request=>`friend-${request.friendshipId}`)],[feed,pendingRequests]);
-  const examDays=profile.examYear?daysUntilExam(profile.examYear):null;
-  const fullWork=isFullWorkMode(profile.examYear,today);
-  const revisionDue=topicProgress.filter(item=>item.nextRecallAt&&new Date(item.nextRecallAt).getTime()<=Date.now()).length;
-  const weakSignals=testMarks.slice(0,8).reduce((sum,item)=>sum+item.weakTopics.length,0);
-  const plannedMinutes=plan.filter(item=>item.type==="study"||item.type==="revision").reduce((sum,item)=>sum+durationMinutes(item.start,item.end),0);
-  const nowMinutes=new Date().getHours()*60+new Date().getMinutes();
-  const upcoming=plan.filter(item=>parseTime(item.end)>nowMinutes).slice(0,5);
-  const studyingFriends=friends.filter(item=>item.isStudying).length;
-  const[sleepH,sleepM]=profile.sleepTime.split(":").map(Number);
-  const showDailyReview=!todayReview&&nowMinutes>=Math.max(0,sleepH*60+sleepM-60);
+export default function HomeScreen() {
+  const router = useRouter();
+  const { profile, topicProgress, subtopicCoverage } = useStudent();
+  const { assignments } = useAcademic();
+  const { todaySeconds } = useStudy();
+  const subjects = useMemo(() => expandSubjectChoices(profile.subjectChoices), [profile.subjectChoices]);
 
-  useEffect(()=>{scheduleStudyReminders(today,plan).catch(()=>undefined);scheduleDailyReviewReminder(profile).catch(()=>undefined)},[today,plan,profile]);
-  useFocusEffect(useCallback(()=>{let live=true;readActiveStudyTimer().then(value=>{if(live)setActiveTimer(value)});return()=>{live=false}},[]));
-  useFocusEffect(useCallback(()=>{let live=true;countUnreadNotifications(notificationIds).then(count=>{if(live)setUnreadCount(count)}).catch(()=>undefined);return()=>{live=false}},[notificationIds]));
-  useEffect(()=>{if(!activeTimer?.running)return;const id=setInterval(()=>setTimerTick(value=>value+1),1000);return()=>clearInterval(id)},[activeTimer?.running]);
+  const coveredLessons = useMemo(
+    () => new Set(subtopicCoverage.filter(item => item.covered).map(item => `${item.subjectName}|${item.topicName}`)).size,
+    [subtopicCoverage],
+  );
+  const coveredSubtopics = useMemo(() => subtopicCoverage.filter(item => item.covered).length, [subtopicCoverage]);
+  const openAssignments = useMemo(() => assignments.filter(item => !item.completed).length, [assignments]);
+  const revisionDue = useMemo(() => topicProgress.filter(item => item.nextRecallAt && new Date(item.nextRecallAt).getTime() <= Date.now()).length, [topicProgress]);
+  const examDays = profile.examYear ? daysUntilExam(profile.examYear) : null;
 
-  const greeting=new Date().getHours()<12?"Good morning":new Date().getHours()<18?"Good afternoon":"Good evening";
-  const activeTopic=activeTimer?.topicName&&activeTimer.subjectName?topicDisplayName(activeTimer.subjectName,activeTimer.topicName,profile.medium):activeTimer?.topicName;
-  const startTask=(subjectName?:string,topicName?:string,type="Study Session")=>router.push({pathname:"/stopwatch",params:{subjectName:subjectName??"Quick Study",topicName:topicName??"General",studyType:type}});
+  const greeting = new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 18 ? "Good afternoon" : "Good evening";
+  const firstName = profile.fullName?.trim().split(" ")[0];
+  const open = (route: string) => router.push(route as never);
+  const startGeneral = () => router.push({ pathname: "/stopwatch", params: { subjectName: "Quick Study", topicName: "General", studyType: "Study Session" } } as never);
 
-  return <Screen><LinearGradient colors={["#15101F","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-    <View style={s.top}><View style={{flex:1}}><Text style={s.kicker}>TODAY</Text><Text style={s.hello}>{profile.fullName?`${greeting}, ${profile.fullName.split(" ")[0]}`:greeting}</Text><Text style={s.topSub}>{examDays!=null?`${examDays} days to A/L${fullWork?" · Full Work Mode":""}`:"Your adaptive study day"}</Text></View><View style={s.topActions}><Pressable style={s.iconButton} onPress={()=>router.push("/search")}><Ionicons name="search" size={21} color="#E3D3F6"/></Pressable><Pressable style={s.iconButton} onPress={()=>router.push("/notifications")}><Ionicons name="notifications-outline" size={22} color="#E3D3F6"/>{unreadCount>0?<View style={s.badge}><Text style={s.badgeText}>{Math.min(9,unreadCount)}</Text></View>:null}</Pressable></View></View>
+  return (
+    <Screen>
+      <LinearGradient colors={["#15101F", "#080D14", "#080D14"]} style={StyleSheet.absoluteFill} />
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <View style={s.greetingRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.today}>TODAY</Text>
+            <Text style={s.greeting}>{firstName ? `${greeting}, ${firstName}` : greeting}</Text>
+            <Text style={s.greetingSub}>{examDays != null ? `${examDays} days to your A/L exam` : "Your study space is ready"}</Text>
+          </View>
+        </View>
 
-    {activeTimer?.running?<AnimatedEntrance><Pressable onPress={()=>router.push("/stopwatch")} style={s.live}><View style={s.liveDot}/><View style={{flex:1}}><Text style={s.liveTitle}>Study session running</Text><Text style={s.liveSub}>{activeTimer.subjectName||"General study"}{activeTopic&&activeTopic!=="General"?` · ${activeTopic}`:""} · {fmtStudy(Math.floor(elapsedFromPersistedTimer(activeTimer)/1000))}</Text></View><Text style={s.liveAction}>RESUME</Text></Pressable></AnimatedEntrance>:null}
+        <LinearGradient colors={["#4D2D70", "#281C3D", "#151A24"]} style={s.hero}>
+          <View style={s.heroTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.heroKicker}>START STUDYING</Text>
+              <Text style={s.heroTitle}>Focus first. Organize it later.</Text>
+              <Text style={s.heroSub}>Start a general timer instantly. You can choose the subject and lesson after the session if you want.</Text>
+            </View>
+            <View style={s.heroIcon}><Ionicons name="timer" size={28} color="#F2E6FF" /></View>
+          </View>
+          <Pressable style={s.primaryButton} onPress={startGeneral}>
+            <View style={s.play}><Ionicons name="play" size={17} color="#180D21" /></View>
+            <Text style={s.primaryText}>Start general timer</Text>
+            <Ionicons name="arrow-forward" size={18} color="#180D21" />
+          </Pressable>
+          <View style={s.heroLinks}>
+            <Pressable style={s.heroLink} onPress={() => open("/(tabs)/timer")}><Ionicons name="options-outline" size={16} color="#D8C3F0" /><Text style={s.heroLinkText}>Timer options</Text></Pressable>
+            <Pressable style={s.heroLink} onPress={() => open("/(tabs)/subjects")}><Ionicons name="book-outline" size={16} color="#D8C3F0" /><Text style={s.heroLinkText}>Choose subject</Text></Pressable>
+          </View>
+        </LinearGradient>
 
-    <AnimatedEntrance delay={25}><LinearGradient colors={["#4D2D70","#281C3D","#151A24"]} style={s.nextHero}><View style={s.nextHead}><View><Text style={s.nextLabel}>NEXT BEST ACTION</Text><Text style={s.nextTitle}>{whatNow?`${whatNow.subjectName} · ${topicDisplayName(whatNow.subjectName,whatNow.topicName,profile.medium)}`:"Start a general study session"}</Text></View><View style={s.spark}><Ionicons name="sparkles" size={22} color="#F0E5FF"/></View></View><Text style={s.nextReason}>{whatNow?`${whatNow.minutes} min · ${whatNow.reason}`:"Study first and classify the subject or lesson when you finish."}</Text><Pressable onPress={()=>whatNow?startTask(whatNow.subjectName,whatNow.topicName,whatNow.studyType):startTask()} style={s.start}><View style={s.play}><Ionicons name="play" size={16} color="#160B20"/></View><Text style={s.startText}>Start now</Text><Ionicons name="arrow-forward" size={18} color="#160B20"/></Pressable></LinearGradient></AnimatedEntrance>
+        <View style={s.metrics}>
+          <Metric label="Studied today" value={formatStudy(todaySeconds)} />
+          <Metric label="Lessons covered" value={String(coveredLessons)} />
+          <Metric label="Open work" value={String(openAssignments)} />
+        </View>
 
-    <AnimatedEntrance delay={35}><View style={s.metrics}><Metric label="STUDIED TODAY" value={fmtStudy(todaySeconds)}/><Metric label="PLANNED TODAY" value={`${Math.round(plannedMinutes/60*10)/10}h`}/><Metric label="READINESS" value={`${readiness.examReadiness}%`}/></View></AnimatedEntrance>
+        <View style={s.sectionHead}>
+          <View><Text style={s.sectionTitle}>Main study tools</Text><Text style={s.sectionSub}>The most useful features are now visible from Home.</Text></View>
+          <Pressable onPress={() => open("/(tabs)/study")}><Text style={s.sectionLink}>SEE ALL</Text></Pressable>
+        </View>
 
-    <AnimatedEntrance delay={45}><View style={s.sectionHead}><View><Text style={s.sectionTitle}>Today&apos;s plan</Text><Text style={s.sectionSub}>Only the next useful blocks. The full timetable stays in Plan.</Text></View><Pressable onPress={()=>router.push("/(tabs)/plan")}><Text style={s.link}>FULL PLAN</Text></Pressable></View>
-      <View style={s.planCard}>{upcoming.length?upcoming.map(item=><PlanRow key={item.id} item={item} medium={profile.medium} onStart={()=>startTask(item.subjectName,item.topicName,item.type==="revision"?"Revision":"Study Session")}/>):<View style={s.emptyInline}><Ionicons name="checkmark-circle-outline" size={24} color="#73C696"/><Text style={s.emptyInlineText}>Nothing else is scheduled today. Use Quick add if you want an extra session.</Text></View>}</View>
-    </AnimatedEntrance>
+        <View style={s.quickGrid}>
+          <Quick icon="library-outline" title="Study" sub="All study tools" onPress={() => open("/(tabs)/study")} />
+          <Quick icon="calendar-outline" title="Today’s plan" sub="Your timetable" onPress={() => open("/(tabs)/plan")} />
+          <Quick icon="refresh-outline" title="Revision" sub={`${revisionDue} due now`} onPress={() => open("/revision")} />
+          <Quick icon="documents-outline" title="Past papers" sub="Lesson or full paper" onPress={() => open("/past-paper")} />
+          <Quick icon="clipboard-outline" title="Assignments" sub={`${openAssignments} open`} onPress={() => open("/assignment")} />
+          <Quick icon="school-outline" title="Test results" sub="Marks & weak topics" onPress={() => open("/test-mark")} />
+        </View>
 
-    <AnimatedEntrance delay={55}><View style={s.sectionHead}><View><Text style={s.sectionTitle}>Needs attention</Text><Text style={s.sectionSub}>Deadlines and learning signals that can change your plan.</Text></View></View>
-      <View style={s.attentionGrid}><Attention icon="clipboard-outline" value={String(deadlines.length)} label="Upcoming assignments" onPress={()=>router.push("/assignment")}/><Attention icon="refresh-outline" value={String(revisionDue)} label="Revision due" onPress={()=>router.push("/revision")}/><Attention icon="warning-outline" value={String(weakSignals)} label="Recent weak-topic signals" onPress={()=>router.push("/test-mark")}/><Attention icon="git-compare-outline" value="WHY" label="See plan changes" onPress={()=>router.push("/plan-insights")}/></View>
-      {deadlines.length?deadlines.map(item=><Pressable key={item.id} onPress={()=>router.push("/assignment")} style={s.deadline}><View style={s.deadlineIcon}><Ionicons name="time-outline" size={18} color="#E7B27B"/></View><View style={{flex:1}}><Text style={s.deadlineTitle} numberOfLines={1}>{item.title}</Text><Text style={s.deadlineSub}>{item.subjectName} · {item.dueAt?new Date(item.dueAt).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}):"No due time"}</Text></View><Text style={s.deadlineMins}>{item.estimatedMinutes}m</Text></Pressable>):null}
-    </AnimatedEntrance>
+        <View style={s.sectionHead}>
+          <View><Text style={s.sectionTitle}>Subjects</Text><Text style={s.sectionSub}>Coverage and lessons are grouped in one place.</Text></View>
+          <Pressable onPress={() => open("/(tabs)/subjects")}><Text style={s.sectionLink}>OPEN</Text></Pressable>
+        </View>
 
-    <AnimatedEntrance delay={65}><View style={s.sectionHead}><View><Text style={s.sectionTitle}>Subjects</Text><Text style={s.sectionSub}>Open a syllabus track or continue from a weak area.</Text></View></View><View style={s.subjectGrid}>{subjects.map(subject=>{const rows=topicProgress.filter(item=>item.subjectName===subject);const mastery=rows.length?Math.round(rows.reduce((sum,item)=>sum+item.knowledge*.35+item.memory*.35+item.performance*.3,0)/rows.length):0;return <Pressable key={subject} onPress={()=>router.push({pathname:"/subject",params:{subjectName:subject}})} style={s.subject}><Text style={s.subjectName}>{subject}</Text><Text style={s.subjectPct}>{mastery}%</Text><View style={s.subjectBar}><View style={[s.subjectFill,{width:`${Math.max(2,mastery)}%`}]} /></View><Text style={s.subjectSub}>recorded mastery</Text></Pressable>})}</View></AnimatedEntrance>
+        <View style={s.subjectList}>
+          {subjects.slice(0, 4).map(subject => {
+            const rows = topicProgress.filter(item => item.subjectName === subject);
+            const subjectCovered = subtopicCoverage.filter(item => item.subjectName === subject && item.covered);
+            const totalTracked = subtopicCoverage.filter(item => item.subjectName === subject).length;
+            const coverage = rows.length
+              ? Math.round(rows.reduce((sum, item) => sum + item.coverage, 0) / rows.length)
+              : totalTracked ? Math.round(subjectCovered.length / totalTracked * 100) : 0;
+            return <Pressable key={subject} style={s.subject} onPress={() => router.push({ pathname: "/subject", params: { subjectName: subject } } as never)}>
+              <View style={s.subjectIcon}><Ionicons name="book-outline" size={19} color="#D6BCF6" /></View>
+              <View style={{ flex: 1 }}><Text style={s.subjectName}>{subject}</Text><Text style={s.subjectMeta}>{subjectCovered.length} covered subtopics</Text></View>
+              <Text style={s.subjectPercent}>{Math.max(0, Math.min(100, coverage))}%</Text>
+              <Ionicons name="chevron-forward" size={17} color="#6D7887" />
+            </Pressable>;
+          })}
+          {subjects.length > 4 ? <Pressable style={s.moreSubjects} onPress={() => open("/(tabs)/subjects")}><Text style={s.moreSubjectsText}>View all {subjects.length} subjects</Text><Ionicons name="arrow-forward" size={16} color="#BFA5DE" /></Pressable> : null}
+        </View>
 
-    <AnimatedEntrance delay={75}><View style={s.quickRow}><Pressable onPress={()=>router.push("/quick-add")} style={s.quick}><Ionicons name="add-circle-outline" size={21} color="#D6B9F8"/><Text style={s.quickText}>Quick add</Text></Pressable><Pressable onPress={()=>router.push({pathname:"/past-paper",params:{subjectName:subjects[0]??"Physics"}})} style={s.quick}><Ionicons name="documents-outline" size={21} color="#AEB8FF"/><Text style={s.quickText}>Past papers</Text></Pressable><Pressable onPress={()=>router.push("/reports")} style={s.quick}><Ionicons name="bar-chart-outline" size={21} color="#79CFA0"/><Text style={s.quickText}>Weekly review</Text></Pressable></View></AnimatedEntrance>
+        <View style={s.sectionHead}><View><Text style={s.sectionTitle}>More useful shortcuts</Text><Text style={s.sectionSub}>Quick access without searching through menus.</Text></View></View>
+        <View style={s.shortcutRow}>
+          <SmallShortcut icon="help-circle-outline" label="Question bank" onPress={() => open("/question-bank")} />
+          <SmallShortcut icon="mic-outline" label="Audio recall" onPress={() => open("/audio-recall")} />
+          <SmallShortcut icon="scan-outline" label="Smart capture" onPress={() => open("/smart-capture")} />
+        </View>
+        <View style={s.shortcutRow}>
+          <SmallShortcut icon="analytics-outline" label="Analytics" onPress={() => open("/(tabs)/statistics")} />
+          <SmallShortcut icon="time-outline" label="Sessions" onPress={() => open("/(tabs)/sessions")} />
+          <SmallShortcut icon="bar-chart-outline" label="Reports" onPress={() => open("/reports")} />
+        </View>
 
-    <AnimatedEntrance delay={85}><View style={s.social}><View><Text style={s.socialLabel}>TODAY&apos;S RANK</Text><Text style={s.socialValue}>{myRank?`#${myRank.rank}`:"—"}</Text></View><View style={s.socialLine}/><View><Text style={s.socialLabel}>FRIENDS STUDYING</Text><Text style={s.socialValue}>{studyingFriends}</Text></View><Pressable onPress={()=>router.push("/leaderboard")} style={s.socialOpen}><Ionicons name="arrow-forward" size={17} color="#CDB5EB"/></Pressable></View></AnimatedEntrance>
-
-    {showDailyReview?<AnimatedEntrance delay={90}><Pressable onPress={()=>router.push("/daily-review")} style={s.review}><Ionicons name="moon-outline" size={22} color="#C7B3FF"/><View style={{flex:1}}><Text style={s.reviewTitle}>Close your study day</Text><Text style={s.reviewSub}>A short review helps Study Arc adjust tomorrow without turning missed work into guilt.</Text></View><Ionicons name="chevron-forward" size={18} color="#8A78A0"/></Pressable></AnimatedEntrance>:null}
-  </ScrollView></Screen>;
+        <View style={s.progressCard}>
+          <View style={s.progressIcon}><Ionicons name="checkmark-done-outline" size={23} color="#83D0A2" /></View>
+          <View style={{ flex: 1 }}><Text style={s.progressTitle}>Coverage at a glance</Text><Text style={s.progressSub}>{coveredLessons} lessons · {coveredSubtopics} subtopics marked covered</Text></View>
+          <Pressable onPress={() => open("/(tabs)/subjects")}><Ionicons name="chevron-forward" size={20} color="#788494" /></Pressable>
+        </View>
+      </ScrollView>
+    </Screen>
+  );
 }
 
-function Metric({label,value}:{label:string;value:string}){return <View style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{value}</Text></View>}
-function Attention({icon,value,label,onPress}:{icon:keyof typeof Ionicons.glyphMap;value:string;label:string;onPress:()=>void}){return <Pressable onPress={onPress} style={s.attention}><Ionicons name={icon} size={18} color="#C9ADEA"/><Text style={s.attentionValue}>{value}</Text><Text style={s.attentionLabel}>{label}</Text></Pressable>}
-function PlanRow({item,medium,onStart}:{item:PlanBlock;medium:"English"|"Sinhala";onStart:()=>void}){const actionable=item.type==="study"||item.type==="revision";const title=item.subjectName&&item.topicName?topicDisplayName(item.subjectName,item.topicName,medium):item.title;return <View style={s.planRow}><View style={s.planIcon}><Ionicons name={blockIcon(item.type)} size={18} color={actionable?"#CEB1F0":"#8290A2"}/></View><View style={{flex:1,minWidth:0}}><Text style={s.planTitle} numberOfLines={1}>{title}</Text><Text style={s.planSub}>{item.start}–{item.end}{item.subjectName?` · ${item.subjectName}`:""}{item.priority==="high"?" · priority":""}</Text></View>{actionable?<Pressable onPress={onStart} style={s.planStart}><Ionicons name="play" size={12} color="#160B20"/></Pressable>:null}</View>}
+function Metric({ label, value }: { label: string; value: string }) {
+  return <View style={s.metric}><Text style={s.metricValue}>{value}</Text><Text style={s.metricLabel}>{label}</Text></View>;
+}
 
-const s=StyleSheet.create({content:{padding:18,paddingBottom:42,maxWidth:900,width:"100%",alignSelf:"center"},top:{flexDirection:"row",alignItems:"center",gap:12,marginTop:5,marginBottom:16},kicker:{color:"#A484CC",fontSize:8.5,fontWeight:"900",letterSpacing:1.3},hello:{color:"#F5F5F7",fontSize:27,fontWeight:"900",marginTop:4},topSub:{color:"#718094",fontSize:9.5,marginTop:4},topActions:{flexDirection:"row",gap:7},iconButton:{width:43,height:43,borderRadius:14,backgroundColor:"#151B24",borderWidth:1,borderColor:"#293545",alignItems:"center",justifyContent:"center"},badge:{position:"absolute",right:5,top:5,minWidth:16,height:16,borderRadius:8,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center"},badgeText:{color:"#170B20",fontSize:7,fontWeight:"900"},live:{minHeight:64,borderRadius:18,backgroundColor:"#151321",borderWidth:1,borderColor:"#5B4274",padding:12,flexDirection:"row",alignItems:"center",gap:10,marginBottom:10},liveDot:{width:10,height:10,borderRadius:5,backgroundColor:"#65D79A"},liveTitle:{color:"#E9E1F1",fontSize:10.5,fontWeight:"900"},liveSub:{color:"#897B95",fontSize:8.5,marginTop:3},liveAction:{color:"#CBADEB",fontSize:8.5,fontWeight:"900"},nextHero:{borderRadius:24,padding:18,borderWidth:1,borderColor:"#684D88"},nextHead:{flexDirection:"row",alignItems:"flex-start",justifyContent:"space-between",gap:12},nextLabel:{color:"#C9A8EE",fontSize:8,fontWeight:"900",letterSpacing:1.2},nextTitle:{color:"#FAF6FF",fontSize:18,fontWeight:"900",marginTop:7,maxWidth:560},spark:{width:42,height:42,borderRadius:14,backgroundColor:"#FFFFFF16",alignItems:"center",justifyContent:"center"},nextReason:{color:"#B4A8C1",fontSize:10,lineHeight:15,marginTop:9},start:{height:52,borderRadius:16,backgroundColor:"#B784FF",marginTop:15,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:8},play:{width:28,height:28,borderRadius:10,backgroundColor:"#FFFFFF55",alignItems:"center",justifyContent:"center"},startText:{color:"#160B20",fontSize:11.5,fontWeight:"900"},metrics:{flexDirection:"row",gap:7,marginTop:10},metric:{flex:1,minHeight:78,borderRadius:17,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:11,justifyContent:"center"},metricLabel:{color:"#6E7C8F",fontSize:7,fontWeight:"900",letterSpacing:.8},metricValue:{color:"#EEEFF3",fontSize:18,fontWeight:"900",marginTop:6},sectionHead:{flexDirection:"row",alignItems:"flex-end",justifyContent:"space-between",gap:10,marginTop:22,marginBottom:9},sectionTitle:{color:"#EEF1F4",fontSize:17,fontWeight:"900"},sectionSub:{color:"#6F7D8F",fontSize:8.5,marginTop:3},link:{color:"#B18CDA",fontSize:8,fontWeight:"900"},planCard:{borderRadius:20,backgroundColor:"#0F161F",borderWidth:1,borderColor:"#273443",overflow:"hidden"},planRow:{minHeight:64,padding:11,flexDirection:"row",alignItems:"center",gap:10,borderBottomWidth:1,borderBottomColor:"#24303C"},planIcon:{width:39,height:39,borderRadius:13,backgroundColor:"#B784FF10",alignItems:"center",justifyContent:"center"},planTitle:{color:"#E4E8ED",fontSize:10.5,fontWeight:"900"},planSub:{color:"#718093",fontSize:8.2,marginTop:4},planStart:{width:36,height:36,borderRadius:12,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center"},emptyInline:{padding:18,flexDirection:"row",alignItems:"center",gap:10},emptyInlineText:{flex:1,color:"#7E8B9C",fontSize:9.5,lineHeight:14},attentionGrid:{flexDirection:"row",flexWrap:"wrap",gap:7},attention:{flexGrow:1,flexBasis:"47%",minHeight:92,borderRadius:17,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:12},attentionValue:{color:"#ECE5F4",fontSize:17,fontWeight:"900",marginTop:7},attentionLabel:{color:"#788698",fontSize:8.5,marginTop:3},deadline:{minHeight:60,borderRadius:16,backgroundColor:"#171510",borderWidth:1,borderColor:"#433922",padding:10,marginTop:7,flexDirection:"row",alignItems:"center",gap:9},deadlineIcon:{width:38,height:38,borderRadius:12,backgroundColor:"#F0A96B10",alignItems:"center",justifyContent:"center"},deadlineTitle:{color:"#E6E2D9",fontSize:10.5,fontWeight:"900"},deadlineSub:{color:"#847B68",fontSize:8.3,marginTop:3},deadlineMins:{color:"#D2AE78",fontSize:9,fontWeight:"900"},subjectGrid:{flexDirection:"row",flexWrap:"wrap",gap:8},subject:{flexGrow:1,flexBasis:"47%",minWidth:150,minHeight:108,borderRadius:18,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:13},subjectName:{color:"#E7EBEF",fontSize:11,fontWeight:"900"},subjectPct:{color:"#C6A5EA",fontSize:20,fontWeight:"900",marginTop:9},subjectBar:{height:5,borderRadius:4,backgroundColor:"#27313E",overflow:"hidden",marginTop:7},subjectFill:{height:5,backgroundColor:"#B784FF"},subjectSub:{color:"#6F7D8F",fontSize:7.5,marginTop:5},quickRow:{flexDirection:"row",gap:7,marginTop:18},quick:{flex:1,minHeight:64,borderRadius:16,backgroundColor:"#121922",borderWidth:1,borderColor:"#2B3746",alignItems:"center",justifyContent:"center",gap:6},quickText:{color:"#AEB8C5",fontSize:8.5,fontWeight:"900"},social:{minHeight:78,borderRadius:18,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:13,marginTop:10,flexDirection:"row",alignItems:"center",justifyContent:"space-around"},socialLabel:{color:"#6F7C8E",fontSize:7.5,fontWeight:"900"},socialValue:{color:"#E7EBF0",fontSize:18,fontWeight:"900",marginTop:5},socialLine:{width:1,height:42,backgroundColor:"#283440"},socialOpen:{width:38,height:38,borderRadius:12,backgroundColor:"#B784FF12",alignItems:"center",justifyContent:"center"},review:{minHeight:76,borderRadius:18,backgroundColor:"#171421",borderWidth:1,borderColor:"#473759",padding:13,marginTop:10,flexDirection:"row",alignItems:"center",gap:10},reviewTitle:{color:"#E7E0F0",fontSize:10.5,fontWeight:"900"},reviewSub:{color:"#83768F",fontSize:8.5,lineHeight:13,marginTop:4}});
+function Quick({ icon, title, sub, onPress }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub: string; onPress: () => void }) {
+  return <Pressable style={s.quick} onPress={onPress}><View style={s.quickIcon}><Ionicons name={icon} size={21} color="#D8BEF7" /></View><Text style={s.quickTitle}>{title}</Text><Text style={s.quickSub}>{sub}</Text></Pressable>;
+}
+
+function SmallShortcut({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
+  return <Pressable style={s.smallShortcut} onPress={onPress}><Ionicons name={icon} size={19} color="#CDB4EB" /><Text style={s.smallShortcutText}>{label}</Text></Pressable>;
+}
+
+const s = StyleSheet.create({
+  content: { padding: 14, paddingBottom: 34 },
+  greetingRow: { flexDirection: "row", alignItems: "center", marginBottom: 13 },
+  today: { color: "#8E7B9F", fontSize: 9, fontWeight: "900", letterSpacing: 1.4 },
+  greeting: { color: "#F3EDF7", fontSize: 22, fontWeight: "900", marginTop: 4 },
+  greetingSub: { color: "#7E8897", fontSize: 10, marginTop: 4 },
+  hero: { borderRadius: 25, padding: 17, borderWidth: 1, borderColor: "#533A69" },
+  heroTop: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  heroKicker: { color: "#C8A9E9", fontSize: 9, fontWeight: "900", letterSpacing: 1.2 },
+  heroTitle: { color: "#FAF5FF", fontSize: 21, lineHeight: 27, fontWeight: "900", marginTop: 5, maxWidth: 260 },
+  heroSub: { color: "#A497AF", fontSize: 10, lineHeight: 15, marginTop: 7, maxWidth: 295 },
+  heroIcon: { width: 52, height: 52, borderRadius: 17, backgroundColor: "#B784FF1D", alignItems: "center", justifyContent: "center" },
+  primaryButton: { height: 52, borderRadius: 17, backgroundColor: "#D5B4FF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, marginTop: 16 },
+  play: { width: 28, height: 28, borderRadius: 9, backgroundColor: "#FFFFFF66", alignItems: "center", justifyContent: "center" },
+  primaryText: { color: "#180D21", fontSize: 13, fontWeight: "900" },
+  heroLinks: { flexDirection: "row", gap: 8, marginTop: 9 },
+  heroLink: { flex: 1, height: 40, borderRadius: 13, backgroundColor: "#FFFFFF0A", borderWidth: 1, borderColor: "#FFFFFF12", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  heroLinkText: { color: "#D8C3F0", fontSize: 9.5, fontWeight: "800" },
+  metrics: { flexDirection: "row", gap: 8, marginTop: 10 },
+  metric: { flex: 1, minHeight: 72, borderRadius: 17, backgroundColor: "#111821", borderWidth: 1, borderColor: "#24303D", alignItems: "center", justifyContent: "center", padding: 8 },
+  metricValue: { color: "#ECE5F2", fontSize: 16, fontWeight: "900" },
+  metricLabel: { color: "#75808F", fontSize: 8.5, marginTop: 5, textAlign: "center" },
+  sectionHead: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: 10, marginTop: 22, marginBottom: 9 },
+  sectionTitle: { color: "#F0EAF4", fontSize: 16, fontWeight: "900" },
+  sectionSub: { color: "#778291", fontSize: 9.5, marginTop: 3 },
+  sectionLink: { color: "#B99AD8", fontSize: 9, fontWeight: "900" },
+  quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+  quick: { width: "48.6%", minHeight: 122, borderRadius: 19, backgroundColor: "#121923", borderWidth: 1, borderColor: "#25313F", padding: 13 },
+  quickIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: "#B784FF14", alignItems: "center", justifyContent: "center" },
+  quickTitle: { color: "#E9E4ED", fontSize: 12, fontWeight: "900", marginTop: 10 },
+  quickSub: { color: "#74808F", fontSize: 8.8, marginTop: 4 },
+  subjectList: { gap: 7 },
+  subject: { minHeight: 62, borderRadius: 17, backgroundColor: "#101720", borderWidth: 1, borderColor: "#222E3B", paddingHorizontal: 11, flexDirection: "row", alignItems: "center", gap: 9 },
+  subjectIcon: { width: 37, height: 37, borderRadius: 12, backgroundColor: "#B784FF12", alignItems: "center", justifyContent: "center" },
+  subjectName: { color: "#E5E1E8", fontSize: 11.5, fontWeight: "900" },
+  subjectMeta: { color: "#707C8B", fontSize: 8.5, marginTop: 3 },
+  subjectPercent: { color: "#BEA4DC", fontSize: 11, fontWeight: "900" },
+  moreSubjects: { height: 46, borderRadius: 14, backgroundColor: "#171320", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  moreSubjectsText: { color: "#BFA5DE", fontSize: 9.5, fontWeight: "900" },
+  shortcutRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  smallShortcut: { flex: 1, minHeight: 70, borderRadius: 17, backgroundColor: "#15121E", borderWidth: 1, borderColor: "#362B44", alignItems: "center", justifyContent: "center", gap: 6, padding: 7 },
+  smallShortcutText: { color: "#CFC4D9", fontSize: 8.8, fontWeight: "800", textAlign: "center" },
+  progressCard: { minHeight: 72, borderRadius: 18, backgroundColor: "#101821", borderWidth: 1, borderColor: "#25323D", paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
+  progressIcon: { width: 41, height: 41, borderRadius: 13, backgroundColor: "#73C69614", alignItems: "center", justifyContent: "center" },
+  progressTitle: { color: "#E3E5E8", fontSize: 11.5, fontWeight: "900" },
+  progressSub: { color: "#74808D", fontSize: 8.8, marginTop: 3 },
+});
