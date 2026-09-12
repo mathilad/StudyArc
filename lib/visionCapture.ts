@@ -3,7 +3,7 @@ import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "./supabase";
 
-export type CaptureKind="homework"|"tute"|"test_result"|"paper_marking";
+export type CaptureKind="homework"|"tute"|"test_result"|"paper_marking"|"answer_sheet";
 export type CaptureAsset={base64:string;mimeType:string;filename:string;previewUri:string|null};
 
 export async function pickCaptureSource(source:"camera"|"library"|"document"):Promise<CaptureAsset|null>{
@@ -26,5 +26,21 @@ export async function analyseCapture(kind:CaptureKind,asset:CaptureAsset){
  if(error)throw new Error(error.message||"Could not analyse this upload.");
  if(data?.error)throw new Error(data.message||data.error);
  if(!data?.analysis||typeof data.analysis!=="object")throw new Error("StudyArc Vision returned an invalid analysis.");
+ return data.analysis as Record<string,any>;
+}
+
+export async function analyseAnswerSheet(answer:CaptureAsset,reference?:CaptureAsset|null){
+ const{data,error}=await supabase.functions.invoke("studyarc-vision",{body:{
+  kind:"answer_sheet",
+  base64:answer.base64,
+  mimeType:answer.mimeType,
+  filename:answer.filename,
+  referenceBase64:reference?.base64??null,
+  referenceMimeType:reference?.mimeType??null,
+  referenceFilename:reference?.filename??null,
+ }});
+ if(error)throw new Error(error.message||"Could not analyse this answer sheet.");
+ if(data?.error)throw new Error(data.message||data.error);
+ if(!data?.analysis||typeof data.analysis!=="object")throw new Error("StudyArc Vision returned an invalid answer-sheet analysis.");
  return data.analysis as Record<string,any>;
 }
