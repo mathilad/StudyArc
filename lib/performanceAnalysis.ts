@@ -1,10 +1,10 @@
 import type { PaperQuestionResult } from "../context/IntelligenceContext";
 import type { TestMark } from "../context/StudentContext";
 
-export type PerformanceLevel = "Foundation" | "Building" | "Developing" | "Strong" | "Very strong";
+export type PerformanceLevel = "No data" | "Foundation" | "Building" | "Developing" | "Strong" | "Very strong";
 
 export function levelForScore(score: number | null): PerformanceLevel {
-  if (score == null) return "Building";
+  if (score == null) return "No data";
   if (score < 40) return "Foundation";
   if (score < 55) return "Building";
   if (score < 70) return "Developing";
