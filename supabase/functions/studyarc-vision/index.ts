@@ -10,7 +10,7 @@ const prompts: Record<string, string> = {
   tute: `You are StudyArc, an assistant for Sri Lankan G.C.E. A/L students. Inspect the uploaded tutorial/tute image or PDF. Determine what work the student is expected to complete. Return ONLY JSON with: title, subjectName, topicName, dueDate (YYYY-MM-DD or null), estimatedMinutes (integer), tasks (array of short subtasks), summary, confidence (0-1). Keep tasks actionable and concise.`,
   test_result: `Inspect this marked test or result sheet for a Sri Lankan G.C.E. A/L student. Return ONLY JSON with: title, subjectName, totalMarks (number or null), maximumMarks (number or null), weakTopics (array), questionResults (array of objects with questionNo, topicName, marksAwarded, marksTotal, confidence null, mistakeType null), summary, confidence (0-1). Only include values visible or strongly supported by the marking.`,
   paper_marking: `Inspect this marked examination/past-paper answer sheet or marking. Return ONLY JSON with: title, subjectName, paperLabel, totalMarks (number or null), maximumMarks (number or null), questionResults (array of objects with questionNo, topicName, marksAwarded, marksTotal, durationSeconds null, confidence null, mistakeType null, difficultyRating null), weakTopics (array), summary, confidence (0-1). Do not invent marks that are not visible.`,
-  answer_sheet: `You are StudyArc analysing a Sri Lankan G.C.E. A/L student's own answer sheet. Read the student's written answers carefully. If a second uploaded document/image is supplied after the text REFERENCE MARKING MATERIAL, use it as the question paper, model answer or marking scheme. Return ONLY JSON with: title, subjectName, paperLabel, hasReference (boolean), totalMarks (number or null), maximumMarks (number or null), weakTopics (array), strengths (array), nextSteps (array), questionResults (array of objects with questionNo, topicName, marksAwarded, marksTotal, answerSummary, feedback, confidence, mistakeType, difficultyRating null), summary, confidence (0-1). If no reliable marking reference is supplied, do not invent marks: use null for marksAwarded and marksTotal, but still identify answer completeness, likely misconceptions, weak topics, unclear handwriting, skipped questions and useful feedback. If a marking scheme/model answer is present, grade conservatively against it. Never claim certainty when handwriting or a diagram is unclear.`,
+  answer_sheet: `You are StudyArc analysing a Sri Lankan G.C.E. A/L student's own answer sheet. Read every answer and question part carefully. If a second uploaded document/image is supplied after the text REFERENCE MARKING MATERIAL, use it as the question paper, model answer or marking scheme. A StudyArc syllabus catalog may also be supplied. When it is supplied, match each answer part to the closest exact subjectName, topicName and subtopicName from that catalog rather than inventing lesson names. Return ONLY JSON with: title, subjectName, paperLabel, hasReference (boolean), totalMarks (number or null), maximumMarks (number or null), weakTopics (array of exact topic names when possible), strengths (array), nextSteps (array), questionResults (array of objects with questionNo, questionPart, topicName, subtopicName, lessonConfidence (0-1), marksAwarded, marksTotal, answerSummary, feedback, confidence, mistakeType, difficultyRating null), summary, confidence (0-1). If no reliable marking reference is supplied, do not invent marks: use null for marksAwarded and marksTotal, but still identify answer completeness, likely misconceptions, weak topics, unclear handwriting, skipped questions and useful feedback. If a marking scheme/model answer is present, grade conservatively against it. Never claim certainty when handwriting or a diagram is unclear.`,
 };
 
 function textFromResponse(payload: any) {
@@ -39,7 +39,12 @@ Deno.serve(async (req: Request) => {
     if (!prompts[kind]) return new Response(JSON.stringify({ error: "unsupported_kind" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     if (!base64 || base64.length > 24_000_000 || referenceBase64.length > 24_000_000) return new Response(JSON.stringify({ error: "invalid_file", message: "Upload is missing or too large." }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
 
-    const parts:any[] = [{ text: prompts[kind] }, { inlineData: { mimeType, data: base64 } }];
+    const parts:any[] = [{ text: prompts[kind] }];
+    if (kind === "answer_sheet" && Array.isArray(body?.syllabusCatalog)) {
+      const catalogText = JSON.stringify(body.syllabusCatalog).slice(0, 120_000);
+      parts.push({ text: `STUDYARC SYLLABUS CATALOG. Use these exact names when classifying each question part:\n${catalogText}` });
+    }
+    parts.push({ inlineData: { mimeType, data: base64 } });
     if (kind === "answer_sheet" && referenceBase64) {
       parts.push({ text: "REFERENCE MARKING MATERIAL follows. Use it only when it clearly supports grading." });
       parts.push({ inlineData: { mimeType: referenceMimeType, data: referenceBase64 } });
@@ -51,7 +56,7 @@ Deno.serve(async (req: Request) => {
       headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ role: "user", parts }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 6144, responseMimeType: "application/json" },
+        generationConfig: { temperature: 0.08, maxOutputTokens: 8192, responseMimeType: "application/json" },
       }),
     });
     const payload = await response.json();
