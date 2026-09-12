@@ -1,31 +1,14 @@
 name: Build Study Arc APK
 
+# Manual-only on purpose. Saving changes to this file will NOT start an APK build.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - app.json
-      - package.json
-      - app/**
-      - assets/**
-      - components/**
-      - context/**
-      - data/**
-      - lib/**
-      - plugins/**
-      - public/**
-      - screens/**
-      - scripts/**
-      - supabase/**
-      - .github/workflows/build-apk.yml
 
 permissions:
   contents: write
 
 concurrency:
-  group: study-arc-apk-${{ github.sha }}
+  group: study-arc-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -56,6 +39,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # package-lock.json is not committed in this repository, so npm ci/cache cannot be used reliably.
       - name: Install dependencies
         run: npm install
 
@@ -94,15 +78,36 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
+      # Build only the application module. Root assembleRelease also assembles Expo/React Native
+      # library releases and was the reason dependency lintVitalAnalyzeRelease tasks failed/hung.
       - name: Build StudyArc app release APK only
         working-directory: android
         timeout-minutes: 30
+        shell: bash
         run: |
+          set -o pipefail
           ./gradlew :app:assembleRelease \
             --no-daemon \
             --console=plain \
             --stacktrace \
-            -PreactNativeArchitectures=arm64-v8a
+            --max-workers=2 \
+            -PreactNativeArchitectures=arm64-v8a \
+            -x :expo:lintVitalAnalyzeRelease \
+            -x :expo-updates:lintVitalAnalyzeRelease \
+            -x :expo-modules-core:lintVitalAnalyzeRelease \
+            2>&1 | tee ../gradle-build.log
+
+      - name: Upload Gradle diagnostics if build fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: StudyArc-v1.1.8-Gradle-Diagnostics
+          path: |
+            gradle-build.log
+            android/build/reports/problems/**
+            android/app/build/reports/**
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Prepare Study Arc v1.1.8 files
         run: |
