@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useStudent, type ClassSchedule, type NewClass } from "../context/StudentContext";
-import { SUBJECTS } from "../data/subjects";
 import { validateClassSchedule } from "../lib/scheduleValidation";
 import { format12Hour, parseTime } from "../lib/time";
 import ClockTimePicker from "./ClockTimePicker";
@@ -23,7 +22,7 @@ export default function ClassFormModal({
   initialValue?: ClassSchedule | null;
 }) {
   const { classes, profile, addClass } = useStudent();
-  const availableSubjects = useMemo(() => [...new Set([...subjects, ...Object.keys(SUBJECTS)])], [subjects]);
+  const availableSubjects = useMemo(() => [...new Set(subjects.filter(Boolean))], [subjects]);
   const [subjectName, setSubjectName] = useState(availableSubjects[0] ?? "Physics");
   const [dayOfWeek, setDayOfWeek] = useState(6);
   const [classType, setClassType] = useState<NewClass["classType"]>("Theory");
@@ -39,7 +38,7 @@ export default function ClassFormModal({
   React.useEffect(() => {
     if (!visible) return;
     if (initialValue) {
-      setSubjectName(initialValue.subjectName);
+      setSubjectName(availableSubjects.includes(initialValue.subjectName) ? initialValue.subjectName : (availableSubjects[0] ?? initialValue.subjectName));
       setDayOfWeek(initialValue.dayOfWeek);
       setClassType(initialValue.classType);
       setDeliveryMode(initialValue.deliveryMode);
@@ -65,12 +64,11 @@ export default function ClassFormModal({
     setSaving(true);
     try {
       if (initialValue) {
-        // Use StudentContext as the authoritative edit path. It updates the local
-        // class immediately, queues the same upsert offline, and syncs later.
+        // Update the local/offline source first so the edit is immediately visible,
+        // then run the parent persistence/cleanup path. Do not swallow persistence
+        // failures: the modal must stay open and tell the student if cloud save failed.
         await addClass({ ...proposal, id: initialValue.id });
-        // Keep parent-only cleanup (for example this-week overrides) best-effort;
-        // the actual class edit must not fail because that secondary refresh does.
-        try { await onSave({ ...proposal, id: initialValue.id }); } catch { /* edit is already safely persisted/queued */ }
+        await onSave({ ...proposal, id: initialValue.id });
       } else {
         await onSave(proposal);
       }
@@ -83,6 +81,10 @@ export default function ClassFormModal({
   };
 
   const save = async () => {
+    if (!availableSubjects.length || !availableSubjects.includes(subjectName)) {
+      Alert.alert("Choose a stream subject", "Classes can only use subjects selected in your A/L stream.");
+      return;
+    }
     if (parseTime(endTime) <= parseTime(startTime)) {
       Alert.alert("Check class time", "Class end time must be after the start time.");
       return;
