@@ -17,7 +17,7 @@ const clamp = (value: number | null | undefined) => value == null ? null : Math.
 export function subscribeProcessing(listener: Listener) {
   listeners.add(listener);
   listener(current);
-  return () => listeners.delete(listener);
+  return () => { listeners.delete(listener); };
 }
 
 export function beginProcessing(title: string, message: string, progress: number | null = null) {
