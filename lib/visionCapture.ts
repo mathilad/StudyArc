@@ -95,7 +95,7 @@ const compactUnique=(values:any[])=>[...new Set(values.map(value=>String(value??
 const captureToken=()=>`paper-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
 const numberOrNull=(value:any)=>{if(value==null||value==="")return null;const parsed=Number(value);return Number.isFinite(parsed)?parsed:null;};
 
-async function storeRecognizedText(analysis:Record<string,any>,pages:CaptureAsset[],paperDate:string|null|undefined){
+export async function saveReviewedRecognizedText(analysis:Record<string,any>,pages:CaptureAsset[],paperDate:string|null|undefined){
  const recognizedPages=(Array.isArray(analysis.recognizedPages)?analysis.recognizedPages:[])
   .map((page:any):RecognizedPaperPage=>({pageIndex:Math.max(1,Number(page?.pageIndex??1)),text:String(page?.text??"").trim(),confidence:Number.isFinite(Number(page?.confidence))?Math.max(0,Math.min(1,Number(page.confidence))):null}))
   .filter((page:RecognizedPaperPage)=>page.text.length>0)
@@ -239,18 +239,12 @@ export async function analyseAnswerSheet(answer:CaptureAsset|CaptureAsset[],refe
    _model:compactUnique(chunks.map(x=>x._model)).join(" + ")||null,
   };
   const normalized=normalizePaperAnalysis(merged,pages.length) as Record<string,any>;
-  if(processId)updateProcessing(processId,{message:"Saving recognized text and any reliable detected result…",progress:.94});
-  const stored=await storeRecognizedText(normalized,pages,metadata.paperDate).catch(()=>false);
-  normalized.recognizedTextStoredLocally=stored;
-  try{
-   const result=await storeScannedTestResult(normalized,metadata);
-   normalized.autoTestResultSaved=result.saved;
-   normalized.sourceClassId=result.sourceClassId;
-  }catch(error){
-   normalized.autoTestResultSaved=false;
-   normalized.testResultAutoSaveError=error instanceof Error?error.message:"Could not save detected test result.";
-  }
-  if(processId)completeProcessing(processId,normalized.autoTestResultSaved?"Paper analyzed. The detected test result was linked to your paper class.":stored?"Paper analyzed. Recognized text was saved in StudyArc.":"Paper analysis complete.",650);
+  if(processId)updateProcessing(processId,{message:"Preparing an editable review. Nothing is being saved yet…",progress:.94});
+  normalized.recognizedTextStoredLocally=false;
+  normalized.autoTestResultSaved=false;
+  normalized.requiresReviewBeforeSave=true;
+  normalized.sourceClassId=metadata.sourceClassId??getActivePaperClassLink()?.sourceClassId??null;
+  if(processId)completeProcessing(processId,"Analysis complete. Review and edit the detected details before saving.",650);
   return normalized;
  }catch(error){if(processId)endProcessing(processId);throw error;}
 }
