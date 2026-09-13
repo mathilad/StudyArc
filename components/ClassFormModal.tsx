@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useStudent, type ClassSchedule, type NewClass } from "../context/StudentContext";
+import { SUBJECTS } from "../data/subjects";
 import { validateClassSchedule } from "../lib/scheduleValidation";
 import { format12Hour, parseTime } from "../lib/time";
 import ClockTimePicker from "./ClockTimePicker";
@@ -21,8 +22,9 @@ export default function ClassFormModal({
   onSave: (value: NewClass) => Promise<void> | void;
   initialValue?: ClassSchedule | null;
 }) {
-  const { classes, profile } = useStudent();
-  const [subjectName, setSubjectName] = useState(subjects[0] ?? "Physics");
+  const { classes, profile, addClass } = useStudent();
+  const availableSubjects = useMemo(() => [...new Set([...subjects, ...Object.keys(SUBJECTS)])], [subjects]);
+  const [subjectName, setSubjectName] = useState(availableSubjects[0] ?? "Physics");
   const [dayOfWeek, setDayOfWeek] = useState(6);
   const [classType, setClassType] = useState<NewClass["classType"]>("Theory");
   const [deliveryMode, setDeliveryMode] = useState<NewClass["deliveryMode"]>("Physical");
@@ -47,7 +49,7 @@ export default function ClassFormModal({
       setTravelMinutes(initialValue.travelMinutes);
       return;
     }
-    setSubjectName((current) => subjects.includes(current) ? current : (subjects[0] ?? "Physics"));
+    setSubjectName((current) => availableSubjects.includes(current) ? current : (availableSubjects[0] ?? "Physics"));
     setDayOfWeek(6);
     setClassType("Theory");
     setDeliveryMode("Physical");
@@ -55,14 +57,23 @@ export default function ClassFormModal({
     setEndTime("11:00");
     setPreReviewMinutes(30);
     setTravelMinutes(90);
-  }, [initialValue, subjects, visible]);
+  }, [availableSubjects, initialValue, visible]);
 
   const title = useMemo(() => `${subjectName} ${classType}`, [subjectName, classType]);
 
   const performSave = async (proposal: NewClass) => {
     setSaving(true);
     try {
-      await onSave(proposal);
+      if (initialValue) {
+        // Use StudentContext as the authoritative edit path. It updates the local
+        // class immediately, queues the same upsert offline, and syncs later.
+        await addClass({ ...proposal, id: initialValue.id });
+        // Keep parent-only cleanup (for example this-week overrides) best-effort;
+        // the actual class edit must not fail because that secondary refresh does.
+        try { await onSave({ ...proposal, id: initialValue.id }); } catch { /* edit is already safely persisted/queued */ }
+      } else {
+        await onSave(proposal);
+      }
       onClose();
     } catch (error) {
       Alert.alert("Could not save class", error instanceof Error ? error.message : "Please try again.");
@@ -111,7 +122,7 @@ export default function ClassFormModal({
           <View style={s.header}><View><Text style={s.eyebrow}>{editing ? "EDIT WEEKLY CLASS" : "WEEKLY CLASS"}</Text><Text style={s.title}>{editing ? "Edit class" : "Add class"}</Text></View><Pressable onPress={onClose} style={s.close}><Ionicons name="close" size={20} color="#FFF" /></Pressable></View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
             <Text style={s.label}>SUBJECT</Text>
-            <View style={s.wrap}>{subjects.map((x) => <Pressable key={x} onPress={() => setSubjectName(x)} style={[s.chip, subjectName === x && s.chipActive]}><Text style={[s.chipText, subjectName === x && s.chipTextActive]}>{x}</Text></Pressable>)}</View>
+            <View style={s.wrap}>{availableSubjects.map((x) => <Pressable key={x} onPress={() => setSubjectName(x)} style={[s.chip, subjectName === x && s.chipActive]}><Text style={[s.chipText, subjectName === x && s.chipTextActive]}>{x}</Text></Pressable>)}</View>
 
             <Text style={s.label}>DAY</Text>
             <View style={s.wrap}>{DAYS.map((x, i) => <Pressable key={x} onPress={() => setDayOfWeek(i)} style={[s.day, dayOfWeek === i && s.dayActive]}><Text style={[s.dayText, dayOfWeek === i && s.chipTextActive]}>{x}</Text></Pressable>)}</View>
