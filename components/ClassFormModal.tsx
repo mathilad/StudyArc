@@ -21,7 +21,7 @@ export default function ClassFormModal({
   onSave: (value: NewClass) => Promise<void> | void;
   initialValue?: ClassSchedule | null;
 }) {
-  const { classes, profile, addClass } = useStudent();
+  const { classes, profile } = useStudent();
   const availableSubjects = useMemo(() => [...new Set(subjects.filter(Boolean))], [subjects]);
   const [subjectName, setSubjectName] = useState(availableSubjects[0] ?? "Physics");
   const [dayOfWeek, setDayOfWeek] = useState(6);
@@ -63,15 +63,10 @@ export default function ClassFormModal({
   const performSave = async (proposal: NewClass) => {
     setSaving(true);
     try {
-      if (initialValue) {
-        // Update the local/offline source first so the edit is immediately visible,
-        // then run the parent persistence/cleanup path. Do not swallow persistence
-        // failures: the modal must stay open and tell the student if cloud save failed.
-        await addClass({ ...proposal, id: initialValue.id });
-        await onSave({ ...proposal, id: initialValue.id });
-      } else {
-        await onSave(proposal);
-      }
+      // The parent owns the complete save path for both new and edited classes.
+      // Keeping one authoritative writer prevents an edit (for example Paper ->
+      // Paper Discussion) from racing against a second queued/local upsert.
+      await onSave(initialValue ? { ...proposal, id: initialValue.id } : proposal);
       onClose();
     } catch (error) {
       Alert.alert("Could not save class", error instanceof Error ? error.message : "Please try again.");
