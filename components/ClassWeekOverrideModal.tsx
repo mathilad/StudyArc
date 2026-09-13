@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React,{useMemo,useState}from"react";
+import React,{useMemo,useRef,useState}from"react";
 import{Alert,Modal,Pressable,ScrollView,StyleSheet,Text,View}from"react-native";
 import{useStudent,type ClassSchedule}from"../context/StudentContext";
 import{SUBJECTS,topicDisplayName,type SubjectName}from"../data/subjects";
@@ -11,8 +11,9 @@ import ClockTimePicker from"./ClockTimePicker";
 const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];type Mode="Scheduled"|"Missed"|"Rescheduled";
 export default function ClassWeekOverrideModal({visible,classSchedule,existing,onClose,onSave,onClear}:{visible:boolean;classSchedule:ClassSchedule|null;existing?:ClassWeekOverride|null;onClose:()=>void;onSave:(value:ClassWeekOverrideInput)=>Promise<void>|void;onClear:()=>Promise<void>|void}){
  const{profile,subtopicCoverage}=useStudent();const week=useMemo(()=>currentWeekDates(),[]);const[mode,setMode]=useState<Mode>("Scheduled"),[day,setDay]=useState(new Date().getDay()),[startTime,setStartTime]=useState("08:00"),[endTime,setEndTime]=useState("10:00"),[topicNames,setTopicNames]=useState<string[]>([]),[clock,setClock]=useState<"start"|"end"|null>(null),[saving,setSaving]=useState(false);
+ const classScheduleRef=useRef(classSchedule),existingRef=useRef(existing);classScheduleRef.current=classSchedule;existingRef.current=existing;
  const subject=classSchedule?.subjectName as SubjectName|undefined;const topics=useMemo(()=>subject&&SUBJECTS[subject]?SUBJECTS[subject].topics:[],[subject]);const paper=classSchedule?.classType==="Paper";const manuallyCovered=new Set(subtopicCoverage.filter(x=>x.covered&&x.source==="Manual").map(x=>`${x.subjectName}::${x.topicName}`));
- React.useEffect(()=>{if(!visible||!classSchedule)return;setMode(existing?.status??"Scheduled");setDay(existing?.rescheduledDate?new Date(`${existing.rescheduledDate}T00:00:00`).getDay():classSchedule.dayOfWeek);setStartTime(existing?.startTime??classSchedule.startTime);setEndTime(existing?.endTime??classSchedule.endTime);setTopicNames(existing?.topicNames?.length?existing.topicNames:existing?.topicName?[existing.topicName]:[])},[classSchedule,existing,visible]);
+ React.useEffect(()=>{if(!visible){setClock(null);return}const currentClass=classScheduleRef.current;if(!currentClass)return;const currentExisting=existingRef.current;setMode(currentExisting?.status??"Scheduled");setDay(currentExisting?.rescheduledDate?new Date(`${currentExisting.rescheduledDate}T00:00:00`).getDay():currentClass.dayOfWeek);setStartTime(currentExisting?.startTime??currentClass.startTime);setEndTime(currentExisting?.endTime??currentClass.endTime);setTopicNames(currentExisting?.topicNames?.length?currentExisting.topicNames:currentExisting?.topicName?[currentExisting.topicName]:[])},[visible]);
  if(!classSchedule)return null;
  const activeClockValue=clock==="end"?endTime:startTime;const activeClockTitle=clock==="end"?"Make-up class ends":"Make-up class starts";const changeActiveClock=(value:string)=>{if(clock==="end")setEndTime(value);else if(clock==="start")setStartTime(value)};
  const toggleTopic=(name:string)=>{if(!paper){setTopicNames([name]);return}setTopicNames(current=>current.includes(name)?current.filter(x=>x!==name):[...current,name])};
