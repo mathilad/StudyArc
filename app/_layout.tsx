@@ -12,6 +12,7 @@ import AssignmentFlowDock from "../components/AssignmentFlowDock";
 import NotificationScheduler from "../components/NotificationScheduler";
 import OfflineStatusBanner from "../components/OfflineStatusBanner";
 import OfficialExamSync from "../components/OfficialExamSync";
+import PendingPaperScanSync from "../components/PendingPaperScanSync";
 import WidgetSync from "../components/WidgetSync";
 import { AcademicCatalogProvider } from "../context/AcademicCatalogContext";
 import { AcademicProvider } from "../context/AcademicContext";
@@ -52,6 +53,7 @@ function RootContent() {
       <OfficialExamSync />
       <NotificationScheduler />
       <ActiveStudyCloudSync />
+      <PendingPaperScanSync />
       <WidgetSync />
       <Stack screenOptions={{ headerShown: false, animation: performanceMode ? "none" : "slide_from_right", contentStyle: { backgroundColor: "#080D14" } }}>
         <Stack.Screen name="index" /><Stack.Screen name="login" /><Stack.Screen name="signup" /><Stack.Screen name="forgot-password" /><Stack.Screen name="reset-password" /><Stack.Screen name="onboarding" /><Stack.Screen name="plan-building" /><Stack.Screen name="access" /><Stack.Screen name="(tabs)" />
