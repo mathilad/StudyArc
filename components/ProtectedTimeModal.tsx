@@ -20,6 +20,10 @@ export default function ProtectedTimeModal({visible,onClose,onSave}:{visible:boo
 
   React.useEffect(()=>{if(!visible)return;setDayOfWeek(new Date().getDay())},[visible]);
 
+  const activeClockValue=clock==="end"?endTime:startTime;
+  const activeClockTitle=clock==="end"?"Protected time ends":"Protected time starts";
+  const changeActiveClock=(value:string)=>{if(clock==="end")setEndTime(value);else if(clock==="start")setStartTime(value)};
+
   const save=async()=>{
     if(!title.trim()){Alert.alert("Add a name","Give this protected time a short name, such as appointment, meal, club or family event.");return}
     if(parseTime(endTime)<=parseTime(startTime)){Alert.alert("Check the time","End time must be after start time.");return}
@@ -47,8 +51,7 @@ export default function ProtectedTimeModal({visible,onClose,onSave}:{visible:boo
         <Pressable disabled={saving} onPress={save} style={[s.save,saving&&{opacity:.55}]}><Text style={s.saveText}>{saving?"Saving…":"Protect this time"}</Text></Pressable>
       </ScrollView>
     </View></View>
-    <ClockTimePicker visible={clock==="start"} value={startTime} title="Protected time starts" onClose={()=>setClock(null)} onChange={setStartTime}/>
-    <ClockTimePicker visible={clock==="end"} value={endTime} title="Protected time ends" onClose={()=>setClock(null)} onChange={setEndTime}/>
+    <ClockTimePicker visible={clock!==null} value={activeClockValue} title={activeClockTitle} onClose={()=>setClock(null)} onChange={changeActiveClock}/>
   </Modal>;
 }
 
