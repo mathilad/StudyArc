@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Screen from "../components/Screen";
+import { useAppConfig } from "../context/AppConfigContext";
 
 type Tool = {
   title: string;
@@ -12,37 +13,40 @@ type Tool = {
   route: string;
 };
 
-const CORE: Tool[] = [
-  { title: "What should I study now?", subtitle: "Tell StudyArc how much free time you have and get the best-fit task", icon: "sparkles-outline", route: "/free-time" },
+const DAILY: Tool[] = [
   { title: "Revision", subtitle: "Review lessons that are due again", icon: "refresh-outline", route: "/revision" },
-  { title: "Past papers", subtitle: "Practice by lesson or full paper", icon: "documents-outline", route: "/past-paper" },
+  { title: "Past papers", subtitle: "Open a subject first, then practise by lesson or full paper", icon: "documents-outline", route: "/past-paper" },
   { title: "Mistake Book", subtitle: "Capture wrong answers and keep reviewing them until they are resolved", icon: "repeat-outline", route: "/mistake-bank" },
-  { title: "Assignments", subtitle: "Open work, deadlines and study time", icon: "clipboard-outline", route: "/assignment" },
-  { title: "Today’s plan", subtitle: "See your full study timetable", icon: "calendar-outline", route: "/(tabs)/plan" },
+  { title: "Assignments", subtitle: "See unfinished work first, deadlines and study time", icon: "clipboard-outline", route: "/assignment" },
+  { title: "Today’s plan", subtitle: "See your timetable in timeline or table view", icon: "calendar-outline", route: "/(tabs)/plan" },
+  { title: "Your A/L Journey", subtitle: "See your phase, progress and the path toward the exam", icon: "trail-sign-outline", route: "/journey" },
 ];
 
-const TOOLS: Tool[] = [
-  { title: "Analyze answer sheet", subtitle: "Upload written answers, identify lessons and adapt your future study plan", icon: "camera-outline", route: "/answer-sheet-analysis" },
-  { title: "Overall analysis", subtitle: "See test marks, scanned question accuracy, levels and weak lessons together", icon: "stats-chart-outline", route: "/overall-analysis" },
-  { title: "Recovery planner", subtitle: "Rebuild the plan when you fall behind instead of stacking overdue work", icon: "trail-sign-outline", route: "/recovery" },
-  { title: "Paper performance", subtitle: "See section performance, weak lessons and paper-practice trends", icon: "analytics-outline", route: "/paper-analysis" },
-  { title: "Exam simulator", subtitle: "Run a full timed exam-style session", icon: "timer-outline", route: "/exam-simulation" },
-  { title: "Smart capture", subtitle: "Capture school work and turn it into study tasks", icon: "scan-outline", route: "/smart-capture" },
-  { title: "Quick capture", subtitle: "Add tests, exams, assignments or study work without hunting through screens", icon: "flash-outline", route: "/quick-add" },
-  { title: "Focus Lab", subtitle: "See focus quality, productive study windows and personal bests", icon: "pulse-outline", route: "/focus-lab" },
+const INPUTS: Tool[] = [
+  { title: "Add test result", subtitle: "Enter marks and weak topics after a school/class test", icon: "school-outline", route: "/test-mark" },
+  { title: "Quick add", subtitle: "Add tests, exams, assignments or study work quickly", icon: "add-circle-outline", route: "/quick-add" },
   { title: "Audio recall", subtitle: "Record and review spoken recall", icon: "mic-outline", route: "/audio-recall" },
-  { title: "Test results", subtitle: "Add marks and weak-topic signals", icon: "school-outline", route: "/test-mark" },
+];
+
+const INTELLIGENCE: Tool[] = [
+  { title: "Overall analysis", subtitle: "See tests, paper results, levels and weak lessons together", icon: "stats-chart-outline", route: "/overall-analysis" },
+  { title: "Paper performance", subtitle: "See section performance, weak lessons and paper-practice trends", icon: "analytics-outline", route: "/paper-analysis" },
+  { title: "Focus Lab", subtitle: "See focus quality, productive study windows and personal bests", icon: "pulse-outline", route: "/focus-lab" },
+  { title: "Recovery planner", subtitle: "Rebuild the plan when you fall behind instead of stacking overdue work", icon: "trail-sign-outline", route: "/recovery" },
   { title: "Session history", subtitle: "Review completed study sessions", icon: "time-outline", route: "/(tabs)/sessions" },
-  { title: "Analytics", subtitle: "See study time, consistency and progress", icon: "stats-chart-outline", route: "/(tabs)/statistics" },
-  { title: "Weekly review", subtitle: "See your study report and trends", icon: "bar-chart-outline", route: "/reports" },
+  { title: "Analytics", subtitle: "See study time, consistency and progress", icon: "bar-chart-outline", route: "/(tabs)/statistics" },
+  { title: "Weekly review", subtitle: "See your study report and trends", icon: "calendar-clear-outline", route: "/reports" },
   { title: "Plan changes", subtitle: "See why StudyArc adjusted your plan", icon: "git-compare-outline", route: "/plan-insights" },
   { title: "Daily review", subtitle: "Close the day and help tomorrow’s plan", icon: "moon-outline", route: "/daily-review" },
 ];
 
 export default function StudyHubScreen() {
   const router = useRouter();
+  const { settings } = useAppConfig();
   const { fromHome } = useLocalSearchParams<{ fromHome?: string | string[] }>();
   const showBack = (Array.isArray(fromHome) ? fromHome[0] : fromHome) === "1";
+  const scanningEnabled = settings.featureFlags.captureScanning !== false;
+  const aiEnabled = settings.featureFlags.aiFeatures !== false;
   const open = (route: string) => router.push(route as never);
 
   return (
@@ -53,19 +57,33 @@ export default function StudyHubScreen() {
           <View style={s.heroIcon}><Ionicons name="library" size={25} color="#F2E8FF" /></View>
           <View style={{ flex: 1 }}>
             <Text style={s.heroTitle}>Study</Text>
-            <Text style={s.heroSub}>Learning, practice, mistakes, recovery and paper analysis are collected here.</Text>
+            <Text style={s.heroSub}>Start work, record results and use your real study data without hunting through hidden menus.</Text>
           </View>
-          <Pressable style={s.heroButton} onPress={() => open("/free-time")}>
-            <Ionicons name="sparkles" size={15} color="#160D1F" />
-            <Text style={s.heroButtonText}>Recommend</Text>
+          <Pressable style={s.heroButton} onPress={() => open("/quick-add")}>
+            <Ionicons name="add" size={16} color="#160D1F" />
+            <Text style={s.heroButtonText}>Quick add</Text>
           </Pressable>
         </LinearGradient>
 
-        <SectionTitle title="Study & practice" subtitle="The tools you are most likely to need every day." />
-        <View style={s.grid}>{CORE.map(tool => <ToolCard key={tool.title} tool={tool} onPress={() => open(tool.route)} />)}</View>
+        <SectionTitle title="Study & practice" subtitle="The things you are most likely to do every day." />
+        <View style={s.grid}>{DAILY.map(tool => <ToolCard key={tool.title} tool={tool} onPress={() => open(tool.route)} />)}</View>
 
-        <SectionTitle title="Study intelligence" subtitle="These features use your real study data instead of hiding behind extra menus." />
-        <View style={s.list}>{TOOLS.map(tool => <ToolRow key={tool.title} tool={tool} onPress={() => open(tool.route)} />)}</View>
+        <SectionTitle title="Record study data" subtitle="Add what happened first; analysis uses these real records afterwards." />
+        <View style={s.list}>{INPUTS.map(tool => <ToolRow key={tool.title} tool={tool} onPress={() => open(tool.route)} />)}</View>
+
+        {scanningEnabled ? <>
+          <SectionTitle title="Scan & recognize" subtitle="Optional camera/document workflows. Manual entry remains available everywhere." />
+          <View style={s.list}>
+            <ToolRow tool={{ title: "Analyze answer sheet", subtitle: "Upload written answers, review detected marks and save only after confirmation", icon: "camera-outline", route: "/answer-sheet-analysis" }} onPress={() => open("/answer-sheet-analysis")} />
+            <ToolRow tool={{ title: "Smart capture", subtitle: "Turn homework, tutes and notices into editable StudyArc records", icon: "scan-outline", route: "/smart-capture" }} onPress={() => open("/smart-capture")} />
+          </View>
+        </> : null}
+
+        <SectionTitle title="Study intelligence" subtitle="Analysis stays visible and organized around your saved study data." />
+        <View style={s.list}>
+          {aiEnabled ? <ToolRow tool={{ title: "What should I study now?", subtitle: "Use your available time and current study data to choose the next task", icon: "sparkles-outline", route: "/free-time" }} onPress={() => open("/free-time")} /> : null}
+          {INTELLIGENCE.map(tool => <ToolRow key={tool.title} tool={tool} onPress={() => open(tool.route)} />)}
+        </View>
 
         <Pressable style={s.subjectBanner} onPress={() => open("/(tabs)/subjects")}>
           <View style={s.subjectIcon}><Ionicons name="book-outline" size={22} color="#D7C2F2" /></View>
