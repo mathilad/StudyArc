@@ -190,7 +190,6 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     setProfile(value);
   }, []);
 
-
   const persist = useCallback(async (
     p = profile,
     c = classes,
@@ -379,33 +378,54 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
   }, [applyProfile, isOnline, loadCache, user]);
 
   const syncing = useRef<Promise<void> | null>(null);
+  const syncRequested = useRef(false);
   const syncQueue = useCallback(async () => {
     if (!user || !isOnline) return;
-    if (syncing.current) return syncing.current;
+    if (syncing.current) {
+      syncRequested.current = true;
+      return syncing.current;
+    }
+
     const task = (async () => {
-      const q = await queuedMutationsFor(user.id, KINDS);
-      for (const item of q) {
-        try {
-          let e: any = null;
-          const p = item.payload;
-          if (item.kind === "student_profile_upsert") ({ error: e } = await supabase.from("student_profiles").upsert(p, { onConflict: "user_id" }));
-          else if (item.kind === "class_upsert") ({ error: e } = await supabase.from("class_schedules").upsert(p, { onConflict: "id" }));
-          else if (item.kind === "class_delete") ({ error: e } = await supabase.from("class_schedules").delete().eq("id", p.id).eq("user_id", user.id));
-          else if (item.kind === "test_mark_upsert") ({ error: e } = await supabase.from("test_marks").upsert(p, { onConflict: "id" }));
-          else if (item.kind === "test_mark_delete") ({ error: e } = await supabase.from("test_marks").delete().eq("id", p.id).eq("user_id", user.id));
-          else if (item.kind === "topic_progress_upsert") ({ error: e } = await supabase.from("topic_progress").upsert(p, { onConflict: "user_id,subject_name,topic_name" }));
-          else if (item.kind === "syllabus_coverage_upsert") ({ error: e } = await supabase.from("syllabus_coverage").upsert(p, { onConflict: "user_id,subject_name,topic_name,subtopic_name" }));
-          else if (item.kind === "daily_review_upsert") ({ error: e } = await supabase.from("daily_reviews").upsert(p, { onConflict: "user_id,review_date" }));
-          if (e) throw e;
-          if (item.kind === "student_profile_upsert") profileRevision.current += 1;
-          await removeQueuedMutation(item.id);
-        } catch {
-          break;
+      const failedIds = new Set<string>();
+      do {
+        syncRequested.current = false;
+        const q = (await queuedMutationsFor(user.id, KINDS)).filter(item => !failedIds.has(item.id));
+        for (const item of q) {
+          try {
+            let e: any = null;
+            const p = item.payload;
+            if (item.kind === "student_profile_upsert") ({ error: e } = await supabase.from("student_profiles").upsert(p, { onConflict: "user_id" }));
+            else if (item.kind === "class_upsert") ({ error: e } = await supabase.from("class_schedules").upsert(p, { onConflict: "id" }));
+            else if (item.kind === "class_delete") ({ error: e } = await supabase.from("class_schedules").delete().eq("id", p.id).eq("user_id", user.id));
+            else if (item.kind === "test_mark_upsert") ({ error: e } = await supabase.from("test_marks").upsert(p, { onConflict: "id" }));
+            else if (item.kind === "test_mark_delete") ({ error: e } = await supabase.from("test_marks").delete().eq("id", p.id).eq("user_id", user.id));
+            else if (item.kind === "topic_progress_upsert") ({ error: e } = await supabase.from("topic_progress").upsert(p, { onConflict: "user_id,subject_name,topic_name" }));
+            else if (item.kind === "syllabus_coverage_upsert") ({ error: e } = await supabase.from("syllabus_coverage").upsert(p, { onConflict: "user_id,subject_name,topic_name,subtopic_name" }));
+            else if (item.kind === "daily_review_upsert") ({ error: e } = await supabase.from("daily_reviews").upsert(p, { onConflict: "user_id,review_date" }));
+            if (e) throw e;
+            if (item.kind === "student_profile_upsert") profileRevision.current += 1;
+            await removeQueuedMutation(item.id);
+          } catch {
+            // Keep this mutation for a later retry, but do not let one stale or
+            // temporarily invalid item block unrelated saves behind it.
+            failedIds.add(item.id);
+          }
         }
-      }
+
+        // Re-read the shared queue so a save that arrived while this pass was
+        // running is drained before callers refresh from the server.
+        const remaining = await queuedMutationsFor(user.id, KINDS);
+        if (!remaining.some(item => !failedIds.has(item.id)) && !syncRequested.current) break;
+      } while (true);
     })();
+
     syncing.current = task;
-    try { await task; } finally { syncing.current = null; }
+    try {
+      await task;
+    } finally {
+      syncing.current = null;
+    }
   }, [isOnline, user]);
 
   useEffect(() => {
@@ -417,7 +437,6 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
   const saveProfile = useCallback(async (updates: Partial<StudentProfile>) => {
     if (!user) throw new Error("You must be signed in.");
     const merged = { ...latestProfile.current, ...updates };
-    // Invalidate reads already in flight before persisting this newer profile.
     profileRevision.current += 1;
     await persist(merged, classes, testMarks, topicProgress, subtopicCoverage, dailyReviews);
     await enqueueMutation({
