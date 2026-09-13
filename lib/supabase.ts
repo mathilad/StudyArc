@@ -14,7 +14,13 @@ if (!supabaseUrl || !supabasePublishableKey) {
 }
 
 const processingAwareFetch: typeof fetch = (input, init = {}) => {
-  const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+  const candidate = input as any;
+  const url =
+    typeof input === "string"
+      ? input
+      : typeof candidate?.url === "string"
+        ? candidate.url
+        : String(input);
   const processingSignal = url.includes("/functions/v1/studyarc-vision") ? getProcessingAbortSignal() : null;
   return fetch(input, processingSignal ? { ...init, signal: processingSignal } : init);
 };
