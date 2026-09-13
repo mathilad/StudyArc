@@ -2,24 +2,43 @@ import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { SUBJECTS, type SubjectName } from "../data/subjects";
+import { normalizePaperAnalysis } from "./paperScanEngine";
 import { supabase } from "./supabase";
 
 export type CaptureKind="homework"|"tute"|"test_result"|"paper_marking"|"answer_sheet";
 export type CaptureAsset={base64:string;mimeType:string;filename:string;previewUri:string|null};
+export type PaperAnalysisMetadata={paperDate?:string|null};
 
-export async function pickCaptureSource(source:"camera"|"library"|"document"):Promise<CaptureAsset|null>{
+const fromImageAsset=(a:ImagePicker.ImagePickerAsset,index=0):CaptureAsset=>{
+ if(!a.base64)throw new Error("Could not read the selected image.");
+ return{base64:a.base64,mimeType:a.mimeType??"image/jpeg",filename:a.fileName??`studyarc-${Date.now()}-${index+1}.jpg`,previewUri:a.uri};
+};
+
+export async function pickCaptureSources(source:"camera"|"library"|"document"):Promise<CaptureAsset[]>{
  if(source==="camera"){
   const permission=await ImagePicker.requestCameraPermissionsAsync();
   if(!permission.granted)throw new Error("Camera permission is needed only when you choose to photograph school work.");
-  const result=await ImagePicker.launchCameraAsync({mediaTypes:["images"],quality:.82,base64:true});
-  if(result.canceled||!result.assets?.[0])return null;const a=result.assets[0];if(!a.base64)throw new Error("Could not read the photo.");return{base64:a.base64,mimeType:a.mimeType??"image/jpeg",filename:a.fileName??`studyarc-${Date.now()}.jpg`,previewUri:a.uri};
+  const result=await ImagePicker.launchCameraAsync({mediaTypes:["images"],quality:.76,base64:true});
+  if(result.canceled||!result.assets?.[0])return[];
+  return[fromImageAsset(result.assets[0])];
  }
  if(source==="library"){
-  const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],quality:.82,base64:true});
-  if(result.canceled||!result.assets?.[0])return null;const a=result.assets[0];if(!a.base64)throw new Error("Could not read the selected image.");return{base64:a.base64,mimeType:a.mimeType??"image/jpeg",filename:a.fileName??`studyarc-${Date.now()}.jpg`,previewUri:a.uri};
+  const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],quality:.76,base64:true,allowsMultipleSelection:true,selectionLimit:20,orderedSelection:true});
+  if(result.canceled||!result.assets?.length)return[];
+  return result.assets.map((asset,index)=>fromImageAsset(asset,index));
  }
- const result=await DocumentPicker.getDocumentAsync({type:["application/pdf","image/*"],copyToCacheDirectory:true,multiple:false});
- if(result.canceled||!result.assets?.[0])return null;const a=result.assets[0];const file=new File(a.uri);const base64=await file.base64();return{base64,mimeType:a.mimeType??(a.name.toLowerCase().endsWith(".pdf")?"application/pdf":"image/jpeg"),filename:a.name,previewUri:(a.mimeType??"").startsWith("image/")?a.uri:null};
+ const result=await DocumentPicker.getDocumentAsync({type:["application/pdf","image/*"],copyToCacheDirectory:true,multiple:true});
+ if(result.canceled||!result.assets?.length)return[];
+ const assets:CaptureAsset[]=[];
+ for(const [index,a] of result.assets.slice(0,20).entries()){
+  const file=new File(a.uri);const base64=await file.base64();
+  assets.push({base64,mimeType:a.mimeType??(a.name.toLowerCase().endsWith(".pdf")?"application/pdf":"image/jpeg"),filename:a.name||`studyarc-${Date.now()}-${index+1}`,previewUri:(a.mimeType??"").startsWith("image/")?a.uri:null});
+ }
+ return assets;
+}
+
+export async function pickCaptureSource(source:"camera"|"library"|"document"):Promise<CaptureAsset|null>{
+ const assets=await pickCaptureSources(source);return assets[0]??null;
 }
 
 const withEngine=(data:any)=>({
@@ -38,25 +57,62 @@ export async function analyseCapture(kind:CaptureKind,asset:CaptureAsset){
 
 function syllabusCatalog(subjectNames?:string[]){
  const selected=(subjectNames?.length?subjectNames:Object.keys(SUBJECTS)).filter((name):name is SubjectName=>name in SUBJECTS);
- return selected.map(subjectName=>({
-  subjectName,
-  topics:SUBJECTS[subjectName].topics.map(topic=>({title:topic.title,subtopics:topic.subtopics})),
- }));
+ return selected.map(subjectName=>({subjectName,topics:SUBJECTS[subjectName].topics.map(topic=>({title:topic.title,subtopics:topic.subtopics}))}));
 }
 
-export async function analyseAnswerSheet(answer:CaptureAsset,reference?:CaptureAsset|null,subjectNames?:string[]){
- const{data,error}=await supabase.functions.invoke("studyarc-vision",{body:{
-  kind:"answer_sheet",
-  base64:answer.base64,
-  mimeType:answer.mimeType,
-  filename:answer.filename,
-  referenceBase64:reference?.base64??null,
-  referenceMimeType:reference?.mimeType??null,
-  referenceFilename:reference?.filename??null,
-  syllabusCatalog:syllabusCatalog(subjectNames),
- }});
- if(error)throw new Error(error.message||"Could not analyse this answer sheet.");
- if(data?.error)throw new Error(data.message||data.error);
- if(!data?.analysis||typeof data.analysis!=="object")throw new Error("StudyArc Vision returned an invalid answer-sheet analysis.");
- return withEngine(data) as Record<string,any>;
+const compactUnique=(values:any[])=>[...new Set(values.map(value=>String(value??"").trim()).filter(Boolean))];
+
+export async function analyseAnswerSheet(answer:CaptureAsset|CaptureAsset[],reference?:CaptureAsset|null,subjectNames?:string[],metadata:PaperAnalysisMetadata={}){
+ const pages=Array.isArray(answer)?answer:[answer];
+ if(!pages.length)throw new Error("Add at least one answer-sheet page.");
+ if(pages.length>20)throw new Error("StudyArc can analyse up to 20 uploaded pages in one paper. Split larger papers into two scans.");
+ const chunkSize=3;
+ const chunks:Record<string,any>[]=[];
+ let lastQuestionNo:string|null=null;
+ for(let start=0;start<pages.length;start+=chunkSize){
+  const chunk=pages.slice(start,start+chunkSize);
+  const body={
+   kind:"answer_sheet",
+   pages:chunk.map((asset,index)=>({base64:asset.base64,mimeType:asset.mimeType,filename:asset.filename,pageIndex:start+index+1})),
+   pageOffset:start,
+   sequenceContext:{lastQuestionNo},
+   paperDate:metadata.paperDate??null,
+   referenceBase64:reference?.base64??null,
+   referenceMimeType:reference?.mimeType??null,
+   referenceFilename:reference?.filename??null,
+   syllabusCatalog:syllabusCatalog(subjectNames),
+  };
+  const{data,error}=await supabase.functions.invoke("studyarc-vision",{body});
+  if(error)throw new Error(error.message||"Could not analyse this answer sheet.");
+  if(data?.error)throw new Error(data.message||data.error);
+  if(!data?.analysis||typeof data.analysis!=="object")throw new Error("StudyArc Vision returned an invalid answer-sheet analysis.");
+  const analysed=withEngine(data) as Record<string,any>;
+  chunks.push(analysed);
+  const rows=Array.isArray(analysed.questionResults)?analysed.questionResults:[];
+  for(let i=rows.length-1;i>=0;i--){const value=String(rows[i]?.questionNo??"").trim();if(value){lastQuestionNo=value;break;}}
+ }
+ const first=chunks[0]??{};
+ const allRows=chunks.flatMap(chunk=>Array.isArray(chunk.questionResults)?chunk.questionResults:[]);
+ const merged:Record<string,any>={
+  ...first,
+  title:chunks.map(x=>x.title).find(Boolean)??"Uploaded answer sheet",
+  subjectName:chunks.map(x=>x.subjectName).find(Boolean)??null,
+  paperLabel:chunks.map(x=>x.paperLabel).find(Boolean)??null,
+  hasReference:Boolean(reference),
+  paperDate:metadata.paperDate??null,
+  totalMarks:chunks.map(x=>x.totalMarks).find((x:any)=>x!=null)??null,
+  maximumMarks:chunks.map(x=>x.maximumMarks).find((x:any)=>x!=null)??null,
+  writtenTotalMarks:chunks.map(x=>x.writtenTotalMarks).find((x:any)=>x!=null)??null,
+  writtenMaximumMarks:chunks.map(x=>x.writtenMaximumMarks).find((x:any)=>x!=null)??null,
+  weakTopics:compactUnique(chunks.flatMap(x=>Array.isArray(x.weakTopics)?x.weakTopics:[])),
+  strengths:compactUnique(chunks.flatMap(x=>Array.isArray(x.strengths)?x.strengths:[])),
+  nextSteps:compactUnique(chunks.flatMap(x=>Array.isArray(x.nextSteps)?x.nextSteps:[])),
+  questionResults:allRows,
+  summary:compactUnique(chunks.map(x=>x.summary)).join(" "),
+  confidence:Math.min(...chunks.map(x=>Number(x.confidence??1)).filter(Number.isFinite)),
+  pageCount:pages.length,
+  _engine:compactUnique(chunks.map(x=>x._engine)).join(" + ")||null,
+  _model:compactUnique(chunks.map(x=>x._model)).join(" + ")||null,
+ };
+ return normalizePaperAnalysis(merged,pages.length) as Record<string,any>;
 }
