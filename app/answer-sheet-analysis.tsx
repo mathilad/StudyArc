@@ -1,5 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect } from "react";
+import PaperWrittenDateGate from "../components/PaperWrittenDateGate";
 import ScanningDisabled from "../components/ScanningDisabled";
 import { useAppConfig } from "../context/AppConfigContext";
 import { clearActivePaperClassLink, setActivePaperClassLink } from "../lib/paperClassLink";
@@ -21,11 +22,12 @@ export default function AnswerSheetAnalysisRoute() {
   const scanningEnabled = settings.featureFlags.captureScanning !== false;
 
   useEffect(() => {
-    if (!scanningEnabled) return;
+    if (!scanningEnabled || !occurrenceDate) return;
     setActivePaperClassLink({ sourceClassId, occurrenceDate, subjectName });
     return () => clearActivePaperClassLink(sourceClassId);
   }, [occurrenceDate, scanningEnabled, sourceClassId, subjectName]);
 
   if (!scanningEnabled) return <ScanningDisabled title="Answer-sheet scanning is currently disabled" />;
+  if (!occurrenceDate) return <PaperWrittenDateGate sourceClassId={sourceClassId} subjectName={subjectName} />;
   return <AnswerSheetAnalysisScreen />;
 }
