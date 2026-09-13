@@ -27,7 +27,7 @@ export default function AssignmentQuickScreen(){
   const { profile }=useStudent();
   const { addAssignment }=useAcademic();
   const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
-  const [subject,setSubject]=useState(subjects[0]??"Physics");
+  const [subject,setSubject]=useState<string>(subjects[0]??"Physics");
   const [title,setTitle]=useState("");
   const [dueDate,setDueDate]=useState(addDays(1));
   const [minutes,setMinutes]=useState("90");
