@@ -45,6 +45,7 @@ const DEFAULTS: AppSettings = {
     readiness: true,
     monthlyReports: true,
     captureScanning: true,
+    aiFeatures: true,
   },
 };
 
