@@ -23,6 +23,7 @@ export default function AdminFeaturesScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const scanEnabled = settings.featureFlags.captureScanning !== false;
+  const aiEnabled = settings.featureFlags.aiFeatures !== false;
   const flags = useMemo(() => ({ ...settings.featureFlags }), [settings.featureFlags]);
 
   if (!loading && !session) return <Redirect href="/login" />;
@@ -51,7 +52,7 @@ export default function AdminFeaturesScreen() {
 
       <View style={s.notice}>
         <Ionicons name="information-circle-outline" size={21} color="#AFCBF0" />
-        <Text style={s.noticeText}>This is a runtime setting stored in StudyArc configuration. Current app screens re-check it, so admins can disable or re-enable scanning without changing the APK.</Text>
+        <Text style={s.noticeText}>These are runtime settings stored in StudyArc configuration. Current app screens re-check them, so admins can change availability without publishing a new APK.</Text>
       </View>
 
       <Text style={s.section}>CAMERA & DOCUMENT FEATURES</Text>
@@ -72,9 +73,27 @@ export default function AdminFeaturesScreen() {
         </View>
       </View>
 
+      <Text style={s.section}>STUDYARC AI</Text>
+      <ToggleRow
+        icon="sparkles-outline"
+        title="AI assistant & AI actions"
+        description="Controls the StudyArc AI assistant and AI-generated actions. Turning this off does not remove normal study data, manual test entry, timetable planning, Mistake Book, statistics or non-AI study tools."
+        enabled={aiEnabled}
+        busy={saving === "aiFeatures"}
+        onToggle={() => setFlag("aiFeatures", !aiEnabled)}
+      />
+
+      <View style={[s.stateCard, aiEnabled ? s.stateOn : s.stateOff]}>
+        <Ionicons name={aiEnabled ? "sparkles-outline" : "pause-circle-outline"} size={24} color={aiEnabled ? "#83D7A7" : "#F1B2B2"} />
+        <View style={{ flex: 1 }}>
+          <Text style={s.stateTitle}>{aiEnabled ? "StudyArc AI is available" : "StudyArc AI is disabled for users"}</Text>
+          <Text style={s.stateText}>{aiEnabled ? "Users can open AI assistant features and prepare AI-generated actions." : "AI assistant entry points are hidden or replaced by normal study-intelligence tools. Existing study records remain unchanged."}</Text>
+        </View>
+      </View>
+
       <View style={s.protection}>
         <Ionicons name="shield-checkmark-outline" size={20} color="#BFA4E5" />
-        <Text style={s.protectionText}>This switch does not disable profile photos or unrelated media permissions. It is scoped to StudyArc scanning and recognition workflows.</Text>
+        <Text style={s.protectionText}>Scanning and AI are separate controls. Profile photos are not affected by the scanning switch, and disabling AI does not disable normal algorithmic planning or stored student data.</Text>
       </View>
     </ScrollView>
   </View>;
