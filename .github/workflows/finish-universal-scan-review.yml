@@ -1,0 +1,30 @@
+name: Finish universal scan review
+
+on:
+  push:
+    branches:
+      - feature/universal-scan-review
+    paths:
+      - .github/workflows/finish-universal-scan-review.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply final scan review coverage
+        run: python3 scripts/finish-universal-scan-review.py
+      - name: Commit final source changes
+        run: |
+          rm -f scripts/finish-universal-scan-review.py
+          rm -f .github/workflows/finish-universal-scan-review.yml
+          git config user.name "StudyArc Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Make all scanned proposals editable before confirm"
+          git push origin HEAD:feature/universal-scan-review
