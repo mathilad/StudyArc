@@ -59,13 +59,16 @@ export default function ClassFormModal({
   }, [availableSubjects, initialValue, visible]);
 
   const title = useMemo(() => `${subjectName} ${classType}`, [subjectName, classType]);
+  const activeClockValue = clock === "end" ? endTime : startTime;
+  const activeClockTitle = clock === "end" ? "Class ends" : "Class starts";
+  const changeActiveClock = (value: string) => {
+    if (clock === "end") setEndTime(value);
+    else if (clock === "start") setStartTime(value);
+  };
 
   const performSave = async (proposal: NewClass) => {
     setSaving(true);
     try {
-      // The parent owns the complete save path for both new and edited classes.
-      // Keeping one authoritative writer prevents an edit (for example Paper ->
-      // Paper Discussion) from racing against a second queued/local upsert.
       await onSave(initialValue ? { ...proposal, id: initialValue.id } : proposal);
       onClose();
     } catch (error) {
@@ -145,8 +148,7 @@ export default function ClassFormModal({
           </ScrollView>
         </View>
       </View>
-      <ClockTimePicker visible={clock === "start"} value={startTime} title="Class starts" onClose={() => setClock(null)} onChange={setStartTime} />
-      <ClockTimePicker visible={clock === "end"} value={endTime} title="Class ends" onClose={() => setClock(null)} onChange={setEndTime} />
+      <ClockTimePicker visible={clock !== null} value={activeClockValue} title={activeClockTitle} onClose={() => setClock(null)} onChange={changeActiveClock} />
     </Modal>
   );
 }

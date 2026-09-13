@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { format12Hour, minutesToTime, parseTime } from "../lib/time";
 
@@ -20,13 +20,20 @@ export default function ClockTimePicker({
   const [hour, setHour] = useState(((Math.floor(initial / 60) + 11) % 12) + 1);
   const [minute, setMinute] = useState(initial % 60);
   const [period, setPeriod] = useState<"AM" | "PM">(Math.floor(initial / 60) >= 12 ? "PM" : "AM");
+  const wasVisible = useRef(false);
 
   React.useEffect(() => {
-    if (!visible) return;
-    const mins = parseTime(value);
-    setHour(((Math.floor(mins / 60) + 11) % 12) + 1);
-    setMinute(mins % 60);
-    setPeriod(Math.floor(mins / 60) >= 12 ? "PM" : "AM");
+    // Snapshot the field value exactly when the picker opens. Do not keep
+    // re-initializing while it is open, because parent re-renders can otherwise
+    // replace the user's in-progress hour/minute selection with an older/default
+    // value before they press Set.
+    if (visible && !wasVisible.current) {
+      const mins = parseTime(value);
+      setHour(((Math.floor(mins / 60) + 11) % 12) + 1);
+      setMinute(mins % 60);
+      setPeriod(Math.floor(mins / 60) >= 12 ? "PM" : "AM");
+    }
+    wasVisible.current = visible;
   }, [visible, value]);
 
   const output = useMemo(() => {
