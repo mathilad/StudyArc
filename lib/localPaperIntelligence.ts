@@ -138,7 +138,7 @@ function detectTopics(text: string, subjectName: SubjectName | null) {
     const title = topic.title.toLowerCase();
     if (title.length >= 5 && t.includes(title)) return true;
     return topic.subtopics?.some(sub => {
-      const value = typeof sub === "string" ? sub : sub.title;
+      const value = String(sub);
       return value.length >= 5 && t.includes(value.toLowerCase());
     }) ?? false;
   }).map(topic => topic.title);
