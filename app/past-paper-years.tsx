@@ -1,8 +1,9 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
 import { topicDisplayName } from "../data/subjects";
@@ -20,27 +21,52 @@ export default function PastPaperYearsScreen() {
   const sections = paperSectionsForSubject(subjectName);
   const requestedSection = first(params.paperSection);
   const [section, setSection] = useState<FlexiblePaperSection>(sections.includes(requestedSection as FlexiblePaperSection) ? requestedSection as FlexiblePaperSection : sections[0]);
+  const [hiddenYears, setHiddenYears] = useState<number[]>([]);
   const latest = Math.max(2000, (profile.examYear ?? new Date().getFullYear()) - 1);
-  const years = useMemo(() => Array.from({ length: Math.min(35, latest - 1999) }, (_, i) => latest - i), [latest]);
+  const allYears = useMemo(() => Array.from({ length: Math.min(35, latest - 1999) }, (_, i) => latest - i), [latest]);
   const displayTopic = topicName === "General" ? "Whole subject" : topicDisplayName(subjectName as any, topicName, profile.medium);
+  const hideKey = `studyarc:hidden-paper-years:v1:${subjectName}:${topicName}`;
+
+  useEffect(() => {
+    let alive = true;
+    AsyncStorage.getItem(hideKey).then(raw => {
+      if (!alive || !raw) return;
+      try { setHiddenYears((JSON.parse(raw) as number[]).filter(Number.isFinite)); } catch { setHiddenYears([]); }
+    });
+    return () => { alive = false; };
+  }, [hideKey]);
 
   const attemptCount = (year: number) => {
     if (topicName === "General") return getPaperAttemptCount(subjectName, year, section as any);
     return sessions.filter(item => item.studyType === "Past Papers" && item.subjectName === subjectName && item.topicName === topicName && item.paperYear === year && item.paperSection === section).length;
   };
 
+  const years = useMemo(() => allYears.filter(year => !hiddenYears.includes(year)), [allYears, hiddenYears]);
+
   const start = (year: number) => {
     const attempts = attemptCount(year);
-    router.push({
-      pathname: "/paper-stopwatch",
-      params: {
-        subjectName,
-        topicName,
-        paperYear: String(year),
-        paperSection: section,
-        attemptNo: String(attempts + 1),
-      },
-    });
+    router.push({ pathname: "/paper-stopwatch", params: { subjectName, topicName, paperYear: String(year), paperSection: section, attemptNo: String(attempts + 1) } });
+  };
+
+  const hideYear = (year: number) => {
+    if (topicName === "General") return;
+    if (attemptCount(year) > 0) {
+      Alert.alert("Year has saved work", "This year already has a saved attempt for this lesson and section, so StudyArc will keep it visible.");
+      return;
+    }
+    Alert.alert("Hide this year?", `Hide ${year} for ${displayTopic}? Use this when that year has no question for this lesson.`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Hide year", style: "destructive", onPress: () => {
+        const next = [...new Set([...hiddenYears, year])];
+        setHiddenYears(next);
+        AsyncStorage.setItem(hideKey, JSON.stringify(next)).catch(() => undefined);
+      } },
+    ]);
+  };
+
+  const restoreYears = () => {
+    setHiddenYears([]);
+    AsyncStorage.removeItem(hideKey).catch(() => undefined);
   };
 
   return <View style={s.root}>
@@ -54,20 +80,23 @@ export default function PastPaperYearsScreen() {
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.contextCard}>
         <View style={s.contextIcon}><Ionicons name={topicName === "General" ? "layers" : "book"} size={22} color="#E1CCF8" /></View>
-        <View style={{ flex: 1 }}><Text style={s.contextLabel}>{topicName === "General" ? "FULL PAPER PRACTICE" : "LESSON PRACTICE"}</Text><Text style={s.contextTitle}>{displayTopic}</Text><Text style={s.contextSub}>After you finish a timed question or paper, StudyArc returns to this same years page.</Text></View>
+        <View style={{ flex: 1 }}><Text style={s.contextLabel}>{topicName === "General" ? "FULL PAPER PRACTICE" : "LESSON PRACTICE"}</Text><Text style={s.contextTitle}>{displayTopic}</Text><Text style={s.contextSub}>{topicName === "General" ? "Choose any year for the full subject paper." : "If a year has no question for this lesson, use the trash button to hide that year from this lesson only."}</Text></View>
       </View>
 
       <Text style={s.label}>PAPER SECTION</Text>
       <View style={s.sections}>{sections.map(item => <Pressable key={item} onPress={() => setSection(item)} style={[s.section, section === item && s.sectionOn]}><Text style={[s.sectionTitle, section === item && s.sectionTitleOn]}>{item}</Text><Text style={s.sectionSub}>{paperSectionDescription(subjectName, item)}</Text></Pressable>)}</View>
 
-      <View style={s.yearHead}><View><Text style={s.yearHeadTitle}>Past paper years</Text><Text style={s.yearHeadSub}>{section} · newest first</Text></View><View style={s.yearCount}><Text style={s.yearCountText}>{years.length} YEARS</Text></View></View>
+      <View style={s.yearHead}><View><Text style={s.yearHeadTitle}>Past paper years</Text><Text style={s.yearHeadSub}>{section} · newest first</Text></View>{hiddenYears.length ? <Pressable onPress={restoreYears} style={s.restore}><Text style={s.restoreText}>RESTORE {hiddenYears.length}</Text></Pressable> : <View style={s.yearCount}><Text style={s.yearCountText}>{years.length} YEARS</Text></View>}</View>
       <View style={s.yearGrid}>{years.map(year => {
         const attempts = attemptCount(year);
-        return <Pressable key={year} onPress={() => start(year)} style={s.yearCard}>
-          <View style={{ flex: 1 }}><Text style={s.year}>{year}</Text><Text style={s.yearStatus}>{attempts ? `${attempts} attempt${attempts === 1 ? "" : "s"} saved` : "Not attempted yet"}</Text></View>
-          <View style={[s.attemptBadge, attempts > 0 && s.attemptBadgeDone]}><Text style={[s.attemptText, attempts > 0 && s.attemptTextDone]}>{attempts ? `#${attempts + 1}` : "START"}</Text></View>
-          <View style={s.play}><Ionicons name="play" size={16} color="#160B20" /></View>
-        </Pressable>;
+        return <View key={year} style={s.yearCard}>
+          <Pressable onPress={() => start(year)} style={s.yearMain}>
+            <View style={{ flex: 1 }}><Text style={s.year}>{year}</Text><Text style={s.yearStatus}>{attempts ? `${attempts} attempt${attempts === 1 ? "" : "s"} saved` : "Not attempted yet"}</Text></View>
+            <View style={[s.attemptBadge, attempts > 0 && s.attemptBadgeDone]}><Text style={[s.attemptText, attempts > 0 && s.attemptTextDone]}>{attempts ? `#${attempts + 1}` : "START"}</Text></View>
+            <View style={s.play}><Ionicons name="play" size={16} color="#160B20" /></View>
+          </Pressable>
+          {topicName !== "General" && attempts === 0 ? <Pressable accessibilityLabel={`Hide ${year}`} onPress={() => hideYear(year)} style={s.hide}><Ionicons name="trash-outline" size={17} color="#C98E9B" /></Pressable> : null}
+        </View>;
       })}</View>
     </ScrollView>
   </View>;
@@ -83,6 +112,6 @@ const s = StyleSheet.create({
   contextCard: { minHeight: 92, borderRadius: 21, backgroundColor: "#14131C", borderWidth: 1, borderColor: "#3D304B", padding: 14, flexDirection: "row", alignItems: "center", gap: 12 }, contextIcon: { width: 48, height: 48, borderRadius: 15, backgroundColor: "#B784FF16", alignItems: "center", justifyContent: "center" }, contextLabel: { color: "#947DAB", fontSize: 7.5, fontWeight: "900", letterSpacing: 1.2 }, contextTitle: { color: "#F1EBF6", fontSize: 13, fontWeight: "900", marginTop: 3 }, contextSub: { color: "#887E91", fontSize: 8.5, lineHeight: 13, marginTop: 4 },
   label: { color: "#7D899A", fontSize: 8.5, fontWeight: "900", letterSpacing: 1.3, marginTop: 22, marginBottom: 9 },
   sections: { gap: 8 }, section: { minHeight: 64, borderRadius: 16, backgroundColor: "#101720", borderWidth: 1, borderColor: "#293646", padding: 11 }, sectionOn: { backgroundColor: "#2A1E3A", borderColor: "#76549E" }, sectionTitle: { color: "#ABB5C1", fontSize: 11, fontWeight: "900" }, sectionTitleOn: { color: "#F0E5FC" }, sectionSub: { color: "#6D7A8C", fontSize: 8.2, lineHeight: 12, marginTop: 4 },
-  yearHead: { marginTop: 25, marginBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, yearHeadTitle: { color: "#EEF0F3", fontSize: 15, fontWeight: "900" }, yearHeadSub: { color: "#6F7D8E", fontSize: 8.5, marginTop: 3 }, yearCount: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "#151E28" }, yearCountText: { color: "#718093", fontSize: 7.5, fontWeight: "900" },
-  yearGrid: { gap: 8 }, yearCard: { minHeight: 72, borderRadius: 17, backgroundColor: "#101720", borderWidth: 1, borderColor: "#273443", paddingHorizontal: 13, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 10 }, year: { color: "#F1F3F6", fontSize: 19, fontWeight: "900" }, yearStatus: { color: "#718093", fontSize: 8.5, marginTop: 3 }, attemptBadge: { paddingHorizontal: 8, height: 27, borderRadius: 9, backgroundColor: "#21182D", alignItems: "center", justifyContent: "center" }, attemptBadgeDone: { backgroundColor: "#15261C" }, attemptText: { color: "#C7ABE7", fontSize: 7.5, fontWeight: "900" }, attemptTextDone: { color: "#83C99C" }, play: { width: 38, height: 38, borderRadius: 13, backgroundColor: "#B784FF", alignItems: "center", justifyContent: "center" },
+  yearHead: { marginTop: 25, marginBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, yearHeadTitle: { color: "#EEF0F3", fontSize: 15, fontWeight: "900" }, yearHeadSub: { color: "#6F7D8E", fontSize: 8.5, marginTop: 3 }, yearCount: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "#151E28" }, yearCountText: { color: "#718093", fontSize: 7.5, fontWeight: "900" }, restore:{paddingHorizontal:9,paddingVertical:7,borderRadius:10,backgroundColor:"#21182D",borderWidth:1,borderColor:"#49365E"},restoreText:{color:"#C6A8E7",fontSize:7.5,fontWeight:"900"},
+  yearGrid: { gap: 8 }, yearCard: { minHeight: 72, borderRadius: 17, backgroundColor: "#101720", borderWidth: 1, borderColor: "#273443", flexDirection:"row",alignItems:"stretch",overflow:"hidden" },yearMain:{flex:1,paddingHorizontal:13,paddingVertical:11,flexDirection:"row",alignItems:"center",gap:10}, year: { color: "#F1F3F6", fontSize: 19, fontWeight: "900" }, yearStatus: { color: "#718093", fontSize: 8.5, marginTop: 3 }, attemptBadge: { paddingHorizontal: 8, height: 27, borderRadius: 9, backgroundColor: "#21182D", alignItems: "center", justifyContent: "center" }, attemptBadgeDone: { backgroundColor: "#15261C" }, attemptText: { color: "#C7ABE7", fontSize: 7.5, fontWeight: "900" }, attemptTextDone: { color: "#83C99C" }, play: { width: 38, height: 38, borderRadius: 13, backgroundColor: "#B784FF", alignItems: "center", justifyContent: "center" },hide:{width:46,borderLeftWidth:1,borderLeftColor:"#2D3846",alignItems:"center",justifyContent:"center",backgroundColor:"#181219"}
 });
