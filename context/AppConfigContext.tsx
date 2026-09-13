@@ -38,7 +38,14 @@ const DEFAULTS: AppSettings = {
   buyMeACoffeeUrl: "https://buymeacoffee.com/mathiladinimuthu",
   testAMarginPercent: 65,
   readinessWeights: { coverage: .30, paperPractice: .25, topicMastery: .20, consistency: .15, recentRevision: .10 },
-  featureFlags: { globalRanking: true, catchUpMode: true, freeTimeMode: true, readiness: true, monthlyReports: true },
+  featureFlags: {
+    globalRanking: true,
+    catchUpMode: true,
+    freeTimeMode: true,
+    readiness: true,
+    monthlyReports: true,
+    captureScanning: true,
+  },
 };
 
 const CACHE_KEY = "studyarc:app-config:v1";
@@ -105,7 +112,15 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
     let alive = true;
     AsyncStorage.getItem(CACHE_KEY).then(raw => {
       if (!alive || !raw) return;
-      try { setSettings({ ...DEFAULTS, ...JSON.parse(raw) }); } catch { /* use defaults */ }
+      try {
+        const parsed = JSON.parse(raw);
+        setSettings({
+          ...DEFAULTS,
+          ...parsed,
+          readinessWeights: { ...DEFAULTS.readinessWeights, ...(parsed?.readinessWeights ?? {}) },
+          featureFlags: { ...DEFAULTS.featureFlags, ...(parsed?.featureFlags ?? {}) },
+        });
+      } catch { /* use defaults */ }
     }).finally(() => refresh().catch(() => undefined));
     return () => { alive = false; };
   }, [refresh]);
