@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useStudent, type ClassSchedule, type NewClass } from "../context/StudentContext";
 import { validateClassSchedule } from "../lib/scheduleValidation";
@@ -23,6 +23,11 @@ export default function ClassFormModal({
 }) {
   const { classes, profile } = useStudent();
   const availableSubjects = useMemo(() => [...new Set(subjects.filter(Boolean))], [subjects]);
+  const availableSubjectsRef = useRef(availableSubjects);
+  const initialValueRef = useRef(initialValue);
+  availableSubjectsRef.current = availableSubjects;
+  initialValueRef.current = initialValue;
+
   const [subjectName, setSubjectName] = useState(availableSubjects[0] ?? "Physics");
   const [dayOfWeek, setDayOfWeek] = useState(6);
   const [classType, setClassType] = useState<NewClass["classType"]>("Theory");
@@ -36,19 +41,30 @@ export default function ClassFormModal({
   const editing = Boolean(initialValue);
 
   React.useEffect(() => {
-    if (!visible) return;
-    if (initialValue) {
-      setSubjectName(availableSubjects.includes(initialValue.subjectName) ? initialValue.subjectName : (availableSubjects[0] ?? initialValue.subjectName));
-      setDayOfWeek(initialValue.dayOfWeek);
-      setClassType(initialValue.classType);
-      setDeliveryMode(initialValue.deliveryMode);
-      setStartTime(initialValue.startTime);
-      setEndTime(initialValue.endTime);
-      setPreReviewMinutes(initialValue.preReviewMinutes);
-      setTravelMinutes(initialValue.travelMinutes);
+    if (!visible) {
+      setClock(null);
       return;
     }
-    setSubjectName((current) => availableSubjects.includes(current) ? current : (availableSubjects[0] ?? "Physics"));
+
+    // Initialize the form only when the modal itself opens. Previously this effect
+    // also depended on availableSubjects/initialValue object identity, so unrelated
+    // parent/context rerenders while the modal was open could overwrite user edits
+    // and put start/end times back to defaults or their original values.
+    const currentSubjects = availableSubjectsRef.current;
+    const currentInitial = initialValueRef.current;
+    if (currentInitial) {
+      setSubjectName(currentSubjects.includes(currentInitial.subjectName) ? currentInitial.subjectName : (currentSubjects[0] ?? currentInitial.subjectName));
+      setDayOfWeek(currentInitial.dayOfWeek);
+      setClassType(currentInitial.classType);
+      setDeliveryMode(currentInitial.deliveryMode);
+      setStartTime(currentInitial.startTime);
+      setEndTime(currentInitial.endTime);
+      setPreReviewMinutes(currentInitial.preReviewMinutes);
+      setTravelMinutes(currentInitial.travelMinutes);
+      return;
+    }
+
+    setSubjectName(currentSubjects[0] ?? "Physics");
     setDayOfWeek(6);
     setClassType("Theory");
     setDeliveryMode("Physical");
@@ -56,7 +72,7 @@ export default function ClassFormModal({
     setEndTime("11:00");
     setPreReviewMinutes(30);
     setTravelMinutes(90);
-  }, [availableSubjects, initialValue, visible]);
+  }, [visible]);
 
   const title = useMemo(() => `${subjectName} ${classType}`, [subjectName, classType]);
   const activeClockValue = clock === "end" ? endTime : startTime;
