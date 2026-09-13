@@ -13,6 +13,7 @@ import GlobalProcessingOverlay from "../components/GlobalProcessingOverlay";
 import NotificationScheduler from "../components/NotificationScheduler";
 import OfflineStatusBanner from "../components/OfflineStatusBanner";
 import OfficialExamSync from "../components/OfficialExamSync";
+import PaperClassResultBanner from "../components/PaperClassResultBanner";
 import PendingPaperScanSync from "../components/PendingPaperScanSync";
 import WidgetSync from "../components/WidgetSync";
 import { AcademicCatalogProvider } from "../context/AcademicCatalogContext";
@@ -62,6 +63,7 @@ function RootContent() {
         <Stack.Screen name="subject" /><Stack.Screen name="topic" /><Stack.Screen name="stopwatch" /><Stack.Screen name="manual-session" /><Stack.Screen name="session-complete" /><Stack.Screen name="past-paper" /><Stack.Screen name="paper-stopwatch" /><Stack.Screen name="paper-analysis" /><Stack.Screen name="revision" /><Stack.Screen name="classes" /><Stack.Screen name="class-reminder" /><Stack.Screen name="profile" /><Stack.Screen name="study-phase" /><Stack.Screen name="test-mark" /><Stack.Screen name="notifications" /><Stack.Screen name="notification-settings" /><Stack.Screen name="leaderboard" /><Stack.Screen name="leaderboard-settings" /><Stack.Screen name="performance-settings" /><Stack.Screen name="friends" /><Stack.Screen name="bonus-work" /><Stack.Screen name="daily-review" /><Stack.Screen name="about" /><Stack.Screen name="contact" /><Stack.Screen name="privacy" /><Stack.Screen name="terms" /><Stack.Screen name="data-controls" /><Stack.Screen name="reports" /><Stack.Screen name="assignment" /><Stack.Screen name="assignment-quick" /><Stack.Screen name="planner-controls" /><Stack.Screen name="admin" /><Stack.Screen name="admin-updates" /><Stack.Screen name="admin-monetization" /><Stack.Screen name="admin-users" /><Stack.Screen name="admin-catalog" /><Stack.Screen name="admin-planner-health" /><Stack.Screen name="admin-exam-sync" /><Stack.Screen name="exams" />
       </Stack>
       <AssignmentFlowDock />
+      <PaperClassResultBanner />
       <AppUpdateNotice />
       <OfflineStatusBanner />
       <GlobalProcessingOverlay />
