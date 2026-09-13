@@ -6,14 +6,10 @@ import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "rea
 import ClassFormModal from "../components/ClassFormModal";
 import ClassWeekOverrideModal from "../components/ClassWeekOverrideModal";
 import ProtectedTimeModal from "../components/ProtectedTimeModal";
-import { useAuth } from "../context/AuthContext";
-import { useOffline } from "../context/OfflineContext";
 import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
 import { useStudent, type ClassSchedule, type NewClass } from "../context/StudentContext";
-import { expandSubjectChoices, topicDisplayName } from "../data/subjects";
-import { cacheKey, enqueueMutation, writeJson } from "../lib/offlineStore";
+import { topicDisplayName } from "../data/subjects";
 import { currentWeekDates, weekStartKey } from "../lib/scheduleAdjustments";
-import { supabase } from "../lib/supabase";
 import { format12Hour } from "../lib/time";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -28,18 +24,11 @@ const labelDate = (iso: string | null) => iso
 
 export default function Classes() {
   const router = useRouter();
-  const { user } = useAuth();
-  const { isOnline } = useOffline();
   const {
     profile,
     classes,
-    testMarks,
-    topicProgress,
-    subtopicCoverage,
-    dailyReviews,
     addClass,
     deleteClass,
-    refreshStudentData,
   } = useStudent();
   const {
     protectedTimes,
@@ -58,7 +47,15 @@ export default function Classes() {
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const subjects = useMemo(() => expandSubjectChoices(profile.subjectChoices), [profile.subjectChoices]);
+  // Use the student's actual A/L subject choices, not only the small hard-coded
+  // syllabus set. Combined Mathematics is the one stream choice that expands into
+  // two StudyArc subjects. This keeps Arts/Technology/Commerce subjects usable here.
+  const subjects = useMemo(() => Array.from(new Set(
+    profile.subjectChoices.flatMap(choice => choice === "Combined Mathematics"
+      ? ["Pure Mathematics", "Applied Mathematics"]
+      : [choice],
+    ).filter(Boolean),
+  )), [profile.subjectChoices]);
   const currentWeek = weekStartKey();
   const week = currentWeekDates();
   const visibleProtected = protectedTimes.filter(x => x.recurrence === "Weekly" || (x.date && weekStartKey(new Date(`${x.date}T00:00:00`)) === currentWeek));
@@ -94,63 +91,29 @@ export default function Classes() {
   };
 
   const saveClassDetails = async (value: NewClass) => {
-    if (!editingClass) {
-      await addClass(value);
-      return;
+    const original = editingClass;
+
+    // StudentContext is the single save path for BOTH add and edit. Passing the
+    // existing id turns addClass into an upsert, updates the UI/cache immediately,
+    // and queues/syncs the exact same value instead of using a second competing path.
+    await addClass(original ? { ...value, id: original.id } : value);
+
+    // A weekly topic override belongs to the old subject. Clear only that topic
+    // when a class itself is moved to another subject; the rest of the override stays.
+    if (original) {
+      const currentOverride = overrideFor(original.id);
+      if (currentOverride && original.subjectName !== value.subjectName) {
+        await saveClassWeekOverride({
+          classId: currentOverride.classId,
+          weekStart: currentOverride.weekStart,
+          status: currentOverride.status,
+          rescheduledDate: currentOverride.rescheduledDate,
+          startTime: currentOverride.startTime,
+          endTime: currentOverride.endTime,
+          topicName: null,
+        });
+      }
     }
-    if (!user) throw new Error("You must be signed in.");
-
-    const updated: ClassSchedule = {
-      ...value,
-      id: editingClass.id,
-      travelMinutes: value.deliveryMode === "Physical" ? value.travelMinutes : 0,
-    };
-    const nextClasses = classes
-      .map(c => c.id === editingClass.id ? updated : c)
-      .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
-    const payload = {
-      id: updated.id,
-      user_id: user.id,
-      subject_name: updated.subjectName,
-      title: updated.title,
-      class_type: updated.classType,
-      delivery_mode: updated.deliveryMode,
-      day_of_week: updated.dayOfWeek,
-      start_time: updated.startTime,
-      end_time: updated.endTime,
-      pre_review_minutes: updated.preReviewMinutes,
-      travel_minutes: updated.travelMinutes,
-    };
-
-    if (isOnline) {
-      const { error } = await supabase.from("class_schedules").upsert(payload, { onConflict: "id" });
-      if (error) throw error;
-    } else {
-      await writeJson(cacheKey(user.id, "student"), {
-        profile,
-        classes: nextClasses,
-        testMarks,
-        topicProgress,
-        subtopicCoverage,
-        dailyReviews,
-      });
-      await enqueueMutation({ userId: user.id, kind: "class_upsert", payload });
-    }
-
-    const currentOverride = overrideFor(editingClass.id);
-    if (currentOverride && editingClass.subjectName !== updated.subjectName) {
-      await saveClassWeekOverride({
-        classId: currentOverride.classId,
-        weekStart: currentOverride.weekStart,
-        status: currentOverride.status,
-        rescheduledDate: currentOverride.rescheduledDate,
-        startTime: currentOverride.startTime,
-        endTime: currentOverride.endTime,
-        topicName: null,
-      });
-    }
-
-    await refreshStudentData();
   };
 
   const confirmDelete = async () => {
