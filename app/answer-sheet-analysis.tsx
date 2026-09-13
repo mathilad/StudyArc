@@ -12,7 +12,7 @@ import { scheduleAdaptiveRecallReminders, type AdaptiveRecall } from "../lib/ada
 import { toFivePointConfidence } from "../lib/paperScanEngine";
 import { levelForScore, recallDaysForScore, weeklyAdjustmentForScore } from "../lib/performanceAnalysis";
 import { supabase } from "../lib/supabase";
-import { analyseAnswerSheet, pickCaptureSource, pickCaptureSources, type CaptureAsset } from "../lib/visionCapture";
+import { MAX_PAPER_PAGES, analyseAnswerSheet, pickCaptureSource, pickCaptureSources, type CaptureAsset } from "../lib/visionCapture";
 
 const TYPES: MistakeType[] = ["Concept gap", "Memory error", "Calculation error", "Misread question", "Time-management issue", "Careless error"];
 const num = (value: any) => { if (value == null || value === "") return null; const n = Number(value); return Number.isFinite(n) ? n : null; };
@@ -68,7 +68,7 @@ export default function AnswerSheetAnalysis() {
     try {
       const added = await pickCaptureSources(source);
       if (!added.length) return;
-      setPages(current => [...current, ...added].slice(0, 20));
+      setPages(current => [...current, ...added].slice(0, MAX_PAPER_PAGES));
       setAnalysis(null);
       setScoreConfirmed(false);
       setDateDraft(paperDate || routeDate || today());
@@ -331,7 +331,7 @@ export default function AnswerSheetAnalysis() {
 
       {linkedClass ? <View style={s.linkedBanner}><Ionicons name="school-outline" size={19} color="#9FD6FF"/><View style={{ flex: 1 }}><Text style={s.linkedTitle}>Linked paper class</Text><Text style={s.linkedText}>{linkedClass.title || `${linkedClass.subjectName} ${linkedClass.classType}`} · {linkedClass.subjectName}</Text></View><Pressable onPress={() => setLinkedClassId(null)}><Text style={s.unlink}>Change</Text></Pressable></View> : null}
 
-      <View style={s.sectionRow}><Text style={s.section}>1 · PAPER PAGES ({pages.length})</Text>{pages.length ? <Text style={s.optional}>MAX 20</Text> : null}</View>
+      <View style={s.sectionRow}><Text style={s.section}>1 · PAPER PAGES ({pages.length})</Text>{pages.length ? <Text style={s.optional}>MAX {MAX_PAPER_PAGES}</Text> : null}</View>
       <View style={s.sources}><Source icon="camera-outline" label="Take photo" onPress={() => addPages("camera")}/><Source icon="images-outline" label="Choose photos" onPress={() => addPages("library")}/><Source icon="document-outline" label="Choose files" onPress={() => addPages("document")}/></View>
       {pages.length ? <View style={s.pageList}>{pages.map((page, index) => <View key={`${page.filename}-${index}`} style={s.pageCard}>{page.previewUri ? <Image source={{ uri: page.previewUri }} resizeMode="cover" style={s.thumb}/> : <View style={s.thumbFallback}><Ionicons name="document-text-outline" size={22} color="#A88BC2"/></View>}<View style={{ flex: 1 }}><Text style={s.pageTitle}>Page {index + 1}</Text><Text style={s.pageFile} numberOfLines={1}>{page.filename}</Text></View><View style={s.pageActions}><Pressable disabled={index === 0} onPress={() => movePage(index, -1)} style={[s.smallBtn, index === 0 && s.dim]}><Ionicons name="arrow-up" size={15} color="#CBB0EA"/></Pressable><Pressable disabled={index === pages.length - 1} onPress={() => movePage(index, 1)} style={[s.smallBtn, index === pages.length - 1 && s.dim]}><Ionicons name="arrow-down" size={15} color="#CBB0EA"/></Pressable><Pressable onPress={() => removePage(index)} style={s.smallBtn}><Ionicons name="trash-outline" size={15} color="#D99191"/></Pressable></View></View>)}</View> : <View style={s.empty}><Text style={s.emptyText}>Photograph or upload the first page, then continue in the same order as the physical paper.</Text></View>}
 
