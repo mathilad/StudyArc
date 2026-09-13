@@ -21,3 +21,4 @@ jobs:
         run: npm run typecheck
       - name: Expo lint
         run: npm run lint
+      # This workflow is temporary and is removed after the final validation run.
