@@ -5,6 +5,7 @@ import { subscribeProcessing, type ProcessingState } from "../lib/processingOver
 
 export default function GlobalProcessingOverlay() {
   const [state, setState] = useState<ProcessingState | null>(null);
+  const progressWidth = `${Math.round((state?.progress ?? 0) * 100)}%` as `${number}%`;
 
   useEffect(() => subscribeProcessing(setState), []);
 
@@ -21,7 +22,7 @@ export default function GlobalProcessingOverlay() {
           <Text style={s.title}>{state?.title ?? "Processing"}</Text>
           <Text style={s.message}>{state?.message ?? "Please keep this screen open."}</Text>
           {state?.progress != null ? <>
-            <View style={s.progressTrack}><View style={[s.progressFill, { width: `${Math.round(state.progress * 100)}%` }]} /></View>
+            <View style={s.progressTrack}><View style={[s.progressFill, { width: progressWidth }]} /></View>
             <Text style={s.percent}>{Math.round(state.progress * 100)}%</Text>
           </> : null}
           {!state?.done ? <Text style={s.note}>You can see that your request is still being processed. StudyArc will close this automatically when the step finishes.</Text> : null}
