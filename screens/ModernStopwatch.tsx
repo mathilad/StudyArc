@@ -8,6 +8,7 @@ import { useStudy, type PaperSection, type StudyType } from "../context/StudyCon
 import { clearActiveStudyTimer, elapsedFromPersistedTimer, readActiveStudyTimer, writeActiveStudyTimer, type PersistedStudyTimer } from "../lib/timerPersistence";
 
 type Lap = { id: number; number: number; duration: number; total: number };
+type TimerMeta = { subjectName: string | null; topicName: string | null; studyType: StudyType; paperYear: number | null; paperSection: PaperSection | null; attemptNo: number | null };
 const first = (value?: string | string[]) => Array.isArray(value) ? value[0] : value;
 const clock = (ms: number) => {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -28,7 +29,7 @@ export default function ModernStopwatch() {
   const initialStudyType: StudyType = routeStudyType === "Revision" || routeStudyType === "Tute Questions" || routeStudyType === "Past Papers" ? routeStudyType : "Study Session";
   const routePaperSection = first(params.paperSection);
   const initialSection: PaperSection | null = routePaperSection === "MCQ" || routePaperSection === "Essay" || routePaperSection === "Full Paper" ? routePaperSection : null;
-  const initialMeta = useMemo(() => ({
+  const initialMeta = useMemo<TimerMeta>(() => ({
     subjectName: first(params.subjectName) ?? null,
     topicName: first(params.topicName) ?? null,
     studyType: initialStudyType,
@@ -37,7 +38,7 @@ export default function ModernStopwatch() {
     attemptNo: first(params.attemptNo) ? Number(first(params.attemptNo)) : null,
   }), [params.attemptNo, params.paperYear, params.subjectName, params.topicName, initialSection, initialStudyType]);
 
-  const [meta, setMeta] = useState(initialMeta);
+  const [meta, setMeta] = useState<TimerMeta>(initialMeta);
   const [elapsed, setElapsed] = useState(0);
   const [lapStart, setLapStart] = useState(0);
   const [laps, setLaps] = useState<Lap[]>([]);
