@@ -2,6 +2,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { SUBJECTS, type SubjectName } from "../data/subjects";
+import { getActivePaperClassLink } from "./paperClassLink";
 import { normalizePaperAnalysis } from "./paperScanEngine";
 import { beginProcessing, completeProcessing, endProcessing, updateProcessing } from "./processingOverlay";
 import { saveRecognizedPaperDraft, type RecognizedPaperPage } from "./recognizedPaperStore";
@@ -9,7 +10,7 @@ import { supabase } from "./supabase";
 
 export type CaptureKind="homework"|"tute"|"test_result"|"paper_marking"|"answer_sheet";
 export type CaptureAsset={base64:string;mimeType:string;filename:string;previewUri:string|null};
-export type PaperAnalysisMetadata={paperDate?:string|null;silent?:boolean};
+export type PaperAnalysisMetadata={paperDate?:string|null;silent?:boolean;sourceClassId?:string|null;subjectName?:string|null};
 export const MAX_PAPER_PAGES=30;
 
 const fromImageAsset=(a:ImagePicker.ImagePickerAsset,index=0):CaptureAsset=>{
@@ -92,6 +93,7 @@ function syllabusCatalog(subjectNames?:string[]){
 
 const compactUnique=(values:any[])=>[...new Set(values.map(value=>String(value??"").trim()).filter(Boolean))];
 const captureToken=()=>`paper-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+const numberOrNull=(value:any)=>{if(value==null||value==="")return null;const parsed=Number(value);return Number.isFinite(parsed)?parsed:null;};
 
 async function storeRecognizedText(analysis:Record<string,any>,pages:CaptureAsset[],paperDate:string|null|undefined){
  const recognizedPages=(Array.isArray(analysis.recognizedPages)?analysis.recognizedPages:[])
@@ -115,6 +117,57 @@ async function storeRecognizedText(analysis:Record<string,any>,pages:CaptureAsse
   recognizedText:recognizedPages.map(page=>`Page ${page.pageIndex}\n${page.text}`).join("\n\n"),
  });
  return true;
+}
+
+async function resolvePaperClassId(userId:string,requestedClassId:string|null,subjectName:string,paperDate:string){
+ if(requestedClassId){
+  const{data}=await supabase.from("class_schedules").select("id,subject_name,class_type").eq("id",requestedClassId).eq("user_id",userId).maybeSingle();
+  if(data&&(data.class_type==="Paper"||data.class_type==="Paper Discussion")&&(!subjectName||data.subject_name===subjectName))return String(data.id);
+ }
+ const date=new Date(`${paperDate}T12:00:00`);
+ if(!subjectName||Number.isNaN(date.getTime()))return null;
+ const{data}=await supabase.from("class_schedules").select("id").eq("user_id",userId).eq("subject_name",subjectName).eq("day_of_week",date.getDay()).in("class_type",["Paper","Paper Discussion"]);
+ return Array.isArray(data)&&data.length===1?String(data[0].id):null;
+}
+
+async function storeScannedTestResult(analysis:Record<string,any>,metadata:PaperAnalysisMetadata){
+ const link=getActivePaperClassLink();
+ const{data:sessionData}=await supabase.auth.getSession();
+ const userId=sessionData.session?.user?.id;
+ if(!userId)return{saved:false,sourceClassId:null as string|null};
+ const paperDate=String(metadata.paperDate??link?.occurrenceDate??analysis.paperDate??"").trim();
+ const subjectName=String(analysis.subjectName??metadata.subjectName??link?.subjectName??"").trim();
+ const got=numberOrNull(analysis.totalMarks??analysis.writtenTotalMarks);
+ const total=numberOrNull(analysis.maximumMarks??analysis.writtenMaximumMarks);
+ const evidence=analysis.markingEvidence&&typeof analysis.markingEvidence==="object"?analysis.markingEvidence:{};
+ const explicit=(numberOrNull(evidence.explicitMarkEvidenceCount)??0)>0||evidence.explicitScoreFound===true;
+ const reliable=Boolean(paperDate&&subjectName&&got!=null&&total!=null&&total>0&&got>=0&&got<=total&&explicit&&evidence.totalsAgree!==false);
+ if(!reliable)return{saved:false,sourceClassId:null as string|null};
+ const requestedClassId=String(metadata.sourceClassId??link?.sourceClassId??"").trim()||null;
+ const sourceClassId=await resolvePaperClassId(userId,requestedClassId,subjectName,paperDate);
+ const title=String(analysis.paperLabel??analysis.title??"Scanned paper").trim()||"Scanned paper";
+ let query=supabase.from("test_marks").select("id").eq("user_id",userId).eq("test_date",paperDate).eq("subject_name",subjectName);
+ query=sourceClassId?query.eq("source_class_id",sourceClassId):query.is("source_class_id",null).eq("title",title);
+ const{data:existing}=await query.order("created_at",{ascending:false}).limit(1);
+ const id=Array.isArray(existing)&&existing[0]?.id?String(existing[0].id):crypto.randomUUID();
+ const percent=Math.round((got!/total!)*10000)/100;
+ const{error}=await supabase.from("test_marks").upsert({
+  id,
+  user_id:userId,
+  source_class_id:sourceClassId,
+  subject_name:subjectName,
+  test_date:paperDate,
+  title,
+  mcq_score:null,
+  mcq_total:null,
+  essay_score:got,
+  essay_total:total,
+  mcq_percent:null,
+  essay_percent:percent,
+  weak_topics:Array.isArray(analysis.weakTopics)?compactUnique(analysis.weakTopics):[],
+ },{onConflict:"id"});
+ if(error)throw error;
+ return{saved:true,sourceClassId};
 }
 
 export async function analyseAnswerSheet(answer:CaptureAsset|CaptureAsset[],reference?:CaptureAsset|null,subjectNames?:string[],metadata:PaperAnalysisMetadata={}){
@@ -186,10 +239,18 @@ export async function analyseAnswerSheet(answer:CaptureAsset|CaptureAsset[],refe
    _model:compactUnique(chunks.map(x=>x._model)).join(" + ")||null,
   };
   const normalized=normalizePaperAnalysis(merged,pages.length) as Record<string,any>;
-  if(processId)updateProcessing(processId,{message:"Saving the recognized page text on this device…",progress:.94});
+  if(processId)updateProcessing(processId,{message:"Saving recognized text and any reliable detected result…",progress:.94});
   const stored=await storeRecognizedText(normalized,pages,metadata.paperDate).catch(()=>false);
   normalized.recognizedTextStoredLocally=stored;
-  if(processId)completeProcessing(processId,stored?"Paper analyzed. Recognized text was saved in StudyArc.":"Paper analysis complete.",650);
+  try{
+   const result=await storeScannedTestResult(normalized,metadata);
+   normalized.autoTestResultSaved=result.saved;
+   normalized.sourceClassId=result.sourceClassId;
+  }catch(error){
+   normalized.autoTestResultSaved=false;
+   normalized.testResultAutoSaveError=error instanceof Error?error.message:"Could not save detected test result.";
+  }
+  if(processId)completeProcessing(processId,normalized.autoTestResultSaved?"Paper analyzed. The detected test result was linked to your paper class.":stored?"Paper analyzed. Recognized text was saved in StudyArc.":"Paper analysis complete.",650);
   return normalized;
  }catch(error){if(processId)endProcessing(processId);throw error;}
 }
