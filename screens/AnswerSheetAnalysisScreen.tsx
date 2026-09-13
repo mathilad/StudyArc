@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { useIntelligence, type MistakeType } from "../context/IntelligenceContext";
@@ -18,7 +18,6 @@ import { supabase } from "../lib/supabase";
 import { MAX_PAPER_PAGES, analyseAnswerSheet, pickCaptureSource, pickCaptureSources, type CaptureAsset } from "../lib/visionCapture";
 
 const TYPES: MistakeType[] = ["Concept gap", "Memory error", "Calculation error", "Misread question", "Time-management issue", "Careless error"];
-const ALL_SUBJECTS = Object.keys(SUBJECTS) as SubjectName[];
 const num = (value: any) => { if (value == null || value === "") return null; const n = Number(value); return Number.isFinite(n) ? n : null; };
 const today = () => new Date().toISOString().slice(0, 10);
 const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T12:00:00`).getTime());
@@ -38,13 +37,15 @@ export default function AnswerSheetAnalysisScreen() {
   const { addQuestionResult, saveCaptureAnalysis } = useIntelligence();
 
   const preferredSubjects = useMemo(() => expandSubjectChoices(profile.subjectChoices), [profile.subjectChoices]);
-  const subjects = useMemo(
-    () => [...new Set([...preferredSubjects, ...ALL_SUBJECTS])] as SubjectName[],
-    [preferredSubjects],
-  );
-  const paperClasses = useMemo(() => classes.filter(c => c.classType === "Paper" || c.classType === "Paper Discussion"), [classes]);
+  const subjects = useMemo(() => [...new Set(preferredSubjects)] as SubjectName[], [preferredSubjects]);
+  const paperClasses = useMemo(() => {
+    const order = new Map(subjects.map((name, index) => [name, index]));
+    return classes
+      .filter(c => (c.classType === "Paper" || c.classType === "Paper Discussion") && subjects.includes(c.subjectName as SubjectName))
+      .sort((a, b) => (order.get(a.subjectName as SubjectName) ?? 999) - (order.get(b.subjectName as SubjectName) ?? 999) || a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
+  }, [classes, subjects]);
   const routeClass = paperClasses.find(c => c.id === routeClassId) ?? null;
-  const initialSubject = routeClass?.subjectName || (subjects.includes(routeSubject as SubjectName) ? routeSubject : "") || preferredSubjects[0] || subjects[0] || "Physics";
+  const initialSubject = routeClass?.subjectName || (subjects.includes(routeSubject as SubjectName) ? routeSubject : "") || subjects[0] || "Physics";
 
   const [pages, setPages] = useState<CaptureAsset[]>([]);
   const [reference, setReference] = useState<CaptureAsset | null>(null);
@@ -53,7 +54,7 @@ export default function AnswerSheetAnalysisScreen() {
   const [datePromptOpen, setDatePromptOpen] = useState(false);
   const [analysis, setAnalysis] = useState<Record<string, any> | null>(null);
   const [subject, setSubject] = useState(initialSubject);
-  const [linkedClassId, setLinkedClassId] = useState<string | null>(routeClassId);
+  const [linkedClassId, setLinkedClassId] = useState<string | null>(routeClass?.id ?? null);
   const [obtainedText, setObtainedText] = useState("");
   const [maximumText, setMaximumText] = useState("");
   const [scoreConfirmed, setScoreConfirmed] = useState(false);
@@ -62,7 +63,13 @@ export default function AnswerSheetAnalysisScreen() {
   const [offlineMessage, setOfflineMessage] = useState<string | null>(null);
 
   const linkedClass = paperClasses.find(c => c.id === linkedClassId) ?? null;
-  const classCandidates = useMemo(() => paperClasses.filter(c => c.subjectName === subject), [paperClasses, subject]);
+  const classCandidates = paperClasses;
+
+  useEffect(() => {
+    if (!subjects.length || subjects.includes(subject as SubjectName)) return;
+    setSubject(subjects[0]);
+    setLinkedClassId(null);
+  }, [subject, subjects]);
 
   const suggestClassForDate = (date: string, subjectName = subject) => {
     if (linkedClassId || !validDate(date)) return;
@@ -354,7 +361,7 @@ export default function AnswerSheetAnalysisScreen() {
     <LinearGradient colors={["#181022", "#080D14"]} style={StyleSheet.absoluteFill}/>
     <View style={s.head}>
       <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF"/></Pressable>
-      <View style={{ flex: 1 }}><Text style={s.title}>Analyze marked paper</Text><Text style={s.sub}>Every StudyArc subject is supported. Upload pages in order; offline papers are kept on this device and scanned automatically when internet returns.</Text></View>
+      <View style={{ flex: 1 }}><Text style={s.title}>Analyze marked paper</Text><Text style={s.sub}>Only the subjects in your selected A/L stream are shown. Upload pages in order; offline papers are kept on this device and scanned automatically when internet returns.</Text></View>
     </View>
 
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -372,12 +379,12 @@ export default function AnswerSheetAnalysisScreen() {
       <Pressable onPress={() => { setDateDraft(paperDate || today()); setDatePromptOpen(true); }} style={s.dateButton}><Ionicons name="calendar-outline" size={18} color="#CFB1EF"/><View style={{ flex: 1 }}><Text style={s.dateLabel}>{paperDate || "Add test date"}</Text><Text style={s.dateHelp}>Entered immediately on the app, even while offline</Text></View><Ionicons name="chevron-forward" size={17} color="#6E7B8C"/></Pressable>
 
       <Text style={s.section}>SUBJECT</Text>
-      <Text style={s.help}>All supported A/L subjects are available. StudyArc can also detect the subject during analysis.</Text>
+      <Text style={s.help}>Only subjects selected in your A/L stream are available here. StudyArc can detect the paper among those subjects during analysis.</Text>
       <View style={s.wrap}>{subjects.map(x => <Pressable key={x} onPress={() => chooseSubject(x)} style={[s.chip, subject === x && s.chipOn]}><Text style={[s.chipText, subject === x && s.chipTextOn]}>{x}</Text></Pressable>)}</View>
 
       <Text style={s.section}>2 · PAPER CLASS <Text style={s.optional}>OPTIONAL</Text></Text>
-      <Text style={s.help}>Attach the paper to a Paper or Paper Discussion class for the selected subject.</Text>
-      <View style={s.classList}><Pressable onPress={() => setLinkedClassId(null)} style={[s.classChip, !linkedClassId && s.classChipOn]}><Text style={[s.classChipText, !linkedClassId && s.classChipTextOn]}>Not from a class</Text></Pressable>{classCandidates.map(c => <Pressable key={c.id} onPress={() => { setLinkedClassId(c.id); setSubject(c.subjectName); }} style={[s.classChip, linkedClassId === c.id && s.classChipOn]}><Text style={[s.classChipText, linkedClassId === c.id && s.classChipTextOn]}>{c.title || c.classType}</Text><Text style={s.classMeta}>{c.classType}</Text></Pressable>)}</View>
+      <Text style={s.help}>All Paper and Paper Discussion classes from the subjects in your selected stream are shown here. Choosing a class also selects its subject.</Text>
+      <View style={s.classList}><Pressable onPress={() => setLinkedClassId(null)} style={[s.classChip, !linkedClassId && s.classChipOn]}><Text style={[s.classChipText, !linkedClassId && s.classChipTextOn]}>Not from a class</Text></Pressable>{classCandidates.map(c => <Pressable key={c.id} onPress={() => { setLinkedClassId(c.id); setSubject(c.subjectName); }} style={[s.classChip, linkedClassId === c.id && s.classChipOn]}><Text style={[s.classChipText, linkedClassId === c.id && s.classChipTextOn]}>{c.title || c.classType}</Text><Text style={s.classMeta}>{c.subjectName} · {c.classType}</Text></Pressable>)}</View>
 
       <Text style={s.section}>3 · MARKING SCHEME / QUESTION PAPER <Text style={s.optional}>OPTIONAL</Text></Text>
       <UploadReference asset={reference} onPick={chooseReference}/>
