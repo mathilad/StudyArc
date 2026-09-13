@@ -58,6 +58,7 @@ export default function AnswerSheetAnalysisScreen() {
   const [linkedClassId, setLinkedClassId] = useState<string | null>(routeClass?.id ?? null);
   const [obtainedText, setObtainedText] = useState("");
   const [maximumText, setMaximumText] = useState("");
+  const [weakTopicsText, setWeakTopicsText] = useState("");
   const [scoreConfirmed, setScoreConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -181,6 +182,7 @@ export default function AnswerSheetAnalysisScreen() {
       const got = num(next.totalMarks), total = num(next.maximumMarks);
       setObtainedText(got == null ? "" : String(got));
       setMaximumText(total == null ? "" : String(total));
+      setWeakTopicsText(Array.isArray(next.weakTopics) ? next.weakTopics.map(String).join(", ") : "");
       const markEvidence = next.markingEvidence && typeof next.markingEvidence === "object" ? next.markingEvidence : {};
       setScoreConfirmed(got != null && total != null && total > 0 && markEvidence.totalsAgree !== false && (num(markEvidence.explicitMarkEvidenceCount) ?? 0) > 0);
     } catch (error) {
@@ -194,7 +196,7 @@ export default function AnswerSheetAnalysisScreen() {
   const updateQuestionRow = (index: number, patch: Record<string, any>) => setAnalysis(current => current ? ({ ...current, questionResults: (Array.isArray(current.questionResults) ? current.questionResults : []).map((row: any, i: number) => i === index ? { ...row, ...patch } : row) }) : current);
   const removeQuestionRow = (index: number) => setAnalysis(current => current ? ({ ...current, questionResults: (Array.isArray(current.questionResults) ? current.questionResults : []).filter((_: any, i: number) => i !== index) }) : current);
   const scoredRows = rows.filter((row: any) => num(row.marksAwarded) != null && num(row.marksTotal) != null && (num(row.marksTotal) ?? 0) > 0 && (num(row.markConfidence) ?? 0) >= .58);
-  const weak = Array.isArray(analysis?.weakTopics) ? analysis.weakTopics.map(String) : [];
+  const weak = weakTopicsText.split(",").map(value => value.trim()).filter(Boolean);
   const strengths = Array.isArray(analysis?.strengths) ? analysis.strengths.map(String) : [];
   const nextSteps = Array.isArray(analysis?.nextSteps) ? analysis.nextSteps.map(String) : [];
   const evidence = analysis?.markingEvidence && typeof analysis.markingEvidence === "object" ? analysis.markingEvidence : {};
@@ -328,6 +330,7 @@ export default function AnswerSheetAnalysisScreen() {
       await saveCaptureAnalysis("answer_sheet", pages.map(x => x.filename).join(" | "), String(analysis.summary ?? ""), {
         ...analysis,
         confirmedSubject: subject,
+        weakTopics: weak,
         paperDate,
         sourceClassId: linkedClassId,
         sourceClassTitle: linkedClass?.title ?? null,
@@ -407,6 +410,7 @@ export default function AnswerSheetAnalysisScreen() {
         <View style={s.card}><Text style={s.paper}>{String(analysis.title ?? analysis.paperLabel ?? "Uploaded paper")}</Text><Text style={s.summary}>{String(analysis.summary ?? "Analysis completed.")}</Text><View style={s.metrics}><Metric label="DATE" value={paperDate}/><Metric label="PAGES" value={String(pages.length)}/><Metric label="SCORE" value={paperScore == null ? "—" : `${paperScore}%`}/><Metric label="SUBJECT" value={subject}/></View>
           <Text style={s.label}>DETECTED / CONFIRMED TOTAL</Text><View style={s.scoreEdit}><TextInput value={obtainedText} onChangeText={v => { setObtainedText(v.replace(/[^0-9.]/g, "")); setScoreConfirmed(false); }} placeholder="Got" placeholderTextColor="#586678" keyboardType="decimal-pad" style={s.scoreInput}/><Text style={s.outOf}>/</Text><TextInput value={maximumText} onChangeText={v => { setMaximumText(v.replace(/[^0-9.]/g, "")); setScoreConfirmed(false); }} placeholder="Out of" placeholderTextColor="#586678" keyboardType="decimal-pad" style={s.scoreInput}/><Pressable onPress={confirmScore} style={[s.confirmBtn, scoreConfirmed && s.confirmed]}><Ionicons name={scoreConfirmed ? "checkmark-circle" : "checkmark"} size={16} color="#E6D8F5"/><Text style={s.confirmText}>{scoreConfirmed ? "Confirmed" : "Confirm"}</Text></Pressable></View>
           <Text style={s.label}>CONFIRM SUBJECT</Text><View style={s.wrap}>{subjects.map(x => <Pressable key={x} onPress={() => chooseSubject(x)} style={[s.chip, subject === x && s.chipOn]}><Text style={[s.chipText, subject === x && s.chipTextOn]}>{x}</Text></Pressable>)}</View>
+          <Text style={s.label}>WEAK TOPICS THAT WILL AFFECT REVISION</Text><TextInput value={weakTopicsText} onChangeText={setWeakTopicsText} placeholder="Separate topics with commas" placeholderTextColor="#586678" style={s.reviewInput}/>
         </View>
 
         {warnings.length ? <Insight title="CHECK BEFORE SAVING" icon="alert-circle-outline" items={warnings}/> : null}
@@ -468,4 +472,5 @@ const s = StyleSheet.create({
   adapt:{borderRadius:16,backgroundColor:"#171321",borderWidth:1,borderColor:"#453554",padding:12,flexDirection:"row",gap:9,marginTop:10},adaptTitle:{color:"#E6DCEF",fontSize:10.5,fontWeight:"900"},adaptText:{color:"#887B94",fontSize:8.5,lineHeight:13,marginTop:3},save:{height:53,borderRadius:16,backgroundColor:"#B784FF",marginTop:14,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7},saveText:{color:"#160B20",fontSize:10.5,fontWeight:"900"},
   modalBackdrop:{flex:1,backgroundColor:"#000A",alignItems:"center",justifyContent:"center",padding:20},modalCard:{width:"100%",maxWidth:460,borderRadius:24,backgroundColor:"#111720",borderWidth:1,borderColor:"#3B3047",padding:18},modalIcon:{width:48,height:48,borderRadius:15,backgroundColor:"#2A1D38",alignItems:"center",justifyContent:"center"},modalTitle:{color:"#F3EFF7",fontSize:19,fontWeight:"900",marginTop:13},modalText:{color:"#8190A1",fontSize:9.5,lineHeight:15,marginTop:6},modalInput:{height:51,borderRadius:14,backgroundColor:"#0A1119",borderWidth:1,borderColor:"#2D3948",paddingHorizontal:13,color:"#F0F3F6",fontSize:12,fontWeight:"900",marginTop:14},quickDates:{flexDirection:"row",gap:7,marginTop:8},quickDate:{minHeight:36,borderRadius:10,backgroundColor:"#1B2230",paddingHorizontal:12,alignItems:"center",justifyContent:"center"},quickDateText:{color:"#B9C6D5",fontSize:8.5,fontWeight:"900"},modalPrimary:{height:50,borderRadius:15,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center",marginTop:13},modalPrimaryText:{color:"#160B20",fontSize:10.5,fontWeight:"900"},
   editQuestion:{minHeight:48,borderRadius:13,backgroundColor:"#0F161F",borderWidth:1,borderColor:"#2A3746",padding:6,flexDirection:"row",alignItems:"center",gap:5,marginBottom:6},editQNo:{width:45,minHeight:36,borderRadius:9,backgroundColor:"#0A1119",borderWidth:1,borderColor:"#263342",color:"#E5E9EE",paddingHorizontal:7,fontSize:8.5,fontWeight:"800"},editTopic:{flex:1,minWidth:80,minHeight:36,borderRadius:9,backgroundColor:"#0A1119",borderWidth:1,borderColor:"#263342",color:"#E5E9EE",paddingHorizontal:7,fontSize:8.5},editMark:{width:54,minHeight:36,borderRadius:9,backgroundColor:"#0A1119",borderWidth:1,borderColor:"#263342",color:"#E5E9EE",paddingHorizontal:6,fontSize:8.5,fontWeight:"800"},editRemove:{width:32,height:32,borderRadius:9,backgroundColor:"#26171C",alignItems:"center",justifyContent:"center"},
+  reviewInput:{minHeight:42,borderRadius:11,backgroundColor:"#0A1119",borderWidth:1,borderColor:"#293646",color:"#E5E9EE",paddingHorizontal:9,fontSize:9},
 });
