@@ -51,7 +51,7 @@ export default function AdminFeaturesScreen() {
 
       <View style={s.notice}>
         <Ionicons name="information-circle-outline" size={21} color="#AFCBF0" />
-        <Text style={s.noticeText}>Changes are runtime settings. Users do not need a new APK. Existing screens re-check the setting and the vision backend also refuses new scan requests while scanning is disabled.</Text>
+        <Text style={s.noticeText}>This is a runtime setting stored in StudyArc configuration. Current app screens re-check it, so admins can disable or re-enable scanning without changing the APK.</Text>
       </View>
 
       <Text style={s.section}>CAMERA & DOCUMENT FEATURES</Text>
@@ -68,7 +68,7 @@ export default function AdminFeaturesScreen() {
         <Ionicons name={scanEnabled ? "checkmark-circle-outline" : "pause-circle-outline"} size={24} color={scanEnabled ? "#83D7A7" : "#F1B2B2"} />
         <View style={{ flex: 1 }}>
           <Text style={s.stateTitle}>{scanEnabled ? "Scanning is available" : "Scanning is disabled for users"}</Text>
-          <Text style={s.stateText}>{scanEnabled ? "Users can use supported camera, image and document recognition flows." : "Users see a clear disabled message instead of camera/document scan controls. The vision API also rejects scan requests until you turn the feature back on."}</Text>
+          <Text style={s.stateText}>{scanEnabled ? "Users can use supported camera, image and document recognition flows." : "Users see a clear disabled message instead of camera/document scan controls, and queued offline paper scans pause until you turn the feature back on."}</Text>
         </View>
       </View>
 
