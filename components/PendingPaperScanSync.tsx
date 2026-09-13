@@ -26,7 +26,7 @@ export default function PendingPaperScanSync() {
             const job = await readQueuedPaperScan(item.id);
             if (!job) continue;
             await recordPaperScanAttempt(item.id);
-            const analysis = await analyseAnswerSheet(job.pages, job.reference, job.subjectNames, { paperDate: job.paperDate });
+            const analysis = await analyseAnswerSheet(job.pages, job.reference, job.subjectNames, { paperDate: job.paperDate, silent: true });
             const detectedSubject = job.subjectNames.find(name => name.toLowerCase() === String(analysis.subjectName ?? "").toLowerCase()) ?? job.selectedSubject;
             await saveCaptureAnalysis(
               "answer_sheet",
