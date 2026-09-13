@@ -21,9 +21,8 @@ export default function PaperDetailsScreen(){
   const {profile}=useStudent();
   const capture=captures.find(x=>x.id===id)??null;
   const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
-  const source=capture?.analysis??{};
   const [title,setTitle]=useState("");
-  const [subject,setSubject]=useState(subjects[0]??"Physics");
+  const [subject,setSubject]=useState<string>(subjects[0]??"Physics");
   const [paperDate,setPaperDate]=useState("");
   const [summary,setSummary]=useState("");
   const [saving,setSaving]=useState(false);
@@ -33,7 +32,8 @@ export default function PaperDetailsScreen(){
     const a=capture.analysis as Record<string,unknown>;
     setTitle(String(a.paperLabel??a.title??capture.sourceName??"Uploaded paper"));
     const detected=String(a.confirmedSubject??a.subjectName??"");
-    if(subjects.includes(detected))setSubject(detected);
+    const matched=subjects.find(x=>x===detected);
+    if(matched)setSubject(matched);
     setPaperDate(dateValue(a.paperDate));
     setSummary(String(capture.summary??a.summary??""));
   },[capture,subjects]);
