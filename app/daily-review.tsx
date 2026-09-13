@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useOffline } from "../context/OfflineContext";
 import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
@@ -23,7 +23,7 @@ export default function DailyReviewScreen(){
  const recordedSeconds=useMemo(()=>sessions.filter(row=>dateKey(new Date(row.startedAt))===reviewDate).reduce((sum,row)=>sum+row.durationSeconds,0),[reviewDate,sessions]);
  const suggested=useMemo(()=>{const weak=testMarks.flatMap(x=>x.weakTopics);const due=topicProgress.filter(x=>x.nextRecallAt&&new Date(x.nextRecallAt).getTime()<=Date.now()).map(x=>x.topicName);const first=expandSubjectChoices(profile.subjectChoices).flatMap(name=>(SUBJECTS as any)[name]?.topics?.slice(0,2).map((t:any)=>t.title)??[]);return Array.from(new Set([...weak,...due,...first])).slice(0,12)},[profile.subjectChoices,testMarks,topicProgress]);
  const toggle=(x:string)=>setSelected(v=>v.includes(x)?v.filter(y=>y!==x):[...v,x].slice(-5));
- const save=async()=>{setSaving(true);try{await saveDailyReview({reviewDate,pagesStudied,pagesRevised,completedBlocks,dayRating:rating,attentionTopics:selected});if(isYesterday)router.replace("/(tabs)");else router.back()}finally{setSaving(false)}};
+ const save=async()=>{setSaving(true);try{await saveDailyReview({reviewDate,pagesStudied,pagesRevised,completedBlocks,dayRating:rating,attentionTopics:selected});if(isYesterday)router.replace("/(tabs)");else router.back()}catch(error){Alert.alert("Could not save review",error instanceof Error?error.message:"Please try again.")}finally{setSaving(false)}};
  const heading=isYesterday?"Review yesterday":"Review your day";
  const intro=isYesterday?"Before today’s plan starts, tell Study Arc how many pages you studied and revised yesterday.":"A short review helps tomorrow’s plan understand your real work.";
  return <View style={s.root}><LinearGradient colors={["#21132F","#0A0F17","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.header}><Pressable style={s.back} onPress={()=>isYesterday?router.replace("/(tabs)"):router.back()}><Ionicons name="arrow-back" size={21} color="#FFF"/></Pressable><View style={{flex:1}}><Text style={s.kicker}>{isYesterday?"YESTERDAY":"END OF DAY"}</Text><Text style={s.title}>{heading}</Text></View><View style={s.cloud}><Ionicons name={isOnline?"cloud-done-outline":"cloud-offline-outline"} size={19} color={isOnline?"#65D79A":"#F1B66B"}/></View></View><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
