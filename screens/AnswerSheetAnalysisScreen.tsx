@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import ScanReviewBanner from "../components/ScanReviewBanner";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -15,7 +16,7 @@ import { toFivePointConfidence } from "../lib/paperScanEngine";
 import { levelForScore, recallDaysForScore, weeklyAdjustmentForScore } from "../lib/performanceAnalysis";
 import { planningBucketFor } from "../lib/planner";
 import { supabase } from "../lib/supabase";
-import { MAX_PAPER_PAGES, analyseAnswerSheet, pickCaptureSource, pickCaptureSources, type CaptureAsset } from "../lib/visionCapture";
+import { MAX_PAPER_PAGES, analyseAnswerSheet, pickCaptureSource, pickCaptureSources, saveReviewedRecognizedText, type CaptureAsset } from "../lib/visionCapture";
 
 const TYPES: MistakeType[] = ["Concept gap", "Memory error", "Calculation error", "Misread question", "Time-management issue", "Careless error"];
 const num = (value: any) => { if (value == null || value === "") return null; const n = Number(value); return Number.isFinite(n) ? n : null; };
@@ -57,6 +58,7 @@ export default function AnswerSheetAnalysisScreen() {
   const [linkedClassId, setLinkedClassId] = useState<string | null>(routeClass?.id ?? null);
   const [obtainedText, setObtainedText] = useState("");
   const [maximumText, setMaximumText] = useState("");
+  const [weakTopicsText, setWeakTopicsText] = useState("");
   const [scoreConfirmed, setScoreConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -180,6 +182,7 @@ export default function AnswerSheetAnalysisScreen() {
       const got = num(next.totalMarks), total = num(next.maximumMarks);
       setObtainedText(got == null ? "" : String(got));
       setMaximumText(total == null ? "" : String(total));
+      setWeakTopicsText(Array.isArray(next.weakTopics) ? next.weakTopics.map(String).join(", ") : "");
       const markEvidence = next.markingEvidence && typeof next.markingEvidence === "object" ? next.markingEvidence : {};
       setScoreConfirmed(got != null && total != null && total > 0 && markEvidence.totalsAgree !== false && (num(markEvidence.explicitMarkEvidenceCount) ?? 0) > 0);
     } catch (error) {
@@ -190,8 +193,10 @@ export default function AnswerSheetAnalysisScreen() {
   };
 
   const rows = Array.isArray(analysis?.questionResults) ? analysis.questionResults : [];
+  const updateQuestionRow = (index: number, patch: Record<string, any>) => setAnalysis(current => current ? ({ ...current, questionResults: (Array.isArray(current.questionResults) ? current.questionResults : []).map((row: any, i: number) => i === index ? { ...row, ...patch } : row) }) : current);
+  const removeQuestionRow = (index: number) => setAnalysis(current => current ? ({ ...current, questionResults: (Array.isArray(current.questionResults) ? current.questionResults : []).filter((_: any, i: number) => i !== index) }) : current);
   const scoredRows = rows.filter((row: any) => num(row.marksAwarded) != null && num(row.marksTotal) != null && (num(row.marksTotal) ?? 0) > 0 && (num(row.markConfidence) ?? 0) >= .58);
-  const weak = Array.isArray(analysis?.weakTopics) ? analysis.weakTopics.map(String) : [];
+  const weak = weakTopicsText.split(",").map(value => value.trim()).filter(Boolean);
   const strengths = Array.isArray(analysis?.strengths) ? analysis.strengths.map(String) : [];
   const nextSteps = Array.isArray(analysis?.nextSteps) ? analysis.nextSteps.map(String) : [];
   const evidence = analysis?.markingEvidence && typeof analysis.markingEvidence === "object" ? analysis.markingEvidence : {};
@@ -325,6 +330,7 @@ export default function AnswerSheetAnalysisScreen() {
       await saveCaptureAnalysis("answer_sheet", pages.map(x => x.filename).join(" | "), String(analysis.summary ?? ""), {
         ...analysis,
         confirmedSubject: subject,
+        weakTopics: weak,
         paperDate,
         sourceClassId: linkedClassId,
         sourceClassTitle: linkedClass?.title ?? null,
@@ -340,6 +346,8 @@ export default function AnswerSheetAnalysisScreen() {
           recallCount: recalls.length,
         },
       });
+
+      await saveReviewedRecognizedText({ ...analysis, subjectName: subject, paperDate, paperLabel: baseLabel }, pages, paperDate).catch(() => false);
 
       const adj = adjustment ?? 0;
       const classText = linkedClass ? ` Linked to ${linkedClass.title || `${linkedClass.subjectName} ${linkedClass.classType}`}.` : "";
@@ -392,6 +400,7 @@ export default function AnswerSheetAnalysisScreen() {
       <Pressable disabled={!pages.length || busy} onPress={analyse} style={[s.analyse, (!pages.length || busy) && s.disabled]}><Ionicons name={isOnline ? "scan-outline" : "cloud-upload-outline"} size={19} color="#160B20"/><Text style={s.analyseText}>{busy ? (isOnline ? "Reading marks and pages…" : "Saving paper offline…") : isOnline ? "Analyze paper & show my result" : "Save offline & scan when online"}</Text></Pressable>
 
       {analysis ? <>
+        <ScanReviewBanner items={[`Paper result: ${obtainedText || "?"}/${maximumText || "?"}`, `Subject: ${subject}`, `${rows.length} detected question${rows.length === 1 ? "" : "s"}`, linkedClass ? `Paper class: ${linkedClass.title || linkedClass.classType}` : "No paper class link"]}/>
         <Text style={s.section}>YOUR RESULT</Text>
         <LinearGradient colors={["#35204A", "#17141E"]} style={s.resultCard}>
           <View style={{ flex: 1 }}><Text style={s.resultEyebrow}>{scoreConfirmed ? "DETECTED RESULT" : "CHECK DETECTED RESULT"}</Text><Text style={s.resultMarks}>{num(obtainedText) == null || num(maximumText) == null ? "—" : `${obtainedText}/${maximumText}`}</Text><Text style={s.resultPercent}>{paperScore == null ? "No reliable total yet" : `${paperScore}% · ${levelForScore(paperScore)}`}</Text></View>
@@ -401,12 +410,23 @@ export default function AnswerSheetAnalysisScreen() {
         <View style={s.card}><Text style={s.paper}>{String(analysis.title ?? analysis.paperLabel ?? "Uploaded paper")}</Text><Text style={s.summary}>{String(analysis.summary ?? "Analysis completed.")}</Text><View style={s.metrics}><Metric label="DATE" value={paperDate}/><Metric label="PAGES" value={String(pages.length)}/><Metric label="SCORE" value={paperScore == null ? "—" : `${paperScore}%`}/><Metric label="SUBJECT" value={subject}/></View>
           <Text style={s.label}>DETECTED / CONFIRMED TOTAL</Text><View style={s.scoreEdit}><TextInput value={obtainedText} onChangeText={v => { setObtainedText(v.replace(/[^0-9.]/g, "")); setScoreConfirmed(false); }} placeholder="Got" placeholderTextColor="#586678" keyboardType="decimal-pad" style={s.scoreInput}/><Text style={s.outOf}>/</Text><TextInput value={maximumText} onChangeText={v => { setMaximumText(v.replace(/[^0-9.]/g, "")); setScoreConfirmed(false); }} placeholder="Out of" placeholderTextColor="#586678" keyboardType="decimal-pad" style={s.scoreInput}/><Pressable onPress={confirmScore} style={[s.confirmBtn, scoreConfirmed && s.confirmed]}><Ionicons name={scoreConfirmed ? "checkmark-circle" : "checkmark"} size={16} color="#E6D8F5"/><Text style={s.confirmText}>{scoreConfirmed ? "Confirmed" : "Confirm"}</Text></Pressable></View>
           <Text style={s.label}>CONFIRM SUBJECT</Text><View style={s.wrap}>{subjects.map(x => <Pressable key={x} onPress={() => chooseSubject(x)} style={[s.chip, subject === x && s.chipOn]}><Text style={[s.chipText, subject === x && s.chipTextOn]}>{x}</Text></Pressable>)}</View>
+          <Text style={s.label}>WEAK TOPICS THAT WILL AFFECT REVISION</Text><TextInput value={weakTopicsText} onChangeText={setWeakTopicsText} placeholder="Separate topics with commas" placeholderTextColor="#586678" style={s.reviewInput}/>
         </View>
 
         {warnings.length ? <Insight title="CHECK BEFORE SAVING" icon="alert-circle-outline" items={warnings}/> : null}
         {weak.length ? <Insight title="WEAK TOPICS" icon="warning-outline" items={weak}/> : null}
         {strengths.length ? <Insight title="STRENGTHS" icon="checkmark-circle-outline" items={strengths}/> : null}
         {nextSteps.length ? <Insight title="NEXT STEPS" icon="arrow-forward-circle-outline" items={nextSteps}/> : null}
+
+        <Text style={s.section}>EDIT DETECTED QUESTION DETAILS</Text>
+        <Text style={s.help}>Correct question numbers, lesson/topic labels and marks here. These reviewed values are what StudyArc will add when you save.</Text>
+        {rows.length ? rows.slice(0, 200).map((row: any, i: number) => <View key={`edit-${i}`} style={s.editQuestion}>
+          <TextInput value={String(row.questionNo ?? "")} onChangeText={value => updateQuestionRow(i, { questionNo: value })} placeholder="Q" placeholderTextColor="#586678" style={s.editQNo}/>
+          <TextInput value={String(row.topicName ?? "General")} onChangeText={value => updateQuestionRow(i, { topicName: value })} placeholder="Topic / lesson" placeholderTextColor="#586678" style={s.editTopic}/>
+          <TextInput value={row.marksAwarded == null ? "" : String(row.marksAwarded)} onChangeText={value => updateQuestionRow(i, { marksAwarded: value.replace(/[^0-9.]/g, "") })} placeholder="Got" placeholderTextColor="#586678" keyboardType="decimal-pad" style={s.editMark}/>
+          <TextInput value={row.marksTotal == null ? "" : String(row.marksTotal)} onChangeText={value => updateQuestionRow(i, { marksTotal: value.replace(/[^0-9.]/g, "") })} placeholder="Max" placeholderTextColor="#586678" keyboardType="decimal-pad" style={s.editMark}/>
+          <Pressable onPress={() => removeQuestionRow(i)} style={s.editRemove}><Ionicons name="close" size={16} color="#D997A1"/></Pressable>
+        </View>) : <View style={s.empty}><Text style={s.emptyText}>No question rows were detected. You can still confirm the overall score and subject above.</Text></View>}
 
         <Text style={s.section}>QUESTION + MARK EVIDENCE</Text>
         {rows.length ? rows.slice(0, 200).map((row: any, i: number) => {
@@ -416,7 +436,7 @@ export default function AnswerSheetAnalysisScreen() {
         }) : <View style={s.empty}><Text style={s.emptyText}>No question-level results were recognised confidently.</Text></View>}
 
         <View style={s.adapt}><Ionicons name="git-compare-outline" size={20} color="#CBB0EA"/><View style={{ flex: 1 }}><Text style={s.adaptTitle}>Connected analysis</Text><Text style={s.adaptText}>Reliable marks update lesson performance, Mistake Book signals, revision timing and the correct subject's study priority.</Text></View></View>
-        <Pressable disabled={saving} onPress={importAnalysis} style={[s.save, saving && s.disabled]}><Ionicons name="checkmark" size={18} color="#160B20"/><Text style={s.saveText}>{saving ? "Saving result…" : "Save result & adapt my plan"}</Text></Pressable>
+        <Pressable disabled={saving} onPress={importAnalysis} style={[s.save, saving && s.disabled]}><Ionicons name="checkmark" size={18} color="#160B20"/><Text style={s.saveText}>{saving ? "Saving result…" : "Confirm & save reviewed result"}</Text></Pressable>
       </> : null}
     </ScrollView>
 
@@ -451,4 +471,6 @@ const s = StyleSheet.create({
   insight:{borderRadius:17,backgroundColor:"#111821",borderWidth:1,borderColor:"#293646",padding:12,marginTop:8},insightHead:{flexDirection:"row",alignItems:"center",gap:7,marginBottom:7},insightTitle:{color:"#A991C0",fontSize:8,fontWeight:"900",letterSpacing:.8},insightRow:{flexDirection:"row",alignItems:"flex-start",gap:7,marginTop:5},dot:{width:5,height:5,borderRadius:3,backgroundColor:"#B784FF",marginTop:5},insightText:{flex:1,color:"#AAB3BE",fontSize:9,lineHeight:14},question:{minHeight:82,borderRadius:16,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:10,flexDirection:"row",alignItems:"center",gap:9,marginBottom:6},qNo:{width:42,minHeight:45,borderRadius:11,backgroundColor:"#332344",alignItems:"center",justifyContent:"center"},qNoText:{color:"#9E84B8",fontSize:7,fontWeight:"900"},qRef:{color:"#E1C9F8",fontSize:9,fontWeight:"900",marginTop:2},qTitle:{color:"#E5E9EE",fontSize:10,fontWeight:"900"},lesson:{color:"#A58ABA",fontSize:8,fontWeight:"800",marginTop:2},qSub:{color:"#718093",fontSize:8,lineHeight:12,marginTop:3},evidence:{color:"#9B7C85",fontSize:7.2,fontWeight:"800",marginTop:4,textTransform:"uppercase"},qScore:{color:"#BFA2DF",fontSize:9,fontWeight:"900"},
   adapt:{borderRadius:16,backgroundColor:"#171321",borderWidth:1,borderColor:"#453554",padding:12,flexDirection:"row",gap:9,marginTop:10},adaptTitle:{color:"#E6DCEF",fontSize:10.5,fontWeight:"900"},adaptText:{color:"#887B94",fontSize:8.5,lineHeight:13,marginTop:3},save:{height:53,borderRadius:16,backgroundColor:"#B784FF",marginTop:14,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7},saveText:{color:"#160B20",fontSize:10.5,fontWeight:"900"},
   modalBackdrop:{flex:1,backgroundColor:"#000A",alignItems:"center",justifyContent:"center",padding:20},modalCard:{width:"100%",maxWidth:460,borderRadius:24,backgroundColor:"#111720",borderWidth:1,borderColor:"#3B3047",padding:18},modalIcon:{width:48,height:48,borderRadius:15,backgroundColor:"#2A1D38",alignItems:"center",justifyContent:"center"},modalTitle:{color:"#F3EFF7",fontSize:19,fontWeight:"900",marginTop:13},modalText:{color:"#8190A1",fontSize:9.5,lineHeight:15,marginTop:6},modalInput:{height:51,borderRadius:14,backgroundColor:"#0A1119",borderWidth:1,borderColor:"#2D3948",paddingHorizontal:13,color:"#F0F3F6",fontSize:12,fontWeight:"900",marginTop:14},quickDates:{flexDirection:"row",gap:7,marginTop:8},quickDate:{minHeight:36,borderRadius:10,backgroundColor:"#1B2230",paddingHorizontal:12,alignItems:"center",justifyContent:"center"},quickDateText:{color:"#B9C6D5",fontSize:8.5,fontWeight:"900"},modalPrimary:{height:50,borderRadius:15,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center",marginTop:13},modalPrimaryText:{color:"#160B20",fontSize:10.5,fontWeight:"900"},
+  editQuestion:{minHeight:48,borderRadius:13,backgroundColor:"#0F161F",borderWidth:1,borderColor:"#2A3746",padding:6,flexDirection:"row",alignItems:"center",gap:5,marginBottom:6},editQNo:{width:45,minHeight:36,borderRadius:9,backgroundColor:"#0A1119",borderWidth:1,borderColor:"#263342",color:"#E5E9EE",paddingHorizontal:7,fontSize:8.5,fontWeight:"800"},editTopic:{flex:1,minWidth:80,minHeight:36,borderRadius:9,backgroundColor:"#0A1119",borderWidth:1,borderColor:"#263342",color:"#E5E9EE",paddingHorizontal:7,fontSize:8.5},editMark:{width:54,minHeight:36,borderRadius:9,backgroundColor:"#0A1119",borderWidth:1,borderColor:"#263342",color:"#E5E9EE",paddingHorizontal:6,fontSize:8.5,fontWeight:"800"},editRemove:{width:32,height:32,borderRadius:9,backgroundColor:"#26171C",alignItems:"center",justifyContent:"center"},
+  reviewInput:{minHeight:42,borderRadius:11,backgroundColor:"#0A1119",borderWidth:1,borderColor:"#293646",color:"#E5E9EE",paddingHorizontal:9,fontSize:9},
 });

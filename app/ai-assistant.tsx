@@ -4,6 +4,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import StudyArcAIActionEditor from "../components/StudyArcAIActionEditor";
+import ScanReviewBanner from "../components/ScanReviewBanner";
 import { useAcademic } from "../context/AcademicContext";
 import { useAssignmentEnhancements } from "../context/AssignmentEnhancementsContext";
 import { usePlanning } from "../context/PlanningContext";
@@ -201,9 +203,10 @@ export default function StudyArcAIAssistant() {
       {rows.map(row => <View key={row.id} style={[s.bubble, row.role === "user" ? s.userBubble : s.aiBubble]}><Text style={[s.bubbleText, row.role === "user" && s.userText]}>{row.text}</Text></View>)}
 
       {pendingActions.length ? <View style={s.review}>
-        <View style={s.reviewHead}><View><Text style={s.reviewTitle}>Review proposed changes</Text><Text style={s.reviewSub}>Nothing below has been applied yet.</Text></View><Text style={s.count}>{pendingActions.length}</Text></View>
-        {pendingActions.map((action, index) => <View key={`${action.type}-${index}`} style={s.actionRow}><View style={s.actionIcon}><Ionicons name="create-outline" size={17} color="#D5B9F4" /></View><Text style={s.actionText}>{actionLabel(action)}</Text></View>)}
-        <View style={s.reviewButtons}><Pressable disabled={applying} onPress={() => setPendingActions([])} style={s.discard}><Text style={s.discardText}>Discard</Text></Pressable><Pressable disabled={applying} onPress={applyAll} style={s.apply}><Ionicons name="checkmark" size={17} color="#170B20" /><Text style={s.applyText}>{applying ? "Applying…" : "Review & Apply"}</Text></Pressable></View>
+        <View style={s.reviewHead}><View><Text style={s.reviewTitle}>Review proposed changes</Text><Text style={s.reviewSub}>Edit anything StudyArc misread before applying it.</Text></View><Text style={s.count}>{pendingActions.length}</Text></View>
+        <ScanReviewBanner items={pendingActions.map(actionLabel)}/>
+        {pendingActions.map((action, index) => <StudyArcAIActionEditor key={`${action.type}-${index}`} action={action} onChange={next => setPendingActions(current => current.map((item, i) => i === index ? next : item))} onRemove={() => setPendingActions(current => current.filter((_, i) => i !== index))}/>)}
+        <View style={s.reviewButtons}><Pressable disabled={applying} onPress={() => setPendingActions([])} style={s.discard}><Text style={s.discardText}>Discard</Text></Pressable><Pressable disabled={applying} onPress={applyAll} style={s.apply}><Ionicons name="checkmark" size={17} color="#170B20" /><Text style={s.applyText}>{applying ? "Applying…" : "Confirm & Apply"}</Text></Pressable></View>
       </View> : null}
 
       {attachment ? <View style={s.attachment}><Ionicons name={attachment.mimeType.includes("pdf") ? "document-text-outline" : "image-outline"} size={19} color="#D7BCF6" /><View style={{ flex: 1 }}><Text style={s.attachmentTitle} numberOfLines={1}>{attachment.filename}</Text><Text style={s.attachmentSub}>Ready to send with your message</Text></View><Pressable onPress={() => setAttachment(null)}><Ionicons name="close" size={18} color="#A77D8B" /></Pressable></View> : null}
