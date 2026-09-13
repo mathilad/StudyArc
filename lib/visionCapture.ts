@@ -8,6 +8,7 @@ import { supabase } from "./supabase";
 export type CaptureKind="homework"|"tute"|"test_result"|"paper_marking"|"answer_sheet";
 export type CaptureAsset={base64:string;mimeType:string;filename:string;previewUri:string|null};
 export type PaperAnalysisMetadata={paperDate?:string|null};
+export const MAX_PAPER_PAGES=30;
 
 const fromImageAsset=(a:ImagePicker.ImagePickerAsset,index=0):CaptureAsset=>{
  if(!a.base64)throw new Error("Could not read the selected image.");
@@ -23,14 +24,14 @@ export async function pickCaptureSources(source:"camera"|"library"|"document"):P
   return[fromImageAsset(result.assets[0])];
  }
  if(source==="library"){
-  const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],quality:.76,base64:true,allowsMultipleSelection:true,selectionLimit:20,orderedSelection:true});
+  const result=await ImagePicker.launchImageLibraryAsync({mediaTypes:["images"],quality:.76,base64:true,allowsMultipleSelection:true,selectionLimit:MAX_PAPER_PAGES,orderedSelection:true});
   if(result.canceled||!result.assets?.length)return[];
   return result.assets.map((asset,index)=>fromImageAsset(asset,index));
  }
  const result=await DocumentPicker.getDocumentAsync({type:["application/pdf","image/*"],copyToCacheDirectory:true,multiple:true});
  if(result.canceled||!result.assets?.length)return[];
  const assets:CaptureAsset[]=[];
- for(const [index,a] of result.assets.slice(0,20).entries()){
+ for(const [index,a] of result.assets.slice(0,MAX_PAPER_PAGES).entries()){
   const file=new File(a.uri);const base64=await file.base64();
   assets.push({base64,mimeType:a.mimeType??(a.name.toLowerCase().endsWith(".pdf")?"application/pdf":"image/jpeg"),filename:a.name||`studyarc-${Date.now()}-${index+1}`,previewUri:(a.mimeType??"").startsWith("image/")?a.uri:null});
  }
@@ -65,7 +66,7 @@ const compactUnique=(values:any[])=>[...new Set(values.map(value=>String(value??
 export async function analyseAnswerSheet(answer:CaptureAsset|CaptureAsset[],reference?:CaptureAsset|null,subjectNames?:string[],metadata:PaperAnalysisMetadata={}){
  const pages=Array.isArray(answer)?answer:[answer];
  if(!pages.length)throw new Error("Add at least one answer-sheet page.");
- if(pages.length>20)throw new Error("StudyArc can analyse up to 20 uploaded pages in one paper. Split larger papers into two scans.");
+ if(pages.length>MAX_PAPER_PAGES)throw new Error(`StudyArc can analyse up to ${MAX_PAPER_PAGES} uploaded pages in one paper.`);
  const chunkSize=3;
  const chunks:Record<string,any>[]=[];
  let lastQuestionNo:string|null=null;
