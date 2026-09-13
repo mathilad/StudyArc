@@ -49,8 +49,22 @@ export async function enqueueMutation(mutation: Omit<OfflineMutation, "id" | "cr
   return mutateQueue(async () => {
     const queue = await readQueue();
     const item: OfflineMutation = { ...mutation, id: makeUuid(), createdAt: new Date().toISOString() };
-    queue.push(item);
-    await writeJson(QUEUE_KEY, queue);
+
+    // For an upsert of the same row, only the newest pending value matters.
+    // This is especially important for class edits: a stale queued "Paper"
+    // payload must never overwrite a later "Paper Discussion" edit.
+    const rowId = mutation?.payload?.id;
+    const shouldCoalesce = mutation.kind.endsWith("_upsert") && typeof rowId === "string" && rowId.length > 0;
+    const nextQueue = shouldCoalesce
+      ? queue.filter(existing => !(
+          existing.userId === mutation.userId
+          && existing.kind === mutation.kind
+          && existing?.payload?.id === rowId
+        ))
+      : queue;
+
+    nextQueue.push(item);
+    await writeJson(QUEUE_KEY, nextQueue);
     return item;
   });
 }
