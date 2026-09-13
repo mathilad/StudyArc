@@ -9,7 +9,7 @@ export default function AdminFeatureRouteGuard(){
   const aiEnabled=settings.featureFlags.aiFeatures!==false;
   useEffect(()=>{
     if(refreshing||aiEnabled)return;
-    if(segments.includes("ai-assistant" as never))router.replace("/(tabs)/study" as never);
+    if((segments as readonly string[]).includes("ai-assistant"))router.replace("/(tabs)/study" as never);
   },[aiEnabled,refreshing,router,segments]);
   return null;
 }
