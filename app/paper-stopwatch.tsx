@@ -38,6 +38,11 @@ export default function PaperStopwatchScreen() {
   const clearTicker = () => { if (interval.current) { clearInterval(interval.current); interval.current = null; } };
   useEffect(() => () => clearTicker(), []);
 
+  const returnToYears = () => router.replace({
+    pathname: "/past-paper-years",
+    params: { subjectName, topicName, paperSection },
+  });
+
   const start = () => {
     if (running) return;
     if (elapsed === 0) sessionStartedAt.current = new Date();
@@ -70,10 +75,10 @@ export default function PaperStopwatchScreen() {
     if (saving) return;
     const total = running ? pause() : elapsed;
     const seconds = Math.floor(total / 1000);
-    if (seconds <= 0) { Alert.alert("Nothing to save", "Start the paper timer before saving."); return; }
+    if (seconds <= 0) { Alert.alert("Nothing to save", "Start the paper timer before finishing this attempt."); return; }
     setSaving(true);
     try {
-      const sessionId = await addSession({
+      await addSession({
         subjectName,
         topicName,
         studyType: "Past Papers",
@@ -85,27 +90,65 @@ export default function PaperStopwatchScreen() {
         laps,
       });
       await setStudying(false).catch(() => undefined);
-      router.replace({ pathname: "/session-complete", params: { sessionId, duration: String(seconds), subjectName, topicName, studyType: "Past Papers" } });
+      returnToYears();
     } catch (error) {
       Alert.alert("Could not save paper", error instanceof Error ? error.message : "Please try again.");
     } finally { setSaving(false); }
   };
 
   const currentLap = Math.max(0, elapsed - lapStartedAt.current);
+  const questionNumber = laps.length + 1;
+
   return <View style={s.root}>
-    <LinearGradient colors={["#21152F", "#080D14", "#080D14"]} style={StyleSheet.absoluteFill} />
-    <View style={s.header}><Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF" /></Pressable><View style={{ flex: 1 }}><Text style={s.kicker}>PAST PAPER · ATTEMPT {attemptNo}</Text><Text style={s.title}>{paperYear} · {paperSection}</Text><Text style={s.sub}>{subjectName} · {topicName === "General" ? "Whole subject" : topicName}</Text></View></View>
-    <ScrollView contentContainerStyle={s.content}>
-      <View style={s.timerCard}><Text style={s.timer}>{fmt(elapsed)}</Text><Text style={s.timerHint}>{running ? "Paper timer running" : elapsed ? "Paused" : "Ready"}</Text><View style={s.actions}><Pressable onPress={running ? pause : start} style={s.main}><Ionicons name={running ? "pause" : "play"} size={22} color="#160B20" /><Text style={s.mainText}>{running ? "Pause" : elapsed ? "Resume" : "Start"}</Text></Pressable><Pressable onPress={lap} style={s.lap}><Ionicons name="flag-outline" size={21} color="#EBDCFB" /><Text style={s.lapText}>Lap</Text></Pressable></View></View>
-      <View style={s.current}><Text style={s.label}>CURRENT LAP</Text><Text style={s.currentTime}>{fmt(currentLap)}</Text></View>
-      <View style={s.info}><Ionicons name="server-outline" size={18} color="#8EC8F2" /><Text style={s.infoText}>Every lap is saved with this paper attempt in the database when you save the session.</Text></View>
-      <Text style={s.section}>LAPS</Text>
-      {laps.length ? [...laps].reverse().map(item => <View key={item.number} style={s.row}><View style={s.num}><Text style={s.numText}>{item.number}</Text></View><View style={{ flex: 1 }}><Text style={s.rowTitle}>Lap {item.number}</Text><Text style={s.rowSub}>Segment {fmt(item.duration)} · total {fmt(item.total)}</Text></View></View>) : <View style={s.empty}><Text style={s.emptyText}>Use Lap to split the paper into sections or questions.</Text></View>}
-      <Pressable disabled={saving} onPress={save} style={[s.save, saving && { opacity: .55 }]}><Ionicons name="checkmark-circle-outline" size={20} color="#160B20" /><Text style={s.saveText}>{saving ? "Saving…" : "End & save paper"}</Text></Pressable>
+    <LinearGradient colors={["#251638", "#0B0E15", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <View style={s.header}>
+      <Pressable onPress={() => { if (running) pause(); returnToYears(); }} style={s.back}><Ionicons name="arrow-back" size={21} color="#F7F5FA" /></Pressable>
+      <View style={{ flex: 1, minWidth: 0 }}><Text style={s.kicker}>PAST PAPER · ATTEMPT {attemptNo}</Text><Text style={s.title}>{paperYear} · {paperSection}</Text><Text style={s.sub} numberOfLines={1}>{subjectName} · {topicName === "General" ? "Whole subject" : topicName}</Text></View>
+      <View style={[s.status, running && s.statusRunning]}><View style={[s.statusDot, running && s.statusDotRunning]} /><Text style={[s.statusText, running && s.statusTextRunning]}>{running ? "RUNNING" : elapsed ? "PAUSED" : "READY"}</Text></View>
+    </View>
+
+    <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <View style={s.paperMeta}>
+        <View><Text style={s.metaLabel}>YEAR</Text><Text style={s.metaValue}>{paperYear}</Text></View>
+        <View style={s.metaDivider} />
+        <View><Text style={s.metaLabel}>SECTION</Text><Text style={s.metaValue}>{paperSection}</Text></View>
+        <View style={s.metaDivider} />
+        <View><Text style={s.metaLabel}>ATTEMPT</Text><Text style={s.metaValue}>#{attemptNo}</Text></View>
+      </View>
+
+      <View style={s.timerCard}>
+        <Text style={s.timerLabel}>TOTAL PAPER TIME</Text>
+        <Text style={s.timer}>{fmt(elapsed)}</Text>
+        <View style={s.questionBadge}><Ionicons name="flag-outline" size={15} color="#D7B7F7" /><Text style={s.questionBadgeText}>CURRENT SEGMENT · {questionNumber}</Text></View>
+        <Text style={s.segment}>{fmt(currentLap)}</Text>
+
+        <Pressable onPress={running ? pause : start} style={s.primaryControl}>
+          <LinearGradient colors={running ? ["#F2C66D", "#DFA94A"] : ["#C49AF7", "#A970F0"]} style={s.primaryControlGradient}>
+            <Ionicons name={running ? "pause" : "play"} size={28} color="#160B20" />
+          </LinearGradient>
+        </Pressable>
+        <Text style={s.primaryLabel}>{running ? "Pause" : elapsed ? "Resume" : "Start paper"}</Text>
+
+        <View style={s.controlRow}>
+          <Pressable disabled={elapsed <= 0 || currentLap <= 0} onPress={lap} style={[s.control, (elapsed <= 0 || currentLap <= 0) && s.controlDisabled]}><Ionicons name="flag" size={20} color={elapsed <= 0 || currentLap <= 0 ? "#59616D" : "#DFC8F8"} /><Text style={[s.controlText, (elapsed <= 0 || currentLap <= 0) && s.controlTextDisabled]}>Save lap</Text></Pressable>
+          <Pressable onPress={() => { if (running) pause(); }} style={s.control}><Ionicons name="time-outline" size={20} color="#B5C1D0" /><Text style={s.controlText}>Hold timer</Text></Pressable>
+        </View>
+      </View>
+
+      <View style={s.tip}><Ionicons name="information-circle-outline" size={19} color="#86BCE2" /><Text style={s.tipText}>Use a lap after each question or section. When you finish, this attempt is saved and you return to the same {topicName === "General" ? "subject" : "lesson"} years page.</Text></View>
+
+      <View style={s.lapHead}><Text style={s.lapHeadTitle}>Question / section laps</Text><Text style={s.lapCount}>{laps.length} SAVED</Text></View>
+      {laps.length ? [...laps].reverse().map(item => <View key={item.number} style={s.row}><View style={s.num}><Text style={s.numText}>{String(item.number).padStart(2, "0")}</Text></View><View style={{ flex: 1 }}><Text style={s.rowTitle}>Segment {item.number}</Text><Text style={s.rowSub}>Total reached {fmt(item.total)}</Text></View><Text style={s.rowTime}>{fmt(item.duration)}</Text></View>) : <View style={s.empty}><Ionicons name="flag-outline" size={24} color="#566170" /><Text style={s.emptyTitle}>No segment laps yet</Text><Text style={s.emptyText}>You can time the whole paper without laps, or use one lap per question.</Text></View>}
+
+      <Pressable disabled={saving} onPress={save} style={[s.save, saving && { opacity: .55 }]}><Ionicons name="checkmark-circle" size={21} color="#160B20" /><Text style={s.saveText}>{saving ? "Saving attempt…" : "Finish attempt & return to years"}</Text></Pressable>
     </ScrollView>
   </View>;
 }
 
 const s = StyleSheet.create({
-  root:{flex:1,backgroundColor:"#080D14"},header:{padding:18,paddingTop:22,flexDirection:"row",alignItems:"center",gap:12},back:{width:43,height:43,borderRadius:14,backgroundColor:"#151B25",alignItems:"center",justifyContent:"center"},kicker:{color:"#A987D0",fontSize:8,fontWeight:"900",letterSpacing:1.1},title:{color:"#F5F6F8",fontSize:22,fontWeight:"900",marginTop:2},sub:{color:"#7A8798",fontSize:9.5,marginTop:3},content:{padding:20,paddingBottom:48,maxWidth:760,width:"100%",alignSelf:"center"},timerCard:{borderRadius:25,backgroundColor:"#111923",borderWidth:1,borderColor:"#3B2C4D",padding:22,alignItems:"center"},timer:{color:"#FFF",fontSize:46,fontWeight:"900",letterSpacing:2},timerHint:{color:"#778598",fontSize:10,marginTop:7},actions:{flexDirection:"row",gap:9,width:"100%",marginTop:22},main:{flex:1,minHeight:54,borderRadius:16,backgroundColor:"#B784FF",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7},mainText:{color:"#160B20",fontSize:12,fontWeight:"900"},lap:{flex:1,minHeight:54,borderRadius:16,backgroundColor:"#21182E",borderWidth:1,borderColor:"#63488A",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7},lapText:{color:"#EBDCFB",fontSize:12,fontWeight:"900"},current:{marginTop:10,minHeight:72,borderRadius:18,backgroundColor:"#0F161F",borderWidth:1,borderColor:"#263342",padding:13},label:{color:"#6F7D90",fontSize:8,fontWeight:"900",letterSpacing:1},currentTime:{color:"#E8ECF1",fontSize:22,fontWeight:"900",marginTop:6},info:{marginTop:10,borderRadius:15,backgroundColor:"#101C27",borderWidth:1,borderColor:"#29465F",padding:11,flexDirection:"row",gap:8},infoText:{flex:1,color:"#829BB0",fontSize:9.5,lineHeight:15},section:{color:"#8190A3",fontSize:9,fontWeight:"900",letterSpacing:1.2,marginTop:21,marginBottom:9},row:{minHeight:60,borderRadius:15,backgroundColor:"#101720",borderWidth:1,borderColor:"#273443",padding:10,flexDirection:"row",alignItems:"center",gap:10,marginBottom:7},num:{width:34,height:34,borderRadius:11,backgroundColor:"#B784FF18",alignItems:"center",justifyContent:"center"},numText:{color:"#C9A8EF",fontSize:11,fontWeight:"900"},rowTitle:{color:"#E5E9EE",fontSize:11,fontWeight:"900"},rowSub:{color:"#718092",fontSize:8.5,marginTop:4},empty:{minHeight:75,borderRadius:16,backgroundColor:"#0F161F",borderWidth:1,borderColor:"#263342",alignItems:"center",justifyContent:"center",padding:12},emptyText:{color:"#6E7B8D",fontSize:9.5,textAlign:"center"},save:{minHeight:55,borderRadius:17,backgroundColor:"#B784FF",marginTop:22,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7},saveText:{color:"#160B20",fontSize:12,fontWeight:"900"}
+  root: { flex: 1, backgroundColor: "#080D14" }, header: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12 }, back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#121821", borderWidth: 1, borderColor: "#2A3441", alignItems: "center", justifyContent: "center" }, kicker: { color: "#A986D2", fontSize: 7.8, fontWeight: "900", letterSpacing: 1.2 }, title: { color: "#F5F3F7", fontSize: 21, fontWeight: "900", marginTop: 2 }, sub: { color: "#778496", fontSize: 8.8, marginTop: 2 }, status: { height: 30, paddingHorizontal: 9, borderRadius: 10, backgroundColor: "#171E28", flexDirection: "row", alignItems: "center", gap: 5 }, statusRunning: { backgroundColor: "#17251C" }, statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#697586" }, statusDotRunning: { backgroundColor: "#72D394" }, statusText: { color: "#768294", fontSize: 7, fontWeight: "900" }, statusTextRunning: { color: "#83D9A1" },
+  content: { padding: 20, paddingBottom: 48, maxWidth: 760, width: "100%", alignSelf: "center" }, paperMeta: { minHeight: 63, borderRadius: 17, backgroundColor: "#101720", borderWidth: 1, borderColor: "#293545", paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-around" }, metaLabel: { color: "#677487", fontSize: 7, fontWeight: "900", letterSpacing: 1 }, metaValue: { color: "#E6EAF0", fontSize: 12, fontWeight: "900", marginTop: 4 }, metaDivider: { width: 1, height: 30, backgroundColor: "#293544" },
+  timerCard: { marginTop: 10, borderRadius: 28, backgroundColor: "#11131B", borderWidth: 1, borderColor: "#49345F", padding: 24, alignItems: "center" }, timerLabel: { color: "#81728F", fontSize: 8, fontWeight: "900", letterSpacing: 1.5 }, timer: { color: "#FCFAFD", fontSize: 49, fontWeight: "900", letterSpacing: 1.5, marginTop: 8, fontVariant: ["tabular-nums"] }, questionBadge: { marginTop: 18, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, height: 30, borderRadius: 10, backgroundColor: "#23192F" }, questionBadgeText: { color: "#BDA3D8", fontSize: 7.5, fontWeight: "900", letterSpacing: .8 }, segment: { color: "#D8DDE4", fontSize: 22, fontWeight: "900", marginTop: 7, fontVariant: ["tabular-nums"] },
+  primaryControl: { marginTop: 24, borderRadius: 38, overflow: "hidden" }, primaryControlGradient: { width: 76, height: 76, borderRadius: 38, alignItems: "center", justifyContent: "center" }, primaryLabel: { color: "#A69BAF", fontSize: 9.5, fontWeight: "900", marginTop: 8 }, controlRow: { width: "100%", flexDirection: "row", gap: 8, marginTop: 20 }, control: { flex: 1, minHeight: 49, borderRadius: 15, backgroundColor: "#171C25", borderWidth: 1, borderColor: "#303A48", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 }, controlDisabled: { backgroundColor: "#10151C", borderColor: "#232B35" }, controlText: { color: "#BEC7D2", fontSize: 9, fontWeight: "900" }, controlTextDisabled: { color: "#59616D" },
+  tip: { marginTop: 10, borderRadius: 16, backgroundColor: "#101B25", borderWidth: 1, borderColor: "#27455C", padding: 11, flexDirection: "row", alignItems: "flex-start", gap: 8 }, tipText: { flex: 1, color: "#8298AB", fontSize: 8.7, lineHeight: 14 }, lapHead: { marginTop: 22, marginBottom: 9, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, lapHeadTitle: { color: "#E8EBF0", fontSize: 13, fontWeight: "900" }, lapCount: { color: "#6E7C8E", fontSize: 7.5, fontWeight: "900", letterSpacing: .8 }, row: { minHeight: 61, borderRadius: 16, backgroundColor: "#101720", borderWidth: 1, borderColor: "#273443", padding: 10, flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 7 }, num: { width: 36, height: 36, borderRadius: 11, backgroundColor: "#B784FF14", alignItems: "center", justifyContent: "center" }, numText: { color: "#C9A9ED", fontSize: 9, fontWeight: "900" }, rowTitle: { color: "#E5E9EE", fontSize: 10.5, fontWeight: "900" }, rowSub: { color: "#6E7C8E", fontSize: 8, marginTop: 3 }, rowTime: { color: "#D7DCE3", fontSize: 10, fontWeight: "900", fontVariant: ["tabular-nums"] }, empty: { minHeight: 105, borderRadius: 17, backgroundColor: "#0F151D", borderWidth: 1, borderColor: "#25303D", alignItems: "center", justifyContent: "center", padding: 14 }, emptyTitle: { color: "#AEB7C2", fontSize: 10, fontWeight: "900", marginTop: 7 }, emptyText: { color: "#657385", fontSize: 8.5, textAlign: "center", lineHeight: 13, marginTop: 4 }, save: { minHeight: 57, borderRadius: 18, backgroundColor: "#B784FF", marginTop: 20, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 }, saveText: { color: "#160B20", fontSize: 11, fontWeight: "900" },
 });
