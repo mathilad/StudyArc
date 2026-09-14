@@ -45,9 +45,13 @@ jobs:
           packages: platform-tools
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        env:
+          NODE_ENV: development
+        run: npm install --include=dev --no-audit --no-fund
 
       - name: Align Expo SDK dependencies
+        env:
+          NODE_ENV: development
         run: npx expo install --fix --npm
 
       - name: Generate StudyArc brand assets
