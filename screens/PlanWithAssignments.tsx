@@ -1,12 +1,14 @@
 import{Ionicons}from"@expo/vector-icons";
 import React,{useMemo,useState}from"react";
-import{Pressable,StyleSheet,Text,View}from"react-native";
+import{StyleSheet,Text,View}from"react-native";
+import MotionPressable from"../components/MotionPressable";
 import WeeklyTimetableModal from"../components/WeeklyTimetableModal";
 import WeeklyWorkloadModal from"../components/WeeklyWorkloadModal";
 import{useAcademic}from"../context/AcademicContext";
 import{setRuntimeAssignments}from"../lib/timetableRuntime";
 import PlanScreen from"./PlanScreen";
 
+const Pressable=MotionPressable;
 export default function PlanWithAssignments(){
  const{assignments}=useAcademic();const[workloadOpen,setWorkloadOpen]=useState(false),[tableOpen,setTableOpen]=useState(false);setRuntimeAssignments(assignments);const open=useMemo(()=>assignments.filter(a=>!a.completed),[assignments]),dueSoon=useMemo(()=>open.filter(a=>{if(!a.dueAt)return false;const diff=new Date(a.dueAt).getTime()-Date.now();return diff<=7*86400000}).length,[open]);
  return <View style={s.root}><View style={s.tools}><View style={s.inner}><View style={s.summary}><View style={s.icon}><Ionicons name="calendar-clear-outline" size={21} color="#D6BBF4"/></View><View style={{flex:1}}><Text style={s.eyebrow}>YOUR WEEK</Text><Text style={s.title}>Plan at a glance</Text><Text style={s.sub}>{open.length} open assignment{open.length===1?"":"s"} · classes, tasks, breaks and study share one adaptive week.</Text></View>{dueSoon?<View style={s.dueBadge}><Text style={s.dueValue}>{dueSoon}</Text><Text style={s.dueLabel}>DUE SOON</Text></View>:null}</View><View style={s.actions}><Pressable onPress={()=>setWorkloadOpen(true)} style={({pressed})=>[s.action,pressed&&s.pressed]}><View style={s.actionIcon}><Ionicons name="layers-outline" size={19} color="#D8BEF5"/></View><View style={{flex:1}}><Text style={s.actionText}>Weekly workload</Text><Text style={s.actionSub}>Assignments & repeating work</Text></View><Ionicons name="chevron-forward" size={18} color="#7C6C8B"/></Pressable><Pressable onPress={()=>setTableOpen(true)} style={({pressed})=>[s.action,pressed&&s.pressed]}><View style={s.actionIcon}><Ionicons name="grid-outline" size={19} color="#AFC8F4"/></View><View style={{flex:1}}><Text style={s.actionText}>Timetable view</Text><Text style={s.actionSub}>Optional 7-day table & PNG</Text></View><Ionicons name="chevron-forward" size={18} color="#7C6C8B"/></Pressable></View></View></View><View style={s.plan}><PlanScreen/></View><WeeklyWorkloadModal visible={workloadOpen} onClose={()=>setWorkloadOpen(false)}/><WeeklyTimetableModal visible={tableOpen} onClose={()=>setTableOpen(false)}/></View>
