@@ -8,6 +8,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useMonetization } from "../../context/MonetizationContext";
 import { useStudent } from "../../context/StudentContext";
 
+const PAGE_LABELS:Record<string,string>={index:"Home",study:"Study",subjects:"Subjects",timer:"Timer",plan:"Plan",more:"More"};
+
 export default function TabsLayout() {
   const router = useRouter();
   const params = useLocalSearchParams<{ fromHome?: string | string[] }>();
@@ -32,69 +34,77 @@ export default function TabsLayout() {
         headerShadowVisible: false,
         headerTintColor: "#F7FBFF",
         headerStyle: { backgroundColor: "#0B1119" },
-        headerTitleContainerStyle: { left: fromHome && route.name !== "index" ? 2 : 16 },
+        headerTitleContainerStyle: { left: fromHome && route.name !== "index" ? 2 : 14 },
         headerLeftContainerStyle: { left: 10 },
-        headerRightContainerStyle: { right: 14 },
+        headerRightContainerStyle: { right: 10 },
         headerLeft: fromHome && route.name !== "index" ? () => (
           <Pressable
             onPress={() => router.back()}
             hitSlop={10}
-            style={{ width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#151B24", borderWidth: 1, borderColor: "#273241" }}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            style={({pressed})=>({ width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: pressed?"#21182D":"#151B24", borderWidth: 1, borderColor: "#273241" })}
           >
             <Ionicons name="arrow-back" size={20} color="#F7FBFF" />
           </Pressable>
         ) : undefined,
         headerTitle: () => (
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Image
-              source={require("../../assets/images/icon.png")}
-              resizeMode="contain"
-              style={{ width: 30, height: 30, borderRadius: 8, marginRight: 9 }}
-            />
-            <Text style={{ color: "#F7FBFF", fontSize: 19, fontWeight: "900", letterSpacing: 0.2 }}>
-              StudyArc
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap:9 }}>
+            <Image source={require("../../assets/images/icon.png")} resizeMode="contain" style={{ width: 31, height: 31, borderRadius: 9 }} />
+            <View>
+              <Text style={{ color: "#8F7EA0", fontSize: 7.5, fontWeight: "900", letterSpacing: 1 }}>STUDYARC</Text>
+              <Text style={{ color: "#F7FBFF", fontSize: 15.5, fontWeight: "900", marginTop:1 }}>{PAGE_LABELS[route.name]??"StudyArc"}</Text>
+            </View>
           </View>
         ),
         headerRight: () => (
-          <Pressable
-            onPress={() => router.push("/notifications")}
-            hitSlop={10}
-            style={({ pressed }) => ({
-              width: 38,
-              height: 38,
-              borderRadius: 12,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: pressed ? "#211B2D" : "#151B24",
-              borderWidth: 1,
-              borderColor: "#273241",
-            })}
-          >
-            <Ionicons name="notifications-outline" size={21} color="#E7DDF4" />
-          </Pressable>
+          <View style={{flexDirection:"row",alignItems:"center",gap:7}}>
+            <Pressable
+              onPress={() => router.push("/search")}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Search StudyArc"
+              style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? "#2A2036" : "#151B24", borderWidth: 1, borderColor: "#273241" })}
+            >
+              <Ionicons name="search" size={20} color="#E5D6F6" />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/notifications")}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? "#2A2036" : "#151B24", borderWidth: 1, borderColor: "#273241" })}
+            >
+              <Ionicons name="notifications-outline" size={20} color="#E5D6F6" />
+            </Pressable>
+          </View>
         ),
         sceneStyle: { backgroundColor: "#080D14" },
-        tabBarActiveTintColor: "#C59AFF",
-        tabBarInactiveTintColor: "#667386",
+        tabBarActiveTintColor: "#E0C8FF",
+        tabBarInactiveTintColor: "#6E7A8C",
+        tabBarActiveBackgroundColor:"#21182D",
         tabBarStyle: {
           backgroundColor: "#0B1119",
-          borderTopColor: "#1F2A38",
-          height: 74,
-          paddingBottom: 10,
+          borderTopColor: "#202A37",
+          borderTopWidth: 1,
+          height: 76,
+          paddingBottom: 9,
           paddingTop: 7,
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "800" },
-        tabBarIcon: ({ color, size }) => {
+        tabBarItemStyle:{borderRadius:14,marginHorizontal:2,marginVertical:1},
+        tabBarLabelStyle: { fontSize: 9.5, fontWeight: "900", marginTop:1 },
+        tabBarIconStyle:{marginTop:1},
+        tabBarHideOnKeyboard:true,
+        tabBarIcon: ({ color, size, focused }) => {
           const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
-            index: "home-outline",
-            study: "library-outline",
-            subjects: "book-outline",
-            timer: "timer-outline",
-            plan: "calendar-outline",
-            more: "grid-outline",
+            index: focused?"home":"home-outline",
+            study: focused?"library":"library-outline",
+            subjects: focused?"book":"book-outline",
+            timer: focused?"timer":"timer-outline",
+            plan: focused?"calendar":"calendar-outline",
+            more: focused?"grid":"grid-outline",
           };
-          return <Ionicons name={icons[route.name] ?? "ellipse-outline"} size={size} color={color} />;
+          return <Ionicons name={icons[route.name] ?? "ellipse-outline"} size={focused?size+1:size} color={color} />;
         },
       })}
     >
