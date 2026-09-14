@@ -1,7 +1,4 @@
-import{StyleSheet}from"react-native";
-const g=globalThis as any;
-if(!g.__studyArcTypographyScaled){
- const set=(StyleSheet as any).setStyleAttributePreprocessor;
- if(typeof set==="function")set("fontSize",(value:any)=>typeof value==="number"?Math.round(value*1.1*10)/10:value);
- g.__studyArcTypographyScaled=true;
-}
+// Typography is intentionally controlled by each screen/component.
+// A global fontSize preprocessor caused text to outgrow fixed-height and
+// percentage-width cards on the Study, Subjects and Timer hubs.
+export {};
