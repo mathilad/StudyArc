@@ -10,7 +10,6 @@ import StudyArcDialog from "./StudyArcDialog";
 const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 type Props={visible:boolean;onClose:()=>void;onSave:(value:ProtectedTimeInput)=>Promise<void>|void;mode?:"protected"|"repetitive"};
-
 type DialogState={title:string;message:string}|null;
 
 export default function ProtectedTimeModal({visible,onClose,onSave,mode="protected"}:Props){
@@ -24,6 +23,7 @@ export default function ProtectedTimeModal({visible,onClose,onSave,mode="protect
   const [clock,setClock]=useState<"start"|"end"|null>(null);
   const [saving,setSaving]=useState(false);
   const [dialog,setDialog]=useState<DialogState>(null);
+  const recurrenceOptions:ProtectedTimeInput["recurrence"][]=repetitive?["Daily","Weekly"]:["This Week","Weekly"];
 
   React.useEffect(()=>{if(!visible)return;setDayOfWeek(new Date().getDay());setRecurrence(repetitive?"Weekly":"This Week");setTitle(repetitive?"Study routine":"Personal commitment");setDialog(null)},[repetitive,visible]);
 
@@ -52,7 +52,7 @@ export default function ProtectedTimeModal({visible,onClose,onSave,mode="protect
           <Text style={s.label}>{repetitive?"TASK NAME":"NAME"}</Text>
           <TextInput value={title} onChangeText={setTitle} placeholder={repetitive?"Planning, cleaning, flashcards…":"Appointment, club, family event…"} placeholderTextColor="#586577" style={s.input}/>
           <Text style={s.label}>{repetitive?"HOW OFTEN?":"WHEN DOES IT APPLY?"}</Text>
-          <View style={s.modeRow}>{(repetitive?["Daily","Weekly"]:["This Week","Weekly"] as ProtectedTimeInput["recurrence"][]).map(x=><Pressable key={x} onPress={()=>setRecurrence(x)} style={[s.mode,recurrence===x&&s.modeActive]}><Ionicons name={x==="Daily"?"today-outline":x==="Weekly"?"repeat-outline":"calendar-outline"} size={19} color={recurrence===x?"#EEDFFF":"#7F8B9B"}/><Text style={[s.modeText,recurrence===x&&s.modeTextActive]}>{x}</Text></Pressable>)}</View>
+          <View style={s.modeRow}>{recurrenceOptions.map(x=><Pressable key={x} onPress={()=>setRecurrence(x)} style={[s.mode,recurrence===x&&s.modeActive]}><Ionicons name={x==="Daily"?"today-outline":x==="Weekly"?"repeat-outline":"calendar-outline"} size={19} color={recurrence===x?"#EEDFFF":"#7F8B9B"}/><Text style={[s.modeText,recurrence===x&&s.modeTextActive]}>{x}</Text></Pressable>)}</View>
           {repetitive&&<View style={s.weeklyBadge}><Ionicons name={recurrence==="Daily"?"sunny-outline":"repeat-outline"} size={17} color="#DCC8F5"/><Text style={s.weeklyBadgeText}>{recurrence==="Daily"?"Repeats every day":"Repeats every week on the selected day"}</Text></View>}
           {recurrence!=="Daily"?<><Text style={s.label}>DAY</Text><View style={s.days}>{week.map((date,i)=><Pressable key={i} onPress={()=>setDayOfWeek(i)} style={[s.day,dayOfWeek===i&&s.dayActive]}><Text style={[s.dayName,dayOfWeek===i&&s.dayNameActive]}>{DAYS[i]}</Text><Text style={[s.dayDate,dayOfWeek===i&&s.dayDateActive]}>{date.getDate()}</Text></Pressable>)}</View></>:null}
           <Text style={s.label}>TIME</Text>
