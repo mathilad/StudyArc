@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
-import { Alert, AppState, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { AppState, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { usePerformance } from "../context/PerformanceContext";
 import { getPhoneTimerEnabled, phoneTimerSupported, reconcilePhoneTimerToPersistence, requestPhoneTimerPermission, setPhoneTimerEnabled, syncPhoneTimerFromPersistence } from "../lib/phoneTimer";
 import { readActiveStudyTimer } from "../lib/timerPersistence";
@@ -10,6 +10,7 @@ export default function PhoneTimerShell({ children }: { children: React.ReactNod
   const [enabled, setEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
+  const [noticeOpen, setNoticeOpen] = useState(false);
   const active = useRef(AppState.currentState === "active");
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export default function PhoneTimerShell({ children }: { children: React.ReactNod
       } else {
         const permitted = await requestPhoneTimerPermission();
         if (!permitted) {
-          Alert.alert("Notifications are off", "Allow Study Arc notifications to keep the stopwatch controls in the phone notification area.");
+          setNoticeOpen(true);
           return;
         }
         const current = await readActiveStudyTimer();
@@ -72,13 +73,16 @@ export default function PhoneTimerShell({ children }: { children: React.ReactNod
   return <View style={s.root}>
     <View style={s.bar}>
       <View style={s.icon}><Ionicons name="notifications-outline" size={17} color="#CBAAF1" /></View>
-      <View style={{ flex: 1 }}><Text style={s.title}>Phone timer controls</Text><Text style={s.sub}>{enabled ? "Available from notifications · no overlay permission" : "Keep Start / Pause / Stop in notifications"}</Text></View>
+      <View style={{ flex: 1 }}><Text style={s.title}>Phone timer controls</Text><Text style={s.sub}>{enabled ? "Available from notifications · no overlay permission" : "Optional Start / Pause / Stop controls in notifications"}</Text></View>
       <Pressable disabled={loading} onPress={toggle} style={[s.toggle, enabled && s.toggleOn, loading && { opacity: .55 }]}><Text style={[s.toggleText, enabled && s.toggleTextOn]}>{enabled ? "ON" : "OFF"}</Text></Pressable>
     </View>
     <View key={revision} style={s.body}>{children}</View>
+    <Modal visible={noticeOpen} transparent animationType="fade" onRequestClose={()=>setNoticeOpen(false)}>
+      <View style={s.overlay}><Pressable style={StyleSheet.absoluteFill} onPress={()=>setNoticeOpen(false)}/><View style={s.modal}><View style={s.modalIcon}><Ionicons name="notifications-off-outline" size={24} color="#D3B6F3"/></View><Text style={s.modalTitle}>Notifications are off</Text><Text style={s.modalText}>StudyArc needs notification permission only if you want stopwatch controls in the Android notification area. The normal in-app stopwatch works without it.</Text><Pressable onPress={()=>setNoticeOpen(false)} style={s.modalButton}><Text style={s.modalButtonText}>Continue in StudyArc</Text></Pressable></View></View>
+    </Modal>
   </View>;
 }
 
 const s = StyleSheet.create({
-  root:{flex:1,backgroundColor:"#080D14"},bar:{minHeight:48,backgroundColor:"#0C121A",borderBottomWidth:1,borderBottomColor:"#263241",paddingHorizontal:13,flexDirection:"row",alignItems:"center",gap:9},icon:{width:32,height:32,borderRadius:10,backgroundColor:"#B784FF14",alignItems:"center",justifyContent:"center"},title:{color:"#E5E9EE",fontSize:9.5,fontWeight:"900"},sub:{color:"#6E7C8E",fontSize:7.5,marginTop:2},toggle:{minWidth:46,height:30,borderRadius:10,backgroundColor:"#171F2A",borderWidth:1,borderColor:"#2D3948",alignItems:"center",justifyContent:"center"},toggleOn:{backgroundColor:"#34244A",borderColor:"#6C4C93"},toggleText:{color:"#7E8B9C",fontSize:8.5,fontWeight:"900"},toggleTextOn:{color:"#DFC9F8"},body:{flex:1}
+  root:{flex:1,backgroundColor:"#080D14"},bar:{minHeight:48,backgroundColor:"#0C121A",borderBottomWidth:1,borderBottomColor:"#263241",paddingHorizontal:13,flexDirection:"row",alignItems:"center",gap:9},icon:{width:32,height:32,borderRadius:10,backgroundColor:"#B784FF14",alignItems:"center",justifyContent:"center"},title:{color:"#E5E9EE",fontSize:9.5,fontWeight:"900"},sub:{color:"#6E7C8E",fontSize:7.5,marginTop:2},toggle:{minWidth:46,height:30,borderRadius:10,backgroundColor:"#171F2A",borderWidth:1,borderColor:"#2D3948",alignItems:"center",justifyContent:"center"},toggleOn:{backgroundColor:"#34244A",borderColor:"#6C4C93"},toggleText:{color:"#7E8B9C",fontSize:8.5,fontWeight:"900"},toggleTextOn:{color:"#DFC9F8"},body:{flex:1},overlay:{flex:1,backgroundColor:"rgba(3,6,10,.8)",alignItems:"center",justifyContent:"center",padding:20},modal:{width:"100%",maxWidth:400,borderRadius:24,backgroundColor:"#101720",borderWidth:1,borderColor:"#3A4655",padding:18},modalIcon:{width:46,height:46,borderRadius:15,backgroundColor:"#21182D",alignItems:"center",justifyContent:"center",marginBottom:12},modalTitle:{color:"#F0F2F5",fontSize:18,fontWeight:"900"},modalText:{color:"#7D8998",fontSize:9.5,lineHeight:15,marginTop:7},modalButton:{height:48,borderRadius:14,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center",marginTop:16},modalButtonText:{color:"#160B20",fontSize:10,fontWeight:"900"}
 });
