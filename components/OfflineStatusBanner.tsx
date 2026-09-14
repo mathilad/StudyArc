@@ -1,13 +1,19 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useOffline } from "../context/OfflineContext";
 
 export default function OfflineStatusBanner() {
   const { isOnline, checking, pendingChanges, refreshConnectivity } = useOffline();
   const [retrying, setRetrying] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
-  if (isOnline && pendingChanges === 0 && !checking) return null;
+  const statusKey = `${isOnline ? "online" : "offline"}:${checking ? "checking" : "idle"}:${pendingChanges}`;
+  useEffect(() => {
+    setDismissed(false);
+  }, [statusKey]);
+
+  if (dismissed || (isOnline && pendingChanges === 0 && !checking)) return null;
 
   const retry = async () => {
     if (retrying) return;
@@ -36,6 +42,9 @@ export default function OfflineStatusBanner() {
           <Text style={s.retryText}>{retrying || checking ? "Checking…" : "Retry"}</Text>
         </Pressable>
       ) : null}
+      <Pressable onPress={() => setDismissed(true)} hitSlop={8} style={s.close} accessibilityRole="button" accessibilityLabel="Close sync status">
+        <Ionicons name="close" size={16} color={isOnline ? "#C9B5DF" : "#F4C98E"} />
+      </Pressable>
     </View>
   );
 }
@@ -46,11 +55,11 @@ const s = StyleSheet.create({
     zIndex: 1000,
     top: 8,
     alignSelf: "center",
-    maxWidth: "92%",
-    minHeight: 32,
-    borderRadius: 16,
+    maxWidth: "94%",
+    minHeight: 34,
+    borderRadius: 17,
     paddingLeft: 12,
-    paddingRight: 7,
+    paddingRight: 5,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
@@ -62,4 +71,5 @@ const s = StyleSheet.create({
   offlineText: { color: "#FFD49B" },
   retry: { minHeight: 24, justifyContent: "center", paddingHorizontal: 8, borderRadius: 12, backgroundColor: "rgba(255,255,255,.07)" },
   retryText: { color: "#EADCF7", fontSize: 9, fontWeight: "900" },
+  close: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
 });
