@@ -11,70 +11,18 @@ export default function TimerHubScreen() {
   const router = useRouter();
   const { profile } = useStudent();
   const subjects = useMemo(() => expandSubjectChoices(profile.subjectChoices), [profile.subjectChoices]);
-
-  const start = (subjectName?: string) => router.push({
-    pathname: "/stopwatch",
-    params: {
-      subjectName: subjectName ?? "Quick Study",
-      topicName: "General",
-      studyType: "Study Session",
-    },
-  } as never);
-
-  return (
-    <Screen>
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={["#4B2E68", "#241A35", "#111821"]} style={s.hero}>
-          <View style={s.timerCircle}><Ionicons name="timer" size={34} color="#F2E7FF" /></View>
-          <Text style={s.heroTitle}>Start a study timer</Text>
-          <Text style={s.heroSub}>Subject selection is optional. Start a general session immediately and choose the subject or lesson after you finish.</Text>
-          <Pressable style={s.startButton} onPress={() => start()}>
-            <View style={s.play}><Ionicons name="play" size={17} color="#170E20" /></View>
-            <Text style={s.startText}>Start general timer</Text>
-          </Pressable>
-        </LinearGradient>
-
-        <View style={s.sectionHead}><Text style={s.sectionTitle}>Start by subject</Text><Text style={s.sectionSub}>Use one tap when you already know what you are studying.</Text></View>
-        <View style={s.subjects}>
-          {subjects.map(subject => (
-            <Pressable key={subject} style={s.subject} onPress={() => start(subject)}>
-              <View style={s.subjectIcon}><Ionicons name="book-outline" size={20} color="#D5BBF5" /></View>
-              <Text style={s.subjectName}>{subject}</Text>
-              <Ionicons name="play-circle-outline" size={21} color="#8F79A8" />
-            </Pressable>
-          ))}
-        </View>
-
-        <View style={s.sectionHead}><Text style={s.sectionTitle}>Timer tools</Text><Text style={s.sectionSub}>Everything related to starting, recording and reviewing study time.</Text></View>
-        <View style={s.grid}>
-          <Pressable style={s.tool} onPress={() => router.push("/(tabs)/sessions")}><Ionicons name="time-outline" size={23} color="#CDB5EC" /><Text style={s.toolTitle}>Session history</Text><Text style={s.toolSub}>See completed sessions and recorded time.</Text></Pressable>
-          <Pressable style={s.tool} onPress={() => router.push("/quick-add")}><Ionicons name="add-circle-outline" size={23} color="#CDB5EC" /><Text style={s.toolTitle}>Quick add</Text><Text style={s.toolSub}>Add study work without running the timer.</Text></Pressable>
-          <Pressable style={s.tool} onPress={() => router.push("/(tabs)/statistics")}><Ionicons name="analytics-outline" size={23} color="#CDB5EC" /><Text style={s.toolTitle}>Time analytics</Text><Text style={s.toolSub}>Review study time and consistency.</Text></Pressable>
-          <Pressable style={s.tool} onPress={() => router.push("/audio-recall")}><Ionicons name="mic-outline" size={23} color="#CDB5EC" /><Text style={s.toolTitle}>Audio recall</Text><Text style={s.toolSub}>Record active recall while studying.</Text></Pressable>
-        </View>
-      </ScrollView>
-    </Screen>
-  );
+  const start = (subjectName?: string) => router.push({ pathname: "/stopwatch", params: { subjectName: subjectName ?? "Quick Study", topicName: "General", studyType: "Study Session" } } as never);
+  return <Screen><LinearGradient colors={["#14101D","#080D14"]} style={StyleSheet.absoluteFill}/><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+    <LinearGradient colors={["#4B2E68", "#241A35", "#111821"]} style={s.hero}>
+      <View style={s.timerCircle}><Ionicons name="timer" size={35} color="#F2E7FF" /></View><Text style={s.kicker}>FOCUS TIMER</Text><Text style={s.heroTitle}>Ready when you are</Text><Text style={s.heroSub}>Start immediately. Subject and lesson are optional now, and you can classify the session after you finish.</Text>
+      <Pressable style={({pressed})=>[s.startButton,pressed&&s.primaryPressed]} onPress={() => start()}><View style={s.play}><Ionicons name="play" size={18} color="#170E20" /></View><View style={{flex:1}}><Text style={s.startText}>Start general timer</Text><Text style={s.startHint}>Fastest way to begin studying</Text></View><Ionicons name="arrow-forward" size={19} color="#170E20"/></Pressable>
+    </LinearGradient>
+    <View style={s.sectionHead}><Text style={s.sectionTitle}>Start by subject</Text><Text style={s.sectionSub}>Use one tap when you already know what you are studying.</Text></View>
+    <View style={s.subjects}>{subjects.map(subject => <Pressable key={subject} style={({pressed})=>[s.subject,pressed&&s.pressed]} onPress={() => start(subject)}><View style={s.subjectIcon}><Ionicons name="book-outline" size={20} color="#D5BBF5" /></View><View style={{flex:1}}><Text style={s.subjectName}>{subject}</Text><Text style={s.subjectHint}>General session · choose lesson later</Text></View><View style={s.subjectPlay}><Ionicons name="play" size={14} color="#DCC8F4" /></View></Pressable>)}</View>
+    <View style={s.sectionHead}><Text style={s.sectionTitle}>Timer tools</Text><Text style={s.sectionSub}>History, manual study work, analytics and spoken recall.</Text></View>
+    <View style={s.grid}><Tool icon="time-outline" title="Session history" sub="See completed sessions and recorded time." onPress={()=>router.push("/(tabs)/sessions")}/><Tool icon="add-circle-outline" title="Quick add" sub="Add study work without running the timer." onPress={()=>router.push("/quick-add")}/><Tool icon="analytics-outline" title="Time analytics" sub="Review study time and consistency." onPress={()=>router.push("/(tabs)/statistics")}/><Tool icon="mic-outline" title="Audio recall" sub="Record active recall while studying." onPress={()=>router.push("/audio-recall")}/></View>
+    <View style={s.tip}><Ionicons name="shield-checkmark-outline" size={19} color="#82D0A0"/><View style={{flex:1}}><Text style={s.tipTitle}>Your active timer is protected</Text><Text style={s.tipSub}>Leaving the timer or pausing it does not silently erase the session. StudyArc keeps the running state until you save or explicitly discard it.</Text></View></View>
+  </ScrollView></Screen>;
 }
-
-const s = StyleSheet.create({
-  content: { padding: 14, paddingBottom: 34 },
-  hero: { borderRadius: 26, padding: 20, alignItems: "center", borderWidth: 1, borderColor: "#553E6D" },
-  timerCircle: { width: 70, height: 70, borderRadius: 24, backgroundColor: "#B784FF1E", alignItems: "center", justifyContent: "center", marginBottom: 14 },
-  heroTitle: { color: "#F6F0FA", fontSize: 22, fontWeight: "900" },
-  heroSub: { color: "#AA9DB6", fontSize: 10.5, lineHeight: 16, textAlign: "center", marginTop: 7, maxWidth: 330 },
-  startButton: { height: 52, borderRadius: 17, backgroundColor: "#D5B4FF", paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, marginTop: 17, alignSelf: "stretch" },
-  play: { width: 28, height: 28, borderRadius: 10, backgroundColor: "#FFFFFF66", alignItems: "center", justifyContent: "center" },
-  startText: { color: "#170E20", fontSize: 13, fontWeight: "900" },
-  sectionHead: { marginTop: 22, marginBottom: 9 },
-  sectionTitle: { color: "#F0E9F5", fontSize: 16, fontWeight: "900" },
-  sectionSub: { color: "#778291", fontSize: 9.5, lineHeight: 14, marginTop: 3 },
-  subjects: { gap: 7 },
-  subject: { minHeight: 58, borderRadius: 16, backgroundColor: "#111821", borderWidth: 1, borderColor: "#24303D", paddingHorizontal: 11, flexDirection: "row", alignItems: "center", gap: 10 },
-  subjectIcon: { width: 36, height: 36, borderRadius: 11, backgroundColor: "#B784FF12", alignItems: "center", justifyContent: "center" },
-  subjectName: { flex: 1, color: "#E8E3EC", fontSize: 11.5, fontWeight: "900" },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-  tool: { width: "48.6%", minHeight: 124, borderRadius: 19, backgroundColor: "#15121E", borderWidth: 1, borderColor: "#382C47", padding: 13 },
-  toolTitle: { color: "#E9E0F0", fontSize: 11.5, fontWeight: "900", marginTop: 10 },
-  toolSub: { color: "#81748E", fontSize: 8.8, lineHeight: 13, marginTop: 4 },
-});
+function Tool({icon,title,sub,onPress}:{icon:keyof typeof Ionicons.glyphMap;title:string;sub:string;onPress:()=>void}){return <Pressable style={({pressed})=>[s.tool,pressed&&s.pressed]} onPress={onPress}><View style={s.toolIcon}><Ionicons name={icon} size={23} color="#CDB5EC" /></View><Text style={s.toolTitle}>{title}</Text><Text style={s.toolSub}>{sub}</Text><View style={s.toolOpen}><Text style={s.toolOpenText}>Open</Text><Ionicons name="arrow-forward" size={14} color="#A88DC3"/></View></Pressable>}
+const s=StyleSheet.create({content:{padding:14,paddingBottom:42,maxWidth:820,width:"100%",alignSelf:"center"},pressed:{opacity:.8},primaryPressed:{opacity:.88,transform:[{scale:.995}]},hero:{borderRadius:27,padding:20,alignItems:"center",borderWidth:1,borderColor:"#553E6D"},timerCircle:{width:72,height:72,borderRadius:24,backgroundColor:"#B784FF1E",borderWidth:1,borderColor:"#684E80",alignItems:"center",justifyContent:"center",marginBottom:12},kicker:{color:"#B497D1",fontSize:7.5,fontWeight:"900",letterSpacing:1.3},heroTitle:{color:"#F6F0FA",fontSize:22,fontWeight:"900",marginTop:4},heroSub:{color:"#AA9DB6",fontSize:10,lineHeight:15,textAlign:"center",marginTop:7,maxWidth:400},startButton:{minHeight:60,borderRadius:18,backgroundColor:"#D5B4FF",paddingHorizontal:14,flexDirection:"row",alignItems:"center",gap:10,marginTop:17,alignSelf:"stretch"},play:{width:34,height:34,borderRadius:11,backgroundColor:"#FFFFFF66",alignItems:"center",justifyContent:"center"},startText:{color:"#170E20",fontSize:12.5,fontWeight:"900"},startHint:{color:"#4C3560",fontSize:8.5,fontWeight:"700",marginTop:2},sectionHead:{marginTop:22,marginBottom:9},sectionTitle:{color:"#F0E9F5",fontSize:16,fontWeight:"900"},sectionSub:{color:"#778291",fontSize:9.5,lineHeight:14,marginTop:3},subjects:{gap:7},subject:{minHeight:64,borderRadius:17,backgroundColor:"#111821",borderWidth:1,borderColor:"#24303D",paddingHorizontal:11,flexDirection:"row",alignItems:"center",gap:10},subjectIcon:{width:38,height:38,borderRadius:12,backgroundColor:"#B784FF12",alignItems:"center",justifyContent:"center"},subjectName:{color:"#E8E3EC",fontSize:11.5,fontWeight:"900"},subjectHint:{color:"#6F7B8B",fontSize:8,marginTop:2},subjectPlay:{width:34,height:34,borderRadius:11,backgroundColor:"#21182D",alignItems:"center",justifyContent:"center"},grid:{flexDirection:"row",flexWrap:"wrap",gap:9},tool:{width:"48.6%",minHeight:138,borderRadius:19,backgroundColor:"#15121E",borderWidth:1,borderColor:"#382C47",padding:13},toolIcon:{width:40,height:40,borderRadius:13,backgroundColor:"#B784FF12",alignItems:"center",justifyContent:"center"},toolTitle:{color:"#E9E0F0",fontSize:11.5,fontWeight:"900",marginTop:10},toolSub:{color:"#81748E",fontSize:8.8,lineHeight:13,marginTop:4},toolOpen:{marginTop:"auto",paddingTop:8,flexDirection:"row",gap:4,alignItems:"center"},toolOpenText:{color:"#A88DC3",fontSize:8,fontWeight:"900"},tip:{minHeight:72,borderRadius:18,backgroundColor:"#102019",borderWidth:1,borderColor:"#31523F",padding:12,marginTop:18,flexDirection:"row",alignItems:"center",gap:10},tipTitle:{color:"#D9E7DE",fontSize:10.5,fontWeight:"900"},tipSub:{color:"#789084",fontSize:8.5,lineHeight:13,marginTop:3}});
