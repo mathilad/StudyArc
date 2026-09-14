@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { useAppConfig } from "../context/AppConfigContext";
 import { useAuth } from "../context/AuthContext";
 import { useIntelligence } from "../context/IntelligenceContext";
 import { useOffline } from "../context/OfflineContext";
@@ -7,12 +8,14 @@ import { analyseAnswerSheet } from "../lib/visionCapture";
 
 export default function PendingPaperScanSync() {
   const { user } = useAuth();
+  const { settings } = useAppConfig();
   const { isOnline, syncTick } = useOffline();
   const { saveCaptureAnalysis } = useIntelligence();
   const running = useRef(false);
+  const scanningEnabled = settings.featureFlags.captureScanning !== false;
 
   useEffect(() => {
-    if (!user || !isOnline || running.current) return;
+    if (!user || !isOnline || !scanningEnabled || running.current) return;
     let cancelled = false;
 
     const processQueue = async () => {
@@ -57,7 +60,7 @@ export default function PendingPaperScanSync() {
 
     void processQueue();
     return () => { cancelled = true; };
-  }, [isOnline, saveCaptureAnalysis, syncTick, user]);
+  }, [isOnline, saveCaptureAnalysis, scanningEnabled, syncTick, user]);
 
   return null;
 }

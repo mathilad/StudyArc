@@ -170,6 +170,12 @@ export default function AdminScreen() {
             onPress={() => router.push("/admin-users")}
           />
           <Tool
+            icon="options-outline"
+            title="Feature availability"
+            subtitle="Turn camera, document scanning and other optional app capabilities on or off for users"
+            onPress={() => router.push("/admin-features")}
+          />
+          <Tool
             icon="library-outline"
             title="Academic catalog"
             subtitle="Manage A/L subjects, official topic names, translations and paper structures"
