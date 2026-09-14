@@ -1,8 +1,6 @@
-import React, { useRef } from "react";
+import React from "react";
 import {
-  Animated,
   Pressable,
-  type GestureResponderEvent,
   type PressableProps,
   type PressableStateCallbackType,
   type StyleProp,
@@ -10,52 +8,30 @@ import {
 } from "react-native";
 import { usePerformance } from "../context/PerformanceContext";
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable) as React.ComponentType<
-  PressableProps & { style?: any }
->;
-
-export default function MotionPressable({
-  style,
-  onPressIn,
-  onPressOut,
-  disabled,
-  ...props
-}: PressableProps) {
+/**
+ * Shared pressable that preserves the exact layout semantics of React Native's
+ * Pressable. Avoid wrapping Pressable with Animated.createAnimatedComponent:
+ * several StudyArc hub cards use percentage widths, flex rows and style
+ * callbacks, and the animated wrapper can distort those layouts on web/native.
+ */
+export default function MotionPressable({ style, ...props }: PressableProps) {
   const { performanceMode } = usePerformance();
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const animateTo = (value: number) => {
-    if (performanceMode || disabled) return;
-    Animated.spring(scale, {
-      toValue: value,
-      useNativeDriver: true,
-      speed: value < 1 ? 30 : 22,
-      bounciness: value < 1 ? 0 : 5,
-    }).start();
-  };
-
-  const handlePressIn = (event: GestureResponderEvent) => {
-    animateTo(0.975);
-    onPressIn?.(event);
-  };
-
-  const handlePressOut = (event: GestureResponderEvent) => {
-    animateTo(1);
-    onPressOut?.(event);
-  };
 
   const resolveStyle = (state: PressableStateCallbackType): StyleProp<ViewStyle> => {
     const resolved = typeof style === "function" ? style(state) : style;
-    return [resolved as StyleProp<ViewStyle>, !performanceMode && { transform: [{ scale }] }];
+
+    if (performanceMode || !state.pressed) {
+      return resolved as StyleProp<ViewStyle>;
+    }
+
+    return [
+      resolved as StyleProp<ViewStyle>,
+      {
+        opacity: 0.96,
+        transform: [{ scale: 0.99 }],
+      },
+    ];
   };
 
-  return (
-    <AnimatedPressable
-      {...props}
-      disabled={disabled}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={resolveStyle}
-    />
-  );
+  return <Pressable {...props} style={resolveStyle} />;
 }
