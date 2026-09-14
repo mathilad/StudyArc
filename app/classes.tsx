@@ -9,14 +9,16 @@ import ProtectedTimeModal from "../components/ProtectedTimeModal";
 import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
 import { useStudent, type ClassSchedule, type NewClass } from "../context/StudentContext";
 import { topicDisplayName } from "../data/subjects";
-import { currentWeekDates, weekStartKey } from "../lib/scheduleAdjustments";
+import { currentWeekDates, weekStartKey, type ProtectedTimeInput } from "../lib/scheduleAdjustments";
 import { format12Hour } from "../lib/time";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const FILTERS = ["All", "Theory", "Revision", "Paper", "Extra Class", "Paper Discussion"] as const;
+const TASK_PREFIX = "__REPETITIVE_TASK__:";
 type ClassFilter = (typeof FILTERS)[number];
-type PendingDelete = { kind: "class" | "protected"; id: string; title: string; subject?: string };
+type PendingDelete = { kind: "class" | "protected" | "task"; id: string; title: string; subject?: string };
 const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
+const taskName=(title:string)=>title.startsWith(TASK_PREFIX)?title.slice(TASK_PREFIX.length):title;
 
 const labelDate = (iso: string | null) => iso
   ? new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" })
@@ -43,13 +45,11 @@ export default function Classes() {
   const [editingClass, setEditingClass] = useState<ClassSchedule | null>(null);
   const [classFilter, setClassFilter] = useState<ClassFilter>("All");
   const [protectedOpen, setProtectedOpen] = useState(false);
+  const [repetitiveOpen, setRepetitiveOpen] = useState(false);
   const [overrideClass, setOverrideClass] = useState<ClassSchedule | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Use the student's actual A/L subject choices, not only the small hard-coded
-  // syllabus set. Combined Mathematics is the one stream choice that expands into
-  // two StudyArc subjects. This keeps Arts/Technology/Commerce subjects usable here.
   const subjects = useMemo(() => Array.from(new Set(
     profile.subjectChoices.flatMap(choice => choice === "Combined Mathematics"
       ? ["Pure Mathematics", "Applied Mathematics"]
@@ -58,7 +58,8 @@ export default function Classes() {
   )), [profile.subjectChoices]);
   const currentWeek = weekStartKey();
   const week = currentWeekDates();
-  const visibleProtected = protectedTimes.filter(x => x.recurrence === "Weekly" || (x.date && weekStartKey(new Date(`${x.date}T00:00:00`)) === currentWeek));
+  const repetitiveTasks = protectedTimes.filter(x => x.recurrence === "Weekly" && x.title.startsWith(TASK_PREFIX));
+  const visibleProtected = protectedTimes.filter(x => !x.title.startsWith(TASK_PREFIX) && (x.recurrence === "Weekly" || (x.date && weekStartKey(new Date(`${x.date}T00:00:00`)) === currentWeek)));
   const overrideFor = (classId: string) => classWeekOverrides.find(x => x.classId === classId && x.weekStart === currentWeek);
 
   const filteredClasses = useMemo(
@@ -92,14 +93,7 @@ export default function Classes() {
 
   const saveClassDetails = async (value: NewClass) => {
     const original = editingClass;
-
-    // StudentContext is the single save path for BOTH add and edit. Passing the
-    // existing id turns addClass into an upsert, updates the UI/cache immediately,
-    // and queues/syncs the exact same value instead of using a second competing path.
     await addClass(original ? { ...value, id: original.id } : value);
-
-    // A weekly topic override belongs to the old subject. Clear only that topic
-    // when a class itself is moved to another subject; the rest of the override stays.
     if (original) {
       const currentOverride = overrideFor(original.id);
       if (currentOverride && original.subjectName !== value.subjectName) {
@@ -114,6 +108,10 @@ export default function Classes() {
         });
       }
     }
+  };
+
+  const saveRepetitiveTask=async(value:ProtectedTimeInput)=>{
+    await addProtectedTime({...value,title:`${TASK_PREFIX}${taskName(value.title).trim()}`,recurrence:"Weekly",date:null});
   };
 
   const confirmDelete = async () => {
@@ -164,12 +162,12 @@ export default function Classes() {
     <LinearGradient colors={["#151022", "#080D14"]} style={StyleSheet.absoluteFill} />
     <View style={s.head}>
       <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={22} color="#FFF" /></Pressable>
-      <View style={{ flex: 1 }}><Text style={s.title}>Classes & protected time</Text><Text style={s.sub}>Your recurring classes, this week's changes and unavailable time</Text></View>
+      <View style={{ flex: 1 }}><Text style={s.title}>Classes & weekly commitments</Text><Text style={s.sub}>Recurring classes, repetitive tasks, this week's changes and unavailable time</Text></View>
       <Pressable onPress={openAddClass} style={s.add}><Ionicons name="add" size={20} color="#150B1E" /></Pressable>
     </View>
 
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-      <View style={s.weekBanner}><Ionicons name="calendar-outline" size={20} color="#C9A8F3" /><View style={{ flex: 1 }}><Text style={s.weekTitle}>This week · {week[0].toLocaleDateString(undefined, { day: "numeric", month: "short" })} – {week[6].toLocaleDateString(undefined, { day: "numeric", month: "short" })}</Text><Text style={s.weekText}>Set what each class is covering, mark a class missed, or move only this week's occurrence. Recurring class details can be edited separately.</Text></View></View>
+      <View style={s.weekBanner}><Ionicons name="calendar-outline" size={20} color="#C9A8F3" /><View style={{ flex: 1 }}><Text style={s.weekTitle}>This week · {week[0].toLocaleDateString(undefined, { day: "numeric", month: "short" })} – {week[6].toLocaleDateString(undefined, { day: "numeric", month: "short" })}</Text><Text style={s.weekText}>Set what each class is covering, mark a class missed, or move only this week's occurrence. Repetitive tasks keep the same reserved time every week.</Text></View></View>
 
       <View style={s.sectionHead}><View style={{ flex: 1 }}><Text style={s.sectionTitle}>Weekly classes</Text><Text style={s.sectionSub}>Organized by subject. Filter by class type, then edit any class without deleting it.</Text></View><Pressable onPress={openAddClass} style={s.smallAdd}><Ionicons name="add" size={16} color="#190E21" /><Text style={s.smallAddText}>Class</Text></Pressable></View>
 
@@ -197,19 +195,26 @@ export default function Classes() {
               </View>;
             })}
 
+      <View style={s.sectionHead}><View style={{ flex: 1 }}><Text style={s.sectionTitle}>Repetitive tasks</Text><Text style={s.sectionSub}>Give recurring chores, planning, practice or other weekly responsibilities their own fixed time every week.</Text></View><Pressable onPress={() => setRepetitiveOpen(true)} style={s.smallAdd}><Ionicons name="add" size={16} color="#190E21" /><Text style={s.smallAddText}>Task</Text></Pressable></View>
+      <View style={s.taskInfo}><Ionicons name="repeat-outline" size={20} color="#9FC4FF" /><Text style={s.taskInfoText}>These blocks repeat every week and stay separate from automatic study planning, so Study Arc will not schedule study over them.</Text></View>
+      {repetitiveTasks.length===0
+        ? <Pressable onPress={()=>setRepetitiveOpen(true)} style={s.protectedEmpty}><Ionicons name="repeat-outline" size={27} color="#677587" /><Text style={s.protectedEmptyTitle}>No repetitive tasks yet</Text><Text style={s.protectedEmptyText}>Add a task once, choose its weekly day and time, and Study Arc reserves that slot every week.</Text></Pressable>
+        : repetitiveTasks.sort((a,b)=>a.dayOfWeek-b.dayOfWeek||a.startTime.localeCompare(b.startTime)).map(item=><View key={item.id} style={s.taskCard}><View style={s.taskIcon}><Ionicons name="repeat-outline" size={20} color="#AFCFFF" /></View><View style={{flex:1}}><Text style={s.protectedTitle}>{taskName(item.title)}</Text><Text style={s.meta}>Every {DAYS[item.dayOfWeek]} · {format12Hour(item.startTime)}–{format12Hour(item.endTime)}</Text><Text style={s.taskTag}>RESERVED EVERY WEEK</Text></View><Pressable onPress={()=>setPendingDelete({kind:"task",id:item.id,title:taskName(item.title)})} style={s.delete}><Ionicons name="trash-outline" size={18} color="#A27680" /></Pressable></View>)}
+
       <View style={s.sectionHead}><View style={{ flex: 1 }}><Text style={s.sectionTitle}>Protected time</Text><Text style={s.sectionSub}>Reserve anything you must attend or any short interval that should not become study.</Text></View><Pressable onPress={() => setProtectedOpen(true)} style={s.smallAdd}><Ionicons name="add" size={16} color="#190E21" /><Text style={s.smallAddText}>Time</Text></Pressable></View>
-      <View style={s.protectedInfo}><Ionicons name="shield-checkmark-outline" size={20} color="#C5A2F1" /><Text style={s.protectedInfoText}>Add appointments, clubs, chores, family events, meals, extra commitments or even a 20-minute unavailable interval. Study Arc keeps it clear.</Text></View>
+      <View style={s.protectedInfo}><Ionicons name="shield-checkmark-outline" size={20} color="#C5A2F1" /><Text style={s.protectedInfoText}>Add appointments, clubs, family events, meals, extra commitments or even a 20-minute unavailable interval. Study Arc keeps it clear.</Text></View>
       {visibleProtected.length === 0
         ? <Pressable onPress={() => setProtectedOpen(true)} style={s.protectedEmpty}><Ionicons name="time-outline" size={27} color="#677587" /><Text style={s.protectedEmptyTitle}>No protected time yet</Text><Text style={s.protectedEmptyText}>Use this when you are free from studying but not actually available.</Text></Pressable>
         : visibleProtected.map(item => <View key={item.id} style={s.protectedCard}><View style={s.protectedIcon}><Ionicons name="shield-outline" size={20} color="#C7A6EF" /></View><View style={{ flex: 1 }}><Text style={s.protectedTitle}>{item.title}</Text><Text style={s.meta}>{item.recurrence === "Weekly" ? `Every ${DAYS[item.dayOfWeek]}` : labelDate(item.date)} · {format12Hour(item.startTime)}–{format12Hour(item.endTime)}</Text><Text style={s.protectedTag}>NOT AVAILABLE FOR STUDY</Text></View><Pressable onPress={() => setPendingDelete({ kind: "protected", id: item.id, title: item.title })} style={s.delete}><Ionicons name="trash-outline" size={18} color="#A27680" /></Pressable></View>)}
     </ScrollView>
 
     <ClassFormModal visible={classModalOpen} subjects={subjects} initialValue={editingClass} onClose={closeClassModal} onSave={saveClassDetails} />
-    <ProtectedTimeModal visible={protectedOpen} onClose={() => setProtectedOpen(false)} onSave={addProtectedTime} />
+    <ProtectedTimeModal visible={repetitiveOpen} mode="repetitive" onClose={() => setRepetitiveOpen(false)} onSave={saveRepetitiveTask} />
+    <ProtectedTimeModal visible={protectedOpen} mode="protected" onClose={() => setProtectedOpen(false)} onSave={addProtectedTime} />
     <ClassWeekOverrideModal visible={!!overrideClass} classSchedule={overrideClass} existing={overrideClass ? overrideFor(overrideClass.id) : null} onClose={() => setOverrideClass(null)} onSave={saveClassWeekOverride} onClear={() => overrideClass ? clearClassWeekOverride(overrideClass.id, currentWeek) : Promise.resolve()} />
 
     <Modal visible={!!pendingDelete} transparent animationType="fade" onRequestClose={() => !deleting && setPendingDelete(null)}>
-      <View style={s.overlay}><Pressable style={StyleSheet.absoluteFill} disabled={deleting} onPress={() => setPendingDelete(null)} /><View style={s.modal}><View style={s.modalIcon}><Ionicons name="trash-outline" size={23} color="#F2A1AE" /></View><Text style={s.modalTitle}>Delete {pendingDelete?.kind === "class" ? "class" : "protected time"}?</Text><Text style={s.modalSubject}>{pendingDelete?.subject ? `${pendingDelete.subject} · ` : ""}{pendingDelete?.title}</Text><Text style={s.modalText}>{pendingDelete?.kind === "class" ? "This class will be removed from the recurring schedule and future plans." : "This interval becomes available to the planner again."}</Text><View style={s.modalActions}><Pressable disabled={deleting} onPress={() => setPendingDelete(null)} style={s.cancel}><Text style={s.cancelText}>Keep it</Text></Pressable><Pressable disabled={deleting} onPress={confirmDelete} style={[s.confirm, deleting && { opacity: .55 }]}><Ionicons name={deleting ? "hourglass-outline" : "trash-outline"} size={17} color="#FFF4F6" /><Text style={s.confirmText}>{deleting ? "Deleting…" : "Delete"}</Text></Pressable></View></View></View>
+      <View style={s.overlay}><Pressable style={StyleSheet.absoluteFill} disabled={deleting} onPress={() => setPendingDelete(null)} /><View style={s.modal}><View style={s.modalIcon}><Ionicons name="trash-outline" size={23} color="#F2A1AE" /></View><Text style={s.modalTitle}>Delete {pendingDelete?.kind === "class" ? "class" : pendingDelete?.kind === "task" ? "repetitive task" : "protected time"}?</Text><Text style={s.modalSubject}>{pendingDelete?.subject ? `${pendingDelete.subject} · ` : ""}{pendingDelete?.title}</Text><Text style={s.modalText}>{pendingDelete?.kind === "class" ? "This class will be removed from the recurring schedule and future plans." : pendingDelete?.kind === "task" ? "This task will stop reserving its weekly time slot." : "This interval becomes available to the planner again."}</Text><View style={s.modalActions}><Pressable disabled={deleting} onPress={() => setPendingDelete(null)} style={s.cancel}><Text style={s.cancelText}>Keep it</Text></Pressable><Pressable disabled={deleting} onPress={confirmDelete} style={[s.confirm, deleting && { opacity: .55 }]}><Ionicons name={deleting ? "hourglass-outline" : "trash-outline"} size={17} color="#FFF4F6" /><Text style={s.confirmText}>{deleting ? "Deleting…" : "Delete"}</Text></Pressable></View></View></View>
     </Modal>
   </View>;
 }
@@ -286,6 +291,11 @@ const s = StyleSheet.create({
   filterEmpty: { padding: 26, alignItems: "center", backgroundColor: "#0F161F", borderRadius: 19, borderWidth: 1, borderColor: "#283545", marginBottom: 20 },
   filterEmptyTitle: { color: "#DDE2E8", fontSize: 14, fontWeight: "900", marginTop: 8 },
   filterEmptyText: { color: "#718092", fontSize: 10, marginTop: 4 },
+  taskInfo: { borderRadius: 16, backgroundColor: "#101A28", borderWidth: 1, borderColor: "#2E4868", padding: 12, flexDirection: "row", gap: 9, alignItems: "center", marginBottom: 9 },
+  taskInfoText: { flex: 1, color: "#8FA6C1", fontSize: 10.5, lineHeight: 16 },
+  taskCard: { minHeight: 78, borderRadius: 18, backgroundColor: "#101720", borderWidth: 1, borderColor: "#29425F", padding: 12, flexDirection: "row", alignItems: "center", gap: 11, marginBottom: 8 },
+  taskIcon: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#14233A", alignItems: "center", justifyContent: "center" },
+  taskTag: { color: "#7FA5D6", fontSize: 7.5, fontWeight: "900", letterSpacing: 1, marginTop: 5 },
   protectedInfo: { borderRadius: 16, backgroundColor: "#171321", borderWidth: 1, borderColor: "#40344F", padding: 12, flexDirection: "row", gap: 9, alignItems: "center", marginBottom: 9 },
   protectedInfoText: { flex: 1, color: "#94869F", fontSize: 10.5, lineHeight: 16 },
   protectedEmpty: { borderRadius: 19, backgroundColor: "#0F161F", borderWidth: 1, borderColor: "#283545", padding: 24, alignItems: "center", marginBottom: 12 },
