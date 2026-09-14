@@ -5,7 +5,7 @@ const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"au
 type InputPage={base64:string;mimeType:string;filename?:string;pageIndex:number};
 
 const prompts:Record<string,string>={
- homework:`You are StudyArc, an assistant for Sri Lankan G.C.E. A/L students. Inspect the uploaded homework photo. Return ONLY JSON with: title, subjectName, topicName, dueDate (YYYY-MM-DD or null), estimatedMinutes (integer), tasks (array of short subtasks), summary, confidence (0-1). Do not invent a due date if it is not visible.`,
+ homework:`You are StudyArc, an assistant for Sri Lankan G.C.E. A/L students. Inspect the uploaded homework or work-list photo carefully. The page may contain printed text, handwriting, Sinhala, English, or mixed Sinhala + English. Preserve visible Sinhala exactly as Sinhala Unicode; do not translate or romanize it. A single photo may contain MANY separate assignments, recordings, revision tasks, past-paper tasks, or reminders. Read the page from top to bottom and include every reasonably readable work item in tasks in the same order. Do not reject the page just because handwriting is imperfect. When a word is uncertain, keep the best conservative reading and use [unclear] for the uncertain part rather than inventing text. Return ONLY JSON with: title, subjectName, topicName, dueDate (YYYY-MM-DD or null), estimatedMinutes (integer), tasks (array of all detected work items/subtasks), recognizedText (concise transcription preserving Sinhala and English), summary, confidence (0-1). Do not invent a subject, topic, due date, or wording that is not visible or strongly supported by the page.`,
  tute:`Inspect this Sri Lankan G.C.E. A/L tutorial/tute. Return ONLY JSON with: title, subjectName, topicName, dueDate (YYYY-MM-DD or null), estimatedMinutes (integer), tasks (array), summary, confidence (0-1).`,
  test_result:`Inspect this marked Sri Lankan G.C.E. A/L test/result sheet. Prefer explicit teacher-written marks and final totals. Return ONLY JSON with: title, subjectName, totalMarks (number or null), maximumMarks (number or null), weakTopics (array), questionResults (array with questionNo, topicName, marksAwarded, marksTotal, confidence, mistakeType), summary, confidence (0-1). Never invent marks.`,
  paper_marking:`Inspect this marked examination/past-paper answer sheet. Prefer explicit teacher-written marks, ticks/crosses and final totals. Return ONLY JSON with: title, subjectName, paperLabel, totalMarks (number or null), maximumMarks (number or null), questionResults (array with questionNo, topicName, marksAwarded, marksTotal, durationSeconds null, confidence, mistakeType, difficultyRating null), weakTopics (array), summary, confidence (0-1). Never invent marks.`,
@@ -27,6 +27,17 @@ const qwenText=(payload:any)=>{const content=payload?.choices?.[0]?.message?.con
 const geminiText=(payload:any)=>(payload?.candidates?.[0]?.content?.parts??[]).map((p:any)=>typeof p?.text==="string"?p.text:"").join("").trim();
 const qwenChatUrl=()=>{const explicit=Deno.env.get("QWEN_VL_CHAT_URL")?.trim();if(explicit)return explicit;const base=Deno.env.get("QWEN_VL_BASE_URL")?.trim().replace(/\/$/,"");if(!base)return null;return base.endsWith("/v1")?`${base}/chat/completions`:`${base}/v1/chat/completions`;};
 const dataUrl=(mimeType:string,base64:string)=>`data:${mimeType};base64,${base64}`;
+
+async function fetchWithTimeout(url:string,init:RequestInit,timeoutMs:number,label:string){
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{return await fetch(url,{...init,signal:controller.signal});}
+ catch(error){
+  if(error instanceof DOMException&&error.name==="AbortError")throw new Error(`${label} timed out after ${Math.round(timeoutMs/1000)} seconds.`);
+  if(error instanceof Error&&/abort/i.test(error.message))throw new Error(`${label} timed out after ${Math.round(timeoutMs/1000)} seconds.`);
+  throw error;
+ }finally{clearTimeout(timer);}
+}
 
 function pagesFromBody(body:any):InputPage[]{
  if(Array.isArray(body?.pages)&&body.pages.length){return body.pages.map((page:any,index:number)=>({base64:String(page?.base64??""),mimeType:String(page?.mimeType??"image/jpeg"),filename:String(page?.filename??`page-${index+1}`),pageIndex:Math.max(1,Number(page?.pageIndex??index+1))}));}
@@ -51,7 +62,7 @@ async function analyseWithQwen(args:{kind:string;prompt:string;pages:InputPage[]
  args.pages.forEach(page=>{content.push({type:"text",text:`ANSWER SHEET PAGE ${page.pageIndex}. This is page ${page.pageIndex} in the user's upload sequence.`});content.push({type:"image_url",image_url:{url:dataUrl(page.mimeType,page.base64)}});});
  if(args.kind==="answer_sheet"&&args.referenceBase64){content.push({type:"text",text:"REFERENCE MARKING MATERIAL follows. Use it only where it clearly supports grading."});content.push({type:"image_url",image_url:{url:dataUrl(args.referenceMimeType,args.referenceBase64)}});}
  const headers:Record<string,string>={"Content-Type":"application/json"};if(apiKey)headers.Authorization=`Bearer ${apiKey}`;
- const response=await fetch(url,{method:"POST",headers,body:JSON.stringify({model,temperature:.03,max_tokens:10000,messages:[{role:"system",content:"You are the StudyArc paper-analysis engine. Preserve upload sequence, transcribe visible page text conservatively, prioritise explicit teacher markings, use red ink only as corroborating evidence, and never fabricate marks. Return only valid JSON."},{role:"user",content}]})});
+ const response=await fetchWithTimeout(url,{method:"POST",headers,body:JSON.stringify({model,temperature:.03,max_tokens:10000,messages:[{role:"system",content:"You are the StudyArc paper-analysis engine. Preserve upload sequence, transcribe visible page text conservatively, prioritise explicit teacher markings, use red ink only as corroborating evidence, and never fabricate marks. Return only valid JSON."},{role:"user",content}]})},18000,"Primary vision provider");
  const payload=await response.json().catch(()=>({}));if(!response.ok)throw new Error(payload?.error?.message??payload?.message??`Qwen3-VL request failed (${response.status}).`);
  return{analysis:parseJson(qwenText(payload)),engine:"qwen3-vl",model};
 }
@@ -60,7 +71,9 @@ async function analyseWithGemini(args:{kind:string;prompt:string;pages:InputPage
  const apiKey=Deno.env.get("GEMINI_API_KEY")?.trim();if(!apiKey)throw new Error("No configured vision provider is available.");
  const parts:any[]=[{text:args.prompt}];args.pages.forEach(page=>{parts.push({text:`ANSWER SHEET PAGE ${page.pageIndex}. This is page ${page.pageIndex} in upload order.`});parts.push({inlineData:{mimeType:page.mimeType,data:page.base64}});});
  if(args.kind==="answer_sheet"&&args.referenceBase64){parts.push({text:"REFERENCE MARKING MATERIAL follows."});parts.push({inlineData:{mimeType:args.referenceMimeType,data:args.referenceBase64}});}
- const model=Deno.env.get("GEMINI_MODEL")||"gemini-3.8-flash";const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:"POST",headers:{"x-goog-api-key":apiKey,"Content-Type":"application/json"},body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{temperature:.03,maxOutputTokens:10000,responseMimeType:"application/json"}})});const payload=await response.json();if(!response.ok)throw new Error(payload?.error?.message??`Fallback vision request failed (${response.status}).`);return{analysis:parseJson(geminiText(payload)),engine:"gemini-fallback",model};
+ const model=Deno.env.get("GEMINI_MODEL")||"gemini-3.8-flash";
+ const response=await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:"POST",headers:{"x-goog-api-key":apiKey,"Content-Type":"application/json"},body:JSON.stringify({contents:[{role:"user",parts}],generationConfig:{temperature:.03,maxOutputTokens:10000,responseMimeType:"application/json"}})},25000,"Fallback vision provider");
+ const payload=await response.json().catch(()=>({}));if(!response.ok)throw new Error(payload?.error?.message??`Fallback vision request failed (${response.status}).`);return{analysis:parseJson(geminiText(payload)),engine:"gemini-fallback",model};
 }
 
 Deno.serve(async(req:Request)=>{
@@ -72,8 +85,8 @@ Deno.serve(async(req:Request)=>{
   if(!pages.length||pages.length>3)return new Response(JSON.stringify({error:"invalid_pages",message:"Each analysis chunk must contain 1 to 3 pages."}),{status:400,headers:{...cors,"Content-Type":"application/json"}});
   const totalBase64=pages.reduce((sum,page)=>sum+page.base64.length,0)+referenceBase64.length;if(pages.some(page=>!page.base64)||totalBase64>30000000)return new Response(JSON.stringify({error:"invalid_file",message:"Upload is missing or too large. Add fewer or smaller pages."}),{status:400,headers:{...cors,"Content-Type":"application/json"}});
   const prompt=buildPrompt(kind,body);const args={kind,prompt,pages,referenceBase64,referenceMimeType};let result;
-  if(qwenChatUrl()){try{result=await analyseWithQwen(args);}catch(error){if(!Deno.env.get("GEMINI_API_KEY"))throw error;result=await analyseWithGemini(args);}}else result=await analyseWithGemini(args);
+  if(qwenChatUrl()){try{result=await analyseWithQwen(args);}catch(error){console.warn("Primary vision provider failed; trying fallback",error);if(!Deno.env.get("GEMINI_API_KEY"))throw error;result=await analyseWithGemini(args);}}else result=await analyseWithGemini(args);
   if(kind==="answer_sheet"&&body?.paperDate&&result.analysis&&typeof result.analysis==="object")result.analysis.paperDate=String(body.paperDate);
   return new Response(JSON.stringify(result),{headers:{...cors,"Content-Type":"application/json"}});
- }catch(error){const message=error instanceof Error?error.message:"Could not analyse upload.";const notConfigured=message.includes("configured")||message.includes("provider");return new Response(JSON.stringify({error:notConfigured?"vision_not_configured":"analysis_failed",message}),{status:notConfigured?503:500,headers:{...cors,"Content-Type":"application/json"}});}
+ }catch(error){const message=error instanceof Error?error.message:"Could not analyse upload.";console.error("studyarc-vision failed",error);const notConfigured=message.includes("configured")||message.includes("provider");const timedOut=/timed out|timeout|abort/i.test(message);return new Response(JSON.stringify({error:notConfigured?"vision_not_configured":timedOut?"vision_timeout":"analysis_failed",message}),{status:notConfigured?503:timedOut?504:500,headers:{...cors,"Content-Type":"application/json"}});}
 });

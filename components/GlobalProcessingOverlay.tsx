@@ -1,7 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, StyleSheet, Text, View } from "react-native";
-import { subscribeProcessing, type ProcessingState } from "../lib/processingOverlay";
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  backgroundProcessing,
+  cancelProcessing,
+  foregroundProcessing,
+  subscribeProcessing,
+  type ProcessingState,
+} from "../lib/processingOverlay";
 
 export default function GlobalProcessingOverlay() {
   const [state, setState] = useState<ProcessingState | null>(null);
@@ -9,8 +15,23 @@ export default function GlobalProcessingOverlay() {
 
   useEffect(() => subscribeProcessing(setState), []);
 
+  if (state?.backgrounded) {
+    return (
+      <View pointerEvents="box-none" style={s.backgroundDock}>
+        <Pressable onPress={() => foregroundProcessing(state.id)} style={s.backgroundPill}>
+          <ActivityIndicator size="small" color="#C39AFF" />
+          <View style={{ flex: 1 }}>
+            <Text style={s.backgroundTitle} numberOfLines={1}>{state.title}</Text>
+            <Text style={s.backgroundText} numberOfLines={1}>Running in background · tap to reopen</Text>
+          </View>
+          <Ionicons name="chevron-up" size={18} color="#CDB6E5" />
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
-    <Modal visible={!!state} transparent animationType="fade" statusBarTranslucent onRequestClose={() => undefined}>
+    <Modal visible={!!state} transparent animationType="fade" statusBarTranslucent onRequestClose={() => state?.allowBackground ? backgroundProcessing(state.id) : undefined}>
       <View style={s.backdrop} accessibilityViewIsModal accessibilityLiveRegion="polite">
         <View style={s.card} accessibilityRole="progressbar">
           <View style={[s.icon, state?.done && s.iconDone]}>
@@ -20,12 +41,28 @@ export default function GlobalProcessingOverlay() {
           </View>
           <Text style={s.eyebrow}>{state?.done ? "DONE" : "STUDYARC IS WORKING"}</Text>
           <Text style={s.title}>{state?.title ?? "Processing"}</Text>
-          <Text style={s.message}>{state?.message ?? "Please keep this screen open."}</Text>
+          <Text style={s.message}>{state?.message ?? "Your request is being processed."}</Text>
           {state?.progress != null ? <>
             <View style={s.progressTrack}><View style={[s.progressFill, { width: progressWidth }]} /></View>
             <Text style={s.percent}>{Math.round(state.progress * 100)}%</Text>
           </> : null}
-          {!state?.done ? <Text style={s.note}>You can see that your request is still being processed. StudyArc will close this automatically when the step finishes.</Text> : null}
+          {!state?.done ? <Text style={s.note}>You can keep this window open, run the process in the background, or cancel it.</Text> : null}
+          {!state?.done && (state?.allowBackground || state?.allowCancel) ? (
+            <View style={s.actions}>
+              {state.allowBackground ? (
+                <Pressable onPress={() => backgroundProcessing(state.id)} style={[s.button, s.secondaryButton]}>
+                  <Ionicons name="layers-outline" size={17} color="#D8C8EA" />
+                  <Text style={s.secondaryButtonText}>Run in background</Text>
+                </Pressable>
+              ) : null}
+              {state.allowCancel ? (
+                <Pressable onPress={() => cancelProcessing(state.id)} style={[s.button, s.cancelButton]}>
+                  <Ionicons name="close-circle-outline" size={17} color="#FFB8B8" />
+                  <Text style={s.cancelButtonText}>Cancel</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -44,4 +81,14 @@ const s = StyleSheet.create({
   progressFill: { height: "100%", borderRadius: 99, backgroundColor: "#B784FF" },
   percent: { color: "#CDB6E5", fontSize: 10, fontWeight: "900", marginTop: 7 },
   note: { color: "#667487", fontSize: 8.5, lineHeight: 13, textAlign: "center", marginTop: 13 },
+  actions: { width: "100%", flexDirection: "row", gap: 10, marginTop: 18 },
+  button: { flex: 1, minHeight: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 7, paddingHorizontal: 12, borderWidth: 1 },
+  secondaryButton: { backgroundColor: "#191523", borderColor: "#4B3A61" },
+  secondaryButtonText: { color: "#D8C8EA", fontSize: 11, fontWeight: "800" },
+  cancelButton: { backgroundColor: "#261417", borderColor: "#67343C" },
+  cancelButtonText: { color: "#FFB8B8", fontSize: 11, fontWeight: "800" },
+  backgroundDock: { position: "absolute", left: 14, right: 14, bottom: 18, zIndex: 9999, alignItems: "center" },
+  backgroundPill: { width: "100%", maxWidth: 430, minHeight: 58, borderRadius: 18, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: "#111821", borderWidth: 1, borderColor: "#443255" },
+  backgroundTitle: { color: "#F5F2F8", fontSize: 11.5, fontWeight: "900" },
+  backgroundText: { color: "#7F8C9D", fontSize: 9, marginTop: 2 },
 });
