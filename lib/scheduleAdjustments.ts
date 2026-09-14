@@ -1,7 +1,7 @@
 export type ProtectedTime = {
   id: string;
   title: string;
-  recurrence: "Weekly" | "This Week";
+  recurrence: "Daily" | "Weekly" | "This Week";
   dayOfWeek: number;
   date: string | null;
   startTime: string;
