@@ -1,1 +1,1 @@
-export { default } from "../screens/AssignmentEnhanced";
+export { default } from "../screens/AssignmentWithPriority";
