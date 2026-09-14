@@ -2,12 +2,12 @@
   "expo": {
     "name": "StudyArc",
     "slug": "study-arc",
-    "version": "1.1.8",
+    "version": "1.2.0",
     "orientation": "default",
     "scheme": "studyarc",
     "userInterfaceStyle": "dark",
     "icon": "./assets/images/icon.png",
-    "runtimeVersion": "1.1.8",
+    "runtimeVersion": "1.2.0",
     "updates": {
       "enabled": true,
       "url": "https://aliqufgpassfhwobjsoh.supabase.co/functions/v1/studyarc-updates",
@@ -64,7 +64,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studyarc.app",
-      "buildNumber": "18",
+      "buildNumber": "20",
       "infoPlist": {
         "UIStatusBarHidden": true,
         "UIViewControllerBasedStatusBarAppearance": false
@@ -72,7 +72,7 @@
     },
     "android": {
       "package": "com.studyarc.app",
-      "versionCode": 18,
+      "versionCode": 20,
       "predictiveBackGestureEnabled": false,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
