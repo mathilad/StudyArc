@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { setRuntimeFeatureFlags } from "../lib/featureRuntime";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 
@@ -38,7 +39,15 @@ const DEFAULTS: AppSettings = {
   buyMeACoffeeUrl: "https://buymeacoffee.com/mathiladinimuthu",
   testAMarginPercent: 65,
   readinessWeights: { coverage: .30, paperPractice: .25, topicMastery: .20, consistency: .15, recentRevision: .10 },
-  featureFlags: { globalRanking: true, catchUpMode: true, freeTimeMode: true, readiness: true, monthlyReports: true },
+  featureFlags: {
+    globalRanking: true,
+    catchUpMode: true,
+    freeTimeMode: true,
+    readiness: true,
+    monthlyReports: true,
+    imageScanning: false,
+    aiFeatures: false,
+  },
 };
 
 const CACHE_KEY = "studyarc:app-config:v1";
@@ -61,16 +70,25 @@ const AppConfigContext = createContext<{
   getAdminStats: () => Promise<AdminDashboardStats>;
 } | null>(null);
 
+function mergeSettings(value: Partial<AppSettings> | null | undefined): AppSettings {
+  return {
+    ...DEFAULTS,
+    ...(value ?? {}),
+    readinessWeights: { ...DEFAULTS.readinessWeights, ...(value?.readinessWeights ?? {}) },
+    featureFlags: { ...DEFAULTS.featureFlags, ...(value?.featureFlags ?? {}) },
+  };
+}
+
 function fromRows(rows: any[]): AppSettings {
   const byKey = Object.fromEntries((rows ?? []).map(row => [row.key, row.value]));
-  return {
+  return mergeSettings({
     contactEmail: typeof byKey.contact_email === "string" ? byKey.contact_email : DEFAULTS.contactEmail,
     websiteUrl: typeof byKey.website_url === "string" ? byKey.website_url : DEFAULTS.websiteUrl,
     buyMeACoffeeUrl: typeof byKey.buy_me_a_coffee_url === "string" ? byKey.buy_me_a_coffee_url : DEFAULTS.buyMeACoffeeUrl,
     testAMarginPercent: Number.isFinite(Number(byKey.test_a_margin_percent)) ? Number(byKey.test_a_margin_percent) : DEFAULTS.testAMarginPercent,
-    readinessWeights: { ...DEFAULTS.readinessWeights, ...(byKey.readiness_weights ?? {}) },
-    featureFlags: { ...DEFAULTS.featureFlags, ...(byKey.feature_flags ?? {}) },
-  };
+    readinessWeights: byKey.readiness_weights ?? DEFAULTS.readinessWeights,
+    featureFlags: byKey.feature_flags ?? DEFAULTS.featureFlags,
+  });
 }
 
 export function AppConfigProvider({ children }: { children: React.ReactNode }) {
@@ -79,6 +97,8 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<AdminRole>("student");
   const [refreshing, setRefreshing] = useState(false);
   const [loadedForUserId, setLoadedForUserId] = useState<string | null>(null);
+
+  useEffect(() => { setRuntimeFeatureFlags(settings.featureFlags); }, [settings.featureFlags]);
 
   const refresh = useCallback(async () => {
     if (!user) { setRole("student"); setLoadedForUserId(null); return; }
@@ -91,6 +111,7 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
       if (!settingError && settingRows) {
         const next = fromRows(settingRows);
         setSettings(next);
+        setRuntimeFeatureFlags(next.featureFlags);
         AsyncStorage.setItem(CACHE_KEY, JSON.stringify(next)).catch(() => undefined);
       }
       if (!roleError && roleRow?.role) setRole(roleRow.role as AdminRole);
@@ -105,7 +126,11 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
     let alive = true;
     AsyncStorage.getItem(CACHE_KEY).then(raw => {
       if (!alive || !raw) return;
-      try { setSettings({ ...DEFAULTS, ...JSON.parse(raw) }); } catch { /* use defaults */ }
+      try {
+        const next = mergeSettings(JSON.parse(raw));
+        setSettings(next);
+        setRuntimeFeatureFlags(next.featureFlags);
+      } catch { /* use defaults */ }
     }).finally(() => refresh().catch(() => undefined));
     return () => { alive = false; };
   }, [refresh]);
@@ -117,8 +142,9 @@ export function AppConfigProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.from("app_settings").upsert({ key: dbKey, value, updated_at: new Date().toISOString(), updated_by: user.id }, { onConflict: "key" });
     if (error) throw error;
     await supabase.from("admin_audit_log").insert({ admin_user_id: user.id, action: "update_setting", entity_type: "app_setting", entity_key: dbKey, before_value: before, after_value: value });
-    const next = { ...settings, [key]: value } as AppSettings;
+    const next = mergeSettings({ ...settings, [key]: value } as AppSettings);
     setSettings(next);
+    setRuntimeFeatureFlags(next.featureFlags);
     AsyncStorage.setItem(CACHE_KEY, JSON.stringify(next)).catch(() => undefined);
   }, [role, settings, user]);
 

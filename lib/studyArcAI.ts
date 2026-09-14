@@ -1,4 +1,5 @@
 import { File } from "expo-file-system";
+import { getRuntimeFeatureFlags } from "./featureRuntime";
 import { supabase } from "./supabase";
 import type { PlanningPreferences } from "./planningRuntime";
 import type { CaptureAsset } from "./visionCapture";
@@ -105,6 +106,9 @@ export async function askStudyArcAI(input: {
   context: StudyArcAIContext;
   history?: Array<{ role: "user" | "assistant"; text: string }>;
 }): Promise<StudyArcAIResponse> {
+  if (getRuntimeFeatureFlags().aiFeatures !== true) {
+    throw new Error("StudyArc AI is currently disabled by the app administrator.");
+  }
   const { data, error } = await supabase.functions.invoke("studyarc-ai", {
     body: {
       message: input.message,
