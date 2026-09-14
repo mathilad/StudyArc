@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Animated,
   Pressable,
@@ -23,30 +23,61 @@ export default function MotionPressable({
 }: PressableProps) {
   const { performanceMode } = usePerformance();
   const scale = useRef(new Animated.Value(1)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
+  const lift = useRef(new Animated.Value(0)).current;
 
-  const animateTo = (value: number) => {
+  useEffect(() => {
+    if (!performanceMode) return;
+    scale.stopAnimation();
+    opacity.stopAnimation();
+    lift.stopAnimation();
+    scale.setValue(1);
+    opacity.setValue(1);
+    lift.setValue(0);
+  }, [lift, opacity, performanceMode, scale]);
+
+  const animatePressed = (pressed: boolean) => {
     if (performanceMode || disabled) return;
-    Animated.spring(scale, {
-      toValue: value,
-      useNativeDriver: true,
-      speed: value < 1 ? 30 : 22,
-      bounciness: value < 1 ? 0 : 5,
-    }).start();
+    Animated.parallel([
+      Animated.spring(scale, {
+        toValue: pressed ? 0.965 : 1,
+        useNativeDriver: true,
+        speed: pressed ? 34 : 24,
+        bounciness: pressed ? 0 : 6,
+      }),
+      Animated.timing(opacity, {
+        toValue: pressed ? 0.9 : 1,
+        duration: pressed ? 85 : 150,
+        useNativeDriver: true,
+      }),
+      Animated.spring(lift, {
+        toValue: pressed ? 1.5 : 0,
+        useNativeDriver: true,
+        speed: 28,
+        bounciness: 2,
+      }),
+    ]).start();
   };
 
   const handlePressIn = (event: GestureResponderEvent) => {
-    animateTo(0.975);
+    animatePressed(true);
     onPressIn?.(event);
   };
 
   const handlePressOut = (event: GestureResponderEvent) => {
-    animateTo(1);
+    animatePressed(false);
     onPressOut?.(event);
   };
 
   const resolveStyle = (state: PressableStateCallbackType): StyleProp<ViewStyle> => {
     const resolved = typeof style === "function" ? style(state) : style;
-    return [resolved as StyleProp<ViewStyle>, !performanceMode && { transform: [{ scale }] }];
+    return [
+      resolved as StyleProp<ViewStyle>,
+      !performanceMode && {
+        opacity,
+        transform: [{ translateY: lift }, { scale }],
+      },
+    ];
   };
 
   return (
