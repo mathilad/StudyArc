@@ -1,46 +1,767 @@
-import{Ionicons}from"@expo/vector-icons";
-import{useLocalSearchParams,useRouter}from"expo-router";
-import React,{useEffect,useRef,useState}from"react";
-import{BackHandler,Modal,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,View}from"react-native";
-import Screen from"../components/Screen";
-import{useSocial}from"../context/SocialContext";
-import{useStudy,type PaperSection,type StudyType}from"../context/StudyContext";
-import{mergeSessionIntent,readSessionIntent}from"../lib/sessionIntent";
-import{clearActiveStudyTimer,elapsedFromPersistedTimer,readActiveStudyTimer,writeActiveStudyTimer,type PersistedStudyTimer}from"../lib/timerPersistence";
-type Lap={id:number;number:number;duration:number;total:number};
-const TYPES:StudyType[]=["Study Session","Revision","Tute Questions","Past Papers","Paper Review","Paper Correction","Paper Discussion","Class"];
-const one=(v:string|string[]|undefined)=>Array.isArray(v)?v[0]:v;
-const clock=(ms:number)=>{const total=Math.max(0,Math.floor(ms/1000)),h=Math.floor(total/3600),m=Math.floor((total%3600)/60),s=total%60;return`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`};
-const labelType=(v:StudyType)=>v==="Revision"?"Revise":v;
-export default function StopwatchClassic(){
- const router=useRouter(),params=useLocalSearchParams<{subjectName?:string|string[];topicName?:string|string[];studyType?:string|string[];paperYear?:string|string[];paperSection?:string|string[];attemptNo?:string|string[];assignmentId?:string|string[];assignmentTitle?:string|string[];goalText?:string|string[]}>();
- const incoming=one(params.studyType)as StudyType|undefined,initialType=TYPES.includes(incoming as StudyType)?incoming as StudyType:"Study Session",section=one(params.paperSection);const{addSession,todaySeconds}=useStudy(),{setStudying}=useSocial();
- const[meta,setMeta]=useState({subjectName:one(params.subjectName)??null as string|null,topicName:one(params.topicName)??null as string|null,studyType:initialType,paperYear:one(params.paperYear)?Number(one(params.paperYear)):null as number|null,paperSection:(["MCQ","Essay","Full Paper"]as string[]).includes(section??"")?section as PaperSection:null,attemptNo:one(params.attemptNo)?Number(one(params.attemptNo)):null as number|null});
- const[elapsed,setElapsed]=useState(0),[running,setRunning]=useState(false),[laps,setLaps]=useState<Lap[]>([]),[lapStart,setLapStart]=useState(0),[simple,setSimple]=useState(false),[finishOpen,setFinishOpen]=useState(false),[discardOpen,setDiscardOpen]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState<string|null>(null),[goalOpen,setGoalOpen]=useState(false),[goal,setGoal]=useState(""),[goalDraft,setGoalDraft]=useState("");
- const started=useRef(new Date()),runStart=useRef<number|null>(null),acc=useRef(0),timer=useRef<ReturnType<typeof setInterval>|null>(null);const currentLap=Math.max(0,elapsed-lapStart),subject=meta.subjectName??"Quick Study",topic=meta.topicName??"General",sessionName=one(params.assignmentTitle)??(topic!=="General"?topic:subject);
- const now=()=>runStart.current==null?acc.current:acc.current+Date.now()-runStart.current;const clearTicker=()=>{if(timer.current){clearInterval(timer.current);timer.current=null}};
- const persist=(r=running,a=acc.current,rs=runStart.current,nextLaps=laps,nextLap=lapStart)=>{const snap:PersistedStudyTimer={version:1,running:r,accumulatedMilliseconds:a,runStartedAtEpoch:rs,sessionStartedAtIso:started.current.toISOString(),lapStartedAtMilliseconds:nextLap,laps:nextLaps,subjectName:meta.subjectName,topicName:meta.topicName,studyType:meta.studyType,paperYear:meta.paperYear,paperSection:meta.paperSection,attemptNo:meta.attemptNo,updatedAtEpoch:Date.now()};writeActiveStudyTimer(snap).catch(()=>undefined)};
- useEffect(()=>{let live=true;(async()=>{const[intent,saved]=await Promise.all([readSessionIntent(),readActiveStudyTimer()]);if(!live)return;const incomingGoal=one(params.goalText)??intent?.goalText??"";setGoal(incomingGoal);setGoalDraft(incomingGoal);if(!saved)return;started.current=new Date(saved.sessionStartedAtIso);acc.current=saved.accumulatedMilliseconds;runStart.current=saved.running?saved.runStartedAtEpoch:null;setElapsed(elapsedFromPersistedTimer(saved));setLapStart(saved.lapStartedAtMilliseconds);setLaps(saved.laps??[]);setRunning(saved.running);setMeta({subjectName:saved.subjectName??null,topicName:saved.topicName??null,studyType:(saved.studyType as StudyType)??"Study Session",paperYear:saved.paperYear??null,paperSection:(saved.paperSection as PaperSection|null)??null,attemptNo:saved.attemptNo??null});if(saved.running){timer.current=setInterval(()=>setElapsed(now()),250);setStudying(true,saved.subjectName??undefined,saved.topicName??undefined).catch(()=>undefined)}})();return()=>{live=false;clearTicker()}},[]);
- useEffect(()=>{if(!running)return;const id=setInterval(()=>setStudying(true,meta.subjectName??undefined,meta.topicName??undefined).catch(()=>undefined),60000);return()=>clearInterval(id)},[meta.subjectName,meta.topicName,running,setStudying]);
- const start=()=>{if(running)return;if(elapsed===0){started.current=new Date();acc.current=0}else acc.current=elapsed;const epoch=Date.now();runStart.current=epoch;setRunning(true);setError(null);clearTicker();timer.current=setInterval(()=>setElapsed(now()),250);persist(true,acc.current,epoch);setStudying(true,meta.subjectName??undefined,meta.topicName??undefined).catch(()=>undefined)};
- const pause=()=>{if(!running)return elapsed;const value=now();acc.current=value;runStart.current=null;setElapsed(value);setRunning(false);clearTicker();persist(false,value,null);setStudying(false).catch(()=>undefined);return value};
- const addLap=()=>{const total=running?now():elapsed,duration=Math.max(0,total-lapStart);if(duration<=0)return;const next=[{id:Date.now(),number:laps.length+1,duration,total},...laps];setElapsed(total);setLapStart(total);setLaps(next);persist(running,running?acc.current:total,running?runStart.current:null,next,total)};
- const resetLap=()=>{const total=running?now():elapsed;if(total<=lapStart)return;setElapsed(total);setLapStart(total);persist(running,running?acc.current:total,running?runStart.current:null,laps,total)};
- const goHome=()=>router.replace("/(tabs)");const requestExit=()=>elapsed>0||running?setFinishOpen(true):goHome();useEffect(()=>{if(Platform.OS==="web")return;const sub=BackHandler.addEventListener("hardwareBackPress",()=>{requestExit();return true});return()=>sub.remove()},[elapsed,running]);
- const saveGoal=async()=>{const clean=goalDraft.trim();setGoal(clean);await mergeSessionIntent({goalText:clean||null});setGoalOpen(false)};
- const save=async()=>{if(saving)return;setSaving(true);setError(null);try{const final=running?pause():elapsed,durationSeconds=Math.floor(final/1000);if(durationSeconds<=0){await clearActiveStudyTimer();goHome();return}const id=await addSession({subjectName:subject,topicName:topic,studyType:meta.studyType,startedAt:started.current.toISOString(),durationSeconds,paperYear:meta.paperYear,paperSection:meta.paperSection,attemptNo:meta.attemptNo,laps:laps.slice().reverse().map(x=>({number:x.number,duration:x.duration,total:x.total}))});await clearActiveStudyTimer();await setStudying(false).catch(()=>undefined);router.replace({pathname:"/session-complete",params:{sessionId:id,duration:String(durationSeconds),subjectName:subject,topicName:topic,studyType:meta.studyType,assignmentId:one(params.assignmentId),assignmentTitle:one(params.assignmentTitle)}})}catch(e){setError(e instanceof Error?e.message:"Could not save this session.");setFinishOpen(false)}finally{setSaving(false)}};
- const discard=async()=>{if(running)pause();await clearActiveStudyTimer();await setStudying(false).catch(()=>undefined);setDiscardOpen(false);setFinishOpen(false);goHome()};
- return <Screen><View style={s.root}><View style={s.top}><Pressable onPress={requestExit} style={s.back}><Ionicons name="arrow-back" size={20} color="#F1F3F5"/></Pressable><View style={{flex:1,minWidth:0}}><Text style={s.kicker}>{labelType(meta.studyType).toUpperCase()}</Text><Text style={s.title}>{sessionName}</Text><Text style={s.sub}>{subject}{topic!=="General"?` · ${topic}`:""}</Text></View><View style={s.toggle}><Pressable onPress={()=>setSimple(false)} style={[s.togglePart,!simple&&s.toggleOn]}><Text style={[s.toggleText,!simple&&s.toggleTextOn]}>Normal</Text></Pressable><Pressable onPress={()=>setSimple(true)} style={[s.togglePart,simple&&s.toggleOn]}><Text style={[s.toggleText,simple&&s.toggleTextOn]}>Simple</Text></Pressable></View></View>
- <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-  <Pressable onPress={()=>setGoalOpen(true)} style={[s.goal,goal&&s.goalSet]}><View style={s.goalIcon}><Ionicons name={goal?"flag":"flag-outline"} size={20} color={goal?"#F1CC73":"#D4B9F2"}/></View><View style={{flex:1}}><Text style={s.goalLabel}>{goal?"SESSION GOAL":"SET A GOAL"}</Text><Text style={s.goalText}>{goal||`Choose a clear goal for ${subject}.`}</Text></View><Ionicons name="chevron-forward" size={18} color="#7C6A8F"/></Pressable>
-  <View style={[s.timerCard,running&&s.timerLive]}><View style={[s.status,running&&s.statusLive]}><View style={[s.dot,running&&s.dotLive]}/><Text style={[s.statusText,running&&s.statusTextLive]}>{running?"FOCUSING":elapsed?"PAUSED":"READY"}</Text></View><Text style={s.timerLabel}>CURRENT LAP</Text><Text style={[s.clock,simple&&s.clockSimple]}>{clock(currentLap)}</Text>{!simple?<><View style={s.units}><Text style={s.unit}>HOURS</Text><Text style={s.unit}>MINUTES</Text><Text style={s.unit}>SECONDS</Text></View><View style={s.totalRow}><Text style={s.totalLabel}>SESSION TOTAL</Text><Text style={s.totalValue}>{clock(running?now():elapsed)}</Text><View style={s.totalDivider}/><Text style={s.totalLabel}>TODAY</Text><Text style={s.totalValue}>{clock((todaySeconds*1000)+elapsed)}</Text></View></>:null}</View>
-  {elapsed<=0&&!running?<Pressable onPress={start} style={s.start}><View style={s.play}><Ionicons name="play" size={24} color="#160B20"/></View><View style={{flex:1}}><Text style={s.startTitle}>Start session</Text><Text style={s.startSub}>Begin when you are ready.</Text></View></Pressable>:<><Pressable onPress={addLap} disabled={currentLap<=0} style={[s.lap,currentLap<=0&&s.dim]}><Ionicons name="flag" size={24} color="#FFF"/><Text style={s.lapText}>LAP</Text><Text style={s.lapHint}>Save this focused interval</Text></Pressable><View style={s.controls}><Pressable onPress={running?pause:start} style={[s.control,running&&s.pause]}><Ionicons name={running?"pause":"play"} size={19} color="#FFF"/><Text style={s.controlText}>{running?"Pause":"Resume"}</Text></Pressable><Pressable onPress={resetLap} disabled={currentLap<=0} style={[s.control,currentLap<=0&&s.dim]}><Ionicons name="refresh" size={18} color="#D9DDE2"/><Text style={s.controlText}>Reset lap</Text></Pressable></View><Pressable onPress={()=>setFinishOpen(true)} style={s.finish}><Ionicons name="checkmark-circle-outline" size={20} color="#93D4A9"/><Text style={s.finishText}>Finish & save session</Text></Pressable></>}
-  {!simple?<View style={s.laps}><View style={s.lapsHead}><View><Text style={s.lapsTitle}>Lap history</Text><Text style={s.lapsSub}>Use laps for questions, chapters or study blocks.</Text></View><View style={s.count}><Text style={s.countText}>{laps.length}</Text></View></View>{laps.length?laps.map((item,index)=><View key={item.id} style={[s.lapRow,index===0&&s.latest]}><View style={s.lapNo}><Text style={s.lapNoText}>{item.number}</Text></View><View style={{flex:1}}><Text style={s.lapName}>Lap {item.number}</Text><Text style={s.lapMeta}>Total {clock(item.total)}</Text></View><Text style={s.lapTime}>{clock(item.duration)}</Text></View>):<View style={s.empty}><Ionicons name="flag-outline" size={28} color="#596473"/><Text style={s.emptyTitle}>No laps yet</Text><Text style={s.emptySub}>Tap LAP after your first focused interval.</Text></View>}</View>:null}
-  {error?<View style={s.error}><Ionicons name="alert-circle-outline" size={19} color="#E6A0AD"/><Text style={s.errorText}>{error}</Text></View>:null}<Text style={s.safe}>Your running timer is saved automatically while you study.</Text>
- </ScrollView>
- <Modal visible={goalOpen} transparent animationType="fade" onRequestClose={()=>setGoalOpen(false)}><View style={s.overlay}><Pressable style={StyleSheet.absoluteFill} onPress={()=>setGoalOpen(false)}/><View style={s.modal}><View style={s.modalIcon}><Ionicons name="flag-outline" size={26} color="#E4C5FA"/></View><Text style={s.modalTitle}>Set a goal for {subject}</Text><Text style={s.modalSub}>Keep it specific enough that you know when the session is finished.</Text><TextInput value={goalDraft} onChangeText={setGoalDraft} multiline placeholder="e.g. Finish 20 mechanics questions" placeholderTextColor="#596676" style={s.goalInput}/><Pressable onPress={saveGoal} style={s.save}><Text style={s.saveText}>Save goal</Text></Pressable></View></View></Modal>
- <Modal visible={finishOpen} transparent animationType="fade" onRequestClose={()=>setFinishOpen(false)}><View style={s.overlay}><Pressable style={StyleSheet.absoluteFill} onPress={()=>setFinishOpen(false)}/><View style={s.modal}><View style={s.modalIcon}><Ionicons name="checkmark-done-outline" size={28} color="#AEE1BF"/></View><Text style={s.modalTitle}>Finish this study session?</Text><Text style={s.modalTime}>{clock(running?now():elapsed)}</Text><Text style={s.modalSub}>Your total time, laps and classification will be saved before the review screen opens.</Text><Pressable disabled={saving} onPress={save} style={[s.save,saving&&s.dim]}><Text style={s.saveText}>{saving?"Saving…":"Save session"}</Text></Pressable><Pressable onPress={()=>setFinishOpen(false)} style={s.keep}><Text style={s.keepText}>Keep studying</Text></Pressable><Pressable onPress={()=>setDiscardOpen(true)} style={s.discardLink}><Text style={s.discardLinkText}>Discard session</Text></Pressable></View></View></Modal>
- <Modal visible={discardOpen} transparent animationType="fade" onRequestClose={()=>setDiscardOpen(false)}><View style={s.overlay}><Pressable style={StyleSheet.absoluteFill} onPress={()=>setDiscardOpen(false)}/><View style={s.modal}><Text style={s.modalTitle}>Discard this session?</Text><Text style={s.modalSub}>Unsaved timer time will be deleted and cannot be restored.</Text><Pressable onPress={discard} style={s.discard}><Text style={s.discardText}>Discard session</Text></Pressable><Pressable onPress={()=>setDiscardOpen(false)} style={s.keep}><Text style={s.keepText}>Cancel</Text></Pressable></View></View></Modal>
- </View></Screen>
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  BackHandler,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import Screen from "../components/Screen";
+import { useSocial } from "../context/SocialContext";
+import { useStudy, type PaperSection, type StudyType } from "../context/StudyContext";
+import { mergeSessionIntent, readSessionIntent } from "../lib/sessionIntent";
+import {
+  clearActiveStudyTimer,
+  elapsedFromPersistedTimer,
+  readActiveStudyTimer,
+  writeActiveStudyTimer,
+  type PersistedStudyTimer,
+} from "../lib/timerPersistence";
+
+type Lap = { id: number; number: number; duration: number; total: number };
+
+const TYPES: StudyType[] = [
+  "Study Session",
+  "Revision",
+  "Tute Questions",
+  "Past Papers",
+  "Paper Review",
+  "Paper Correction",
+  "Paper Discussion",
+  "Class",
+];
+
+const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+const clock = (milliseconds: number) => {
+  const total = Math.max(0, Math.floor(milliseconds / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+const labelType = (value: StudyType) => (value === "Revision" ? "Revise" : value);
+
+export default function StopwatchClassic() {
+  const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const compact = height < 720 || width < 390;
+  const params = useLocalSearchParams<{
+    subjectName?: string | string[];
+    topicName?: string | string[];
+    studyType?: string | string[];
+    paperYear?: string | string[];
+    paperSection?: string | string[];
+    attemptNo?: string | string[];
+    assignmentId?: string | string[];
+    assignmentTitle?: string | string[];
+    goalText?: string | string[];
+  }>();
+
+  const incoming = one(params.studyType) as StudyType | undefined;
+  const initialType = TYPES.includes(incoming as StudyType) ? (incoming as StudyType) : "Study Session";
+  const section = one(params.paperSection);
+  const { addSession, todaySeconds } = useStudy();
+  const { setStudying } = useSocial();
+
+  const [meta, setMeta] = useState({
+    subjectName: one(params.subjectName) ?? (null as string | null),
+    topicName: one(params.topicName) ?? (null as string | null),
+    studyType: initialType,
+    paperYear: one(params.paperYear) ? Number(one(params.paperYear)) : (null as number | null),
+    paperSection: (["MCQ", "Essay", "Full Paper"] as string[]).includes(section ?? "")
+      ? (section as PaperSection)
+      : null,
+    attemptNo: one(params.attemptNo) ? Number(one(params.attemptNo)) : (null as number | null),
+  });
+  const [elapsed, setElapsed] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [laps, setLaps] = useState<Lap[]>([]);
+  const [lapStart, setLapStart] = useState(0);
+  const [finishOpen, setFinishOpen] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [goal, setGoal] = useState("");
+  const [goalDraft, setGoalDraft] = useState("");
+  const [focusMode, setFocusMode] = useState(false);
+
+  const started = useRef(new Date());
+  const runStart = useRef<number | null>(null);
+  const acc = useRef(0);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const currentLap = Math.max(0, elapsed - lapStart);
+  const subject = meta.subjectName ?? "Quick Study";
+  const topic = meta.topicName ?? "General";
+  const sessionName = one(params.assignmentTitle) ?? (topic !== "General" ? topic : subject);
+
+  const now = () => (runStart.current == null ? acc.current : acc.current + Date.now() - runStart.current);
+  const clearTicker = () => {
+    if (timer.current) {
+      clearInterval(timer.current);
+      timer.current = null;
+    }
+  };
+
+  const persist = (
+    isRunning = running,
+    accumulated = acc.current,
+    runStartedAt = runStart.current,
+    nextLaps = laps,
+    nextLapStart = lapStart,
+  ) => {
+    const snapshot: PersistedStudyTimer = {
+      version: 1,
+      running: isRunning,
+      accumulatedMilliseconds: accumulated,
+      runStartedAtEpoch: runStartedAt,
+      sessionStartedAtIso: started.current.toISOString(),
+      lapStartedAtMilliseconds: nextLapStart,
+      laps: nextLaps,
+      subjectName: meta.subjectName,
+      topicName: meta.topicName,
+      studyType: meta.studyType,
+      paperYear: meta.paperYear,
+      paperSection: meta.paperSection,
+      attemptNo: meta.attemptNo,
+      updatedAtEpoch: Date.now(),
+    };
+    writeActiveStudyTimer(snapshot).catch(() => undefined);
+  };
+
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const [intent, saved] = await Promise.all([readSessionIntent(), readActiveStudyTimer()]);
+      if (!live) return;
+      const incomingGoal = one(params.goalText) ?? intent?.goalText ?? "";
+      setGoal(incomingGoal);
+      setGoalDraft(incomingGoal);
+      if (!saved) return;
+
+      started.current = new Date(saved.sessionStartedAtIso);
+      acc.current = saved.accumulatedMilliseconds;
+      runStart.current = saved.running ? saved.runStartedAtEpoch : null;
+      setElapsed(elapsedFromPersistedTimer(saved));
+      setLapStart(saved.lapStartedAtMilliseconds);
+      setLaps(saved.laps ?? []);
+      setRunning(saved.running);
+      setMeta({
+        subjectName: saved.subjectName ?? null,
+        topicName: saved.topicName ?? null,
+        studyType: (saved.studyType as StudyType) ?? "Study Session",
+        paperYear: saved.paperYear ?? null,
+        paperSection: (saved.paperSection as PaperSection | null) ?? null,
+        attemptNo: saved.attemptNo ?? null,
+      });
+      if (saved.running) {
+        timer.current = setInterval(() => setElapsed(now()), 250);
+        setStudying(true, saved.subjectName ?? undefined, saved.topicName ?? undefined).catch(() => undefined);
+      }
+    })();
+    return () => {
+      live = false;
+      clearTicker();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(
+      () => setStudying(true, meta.subjectName ?? undefined, meta.topicName ?? undefined).catch(() => undefined),
+      60000,
+    );
+    return () => clearInterval(id);
+  }, [meta.subjectName, meta.topicName, running, setStudying]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const doc = (globalThis as any).document;
+    if (!doc?.addEventListener) return;
+    const handleFullscreenChange = () => setFocusMode(Boolean(doc.fullscreenElement));
+    doc.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => doc.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const start = () => {
+    if (running) return;
+    if (elapsed === 0) {
+      started.current = new Date();
+      acc.current = 0;
+    } else {
+      acc.current = elapsed;
+    }
+    const epoch = Date.now();
+    runStart.current = epoch;
+    setRunning(true);
+    setError(null);
+    clearTicker();
+    timer.current = setInterval(() => setElapsed(now()), 250);
+    persist(true, acc.current, epoch);
+    setStudying(true, meta.subjectName ?? undefined, meta.topicName ?? undefined).catch(() => undefined);
+  };
+
+  const pause = () => {
+    if (!running) return elapsed;
+    const value = now();
+    acc.current = value;
+    runStart.current = null;
+    setElapsed(value);
+    setRunning(false);
+    clearTicker();
+    persist(false, value, null);
+    setStudying(false).catch(() => undefined);
+    return value;
+  };
+
+  const addLap = () => {
+    const total = running ? now() : elapsed;
+    const duration = Math.max(0, total - lapStart);
+    if (duration <= 0) return;
+    const next = [{ id: Date.now(), number: laps.length + 1, duration, total }, ...laps];
+    setElapsed(total);
+    setLapStart(total);
+    setLaps(next);
+    persist(running, running ? acc.current : total, running ? runStart.current : null, next, total);
+  };
+
+  const resetLap = () => {
+    const total = running ? now() : elapsed;
+    if (total <= lapStart) return;
+    setElapsed(total);
+    setLapStart(total);
+    persist(running, running ? acc.current : total, running ? runStart.current : null, laps, total);
+  };
+
+  const toggleFullscreen = async () => {
+    if (Platform.OS !== "web") {
+      setFocusMode((value) => !value);
+      return;
+    }
+    const doc = (globalThis as any).document;
+    try {
+      if (doc?.fullscreenElement) {
+        await doc.exitFullscreen?.();
+      } else {
+        await doc?.documentElement?.requestFullscreen?.();
+      }
+    } catch {
+      setFocusMode((value) => !value);
+    }
+  };
+
+  const goHome = () => router.replace("/(tabs)");
+  const requestExit = () => (elapsed > 0 || running ? setFinishOpen(true) : goHome());
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      requestExit();
+      return true;
+    });
+    return () => sub.remove();
+  }, [elapsed, running]);
+
+  const saveGoal = async () => {
+    const clean = goalDraft.trim();
+    setGoal(clean);
+    await mergeSessionIntent({ goalText: clean || null });
+    setGoalOpen(false);
+  };
+
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const final = running ? pause() : elapsed;
+      const durationSeconds = Math.floor(final / 1000);
+      if (durationSeconds <= 0) {
+        await clearActiveStudyTimer();
+        goHome();
+        return;
+      }
+      const id = await addSession({
+        subjectName: subject,
+        topicName: topic,
+        studyType: meta.studyType,
+        startedAt: started.current.toISOString(),
+        durationSeconds,
+        paperYear: meta.paperYear,
+        paperSection: meta.paperSection,
+        attemptNo: meta.attemptNo,
+        laps: laps
+          .slice()
+          .reverse()
+          .map((item) => ({ number: item.number, duration: item.duration, total: item.total })),
+      });
+      await clearActiveStudyTimer();
+      await setStudying(false).catch(() => undefined);
+      router.replace({
+        pathname: "/session-complete",
+        params: {
+          sessionId: id,
+          duration: String(durationSeconds),
+          subjectName: subject,
+          topicName: topic,
+          studyType: meta.studyType,
+          assignmentId: one(params.assignmentId),
+          assignmentTitle: one(params.assignmentTitle),
+        },
+      });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save this session.");
+      setFinishOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const discard = async () => {
+    if (running) pause();
+    await clearActiveStudyTimer();
+    await setStudying(false).catch(() => undefined);
+    setDiscardOpen(false);
+    setFinishOpen(false);
+    goHome();
+  };
+
+  const totalNow = running ? now() : elapsed;
+
+  return (
+    <Screen>
+      <View style={s.root}>
+        <View style={[s.top, focusMode && s.topFocus]}>
+          {!focusMode ? (
+            <Pressable onPress={requestExit} style={s.iconButton} accessibilityLabel="Back">
+              <Ionicons name="arrow-back" size={20} color="#DDE2E8" />
+            </Pressable>
+          ) : null}
+          <View style={s.sessionMeta}>
+            {!focusMode ? <Text style={s.kicker}>{labelType(meta.studyType).toUpperCase()}</Text> : null}
+            <Text numberOfLines={1} style={[s.title, focusMode && s.titleFocus]}>{sessionName}</Text>
+            {!focusMode ? <Text numberOfLines={1} style={s.sub}>{subject}{topic !== "General" ? ` · ${topic}` : ""}</Text> : null}
+          </View>
+          <Pressable onPress={toggleFullscreen} style={s.iconButton} accessibilityLabel={focusMode ? "Exit full screen" : "Full screen"}>
+            <Ionicons name={focusMode ? "contract-outline" : "expand-outline"} size={20} color="#C7CDD5" />
+          </Pressable>
+        </View>
+
+        <View style={[s.body, compact && s.bodyCompact, focusMode && s.bodyFocus]}>
+          {!focusMode ? (
+            <Pressable onPress={() => setGoalOpen(true)} style={s.goal}>
+              <Ionicons name={goal ? "flag" : "flag-outline"} size={17} color="#9DA7B2" />
+              <View style={s.goalCopy}>
+                <Text style={s.goalLabel}>{goal ? "GOAL" : "SESSION GOAL"}</Text>
+                <Text numberOfLines={1} style={s.goalText}>{goal || `Set a clear goal for ${subject}`}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#68727E" />
+            </Pressable>
+          ) : null}
+
+          <View style={[s.timerSection, compact && s.timerSectionCompact]}>
+            <View style={[s.timerCard, compact && s.timerCardCompact]}>
+              <View style={s.statusRow}>
+                <View style={[s.dot, running && s.dotLive]} />
+                <Text style={s.statusText}>{running ? "FOCUSING" : elapsed ? "PAUSED" : "READY"}</Text>
+              </View>
+              <Text style={s.timerLabel}>CURRENT LAP</Text>
+              <Text style={[s.clock, compact && s.clockCompact]}>{clock(currentLap)}</Text>
+              <View style={s.totalRow}>
+                <View style={s.totalCell}>
+                  <Text style={s.totalLabel}>SESSION TOTAL</Text>
+                  <Text style={s.totalValue}>{clock(totalNow)}</Text>
+                </View>
+                {!focusMode ? <View style={s.totalDivider} /> : null}
+                {!focusMode ? (
+                  <View style={s.totalCell}>
+                    <Text style={s.totalLabel}>TODAY</Text>
+                    <Text style={s.totalValue}>{clock(todaySeconds * 1000 + elapsed)}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
+
+            {elapsed <= 0 && !running ? (
+              <Pressable onPress={start} style={s.startButton}>
+                <Ionicons name="play" size={19} color="#E8EDF2" />
+                <Text style={s.startText}>Start session</Text>
+              </Pressable>
+            ) : (
+              <>
+                <View style={s.controls}>
+                  <Pressable onPress={running ? pause : start} style={s.controlButton}>
+                    <Ionicons name={running ? "pause" : "play"} size={18} color="#E4E8ED" />
+                    <Text style={s.controlText}>{running ? "Pause" : "Resume"}</Text>
+                  </Pressable>
+                  <Pressable onPress={addLap} disabled={currentLap <= 0} style={[s.controlButton, currentLap <= 0 && s.dim]}>
+                    <Ionicons name="flag-outline" size={18} color="#E4E8ED" />
+                    <Text style={s.controlText}>Lap</Text>
+                  </Pressable>
+                  <Pressable onPress={resetLap} disabled={currentLap <= 0} style={[s.controlButton, currentLap <= 0 && s.dim]}>
+                    <Ionicons name="refresh-outline" size={18} color="#E4E8ED" />
+                    <Text style={s.controlText}>Reset</Text>
+                  </Pressable>
+                </View>
+                <Pressable onPress={() => setFinishOpen(true)} style={s.finishButton}>
+                  <Ionicons name="checkmark-circle-outline" size={19} color="#9CB3A3" />
+                  <Text style={s.finishText}>Finish & save session</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+
+          <View style={s.lapsPanel}>
+            <View style={s.lapsHead}>
+              <View>
+                <Text style={s.lapsTitle}>Laps</Text>
+                <Text style={s.lapsSub}>Only this list scrolls</Text>
+              </View>
+              <Text style={s.lapCount}>{laps.length}</Text>
+            </View>
+            <ScrollView
+              style={s.lapsScroll}
+              contentContainerStyle={laps.length ? s.lapsContent : s.emptyContent}
+              showsVerticalScrollIndicator
+              nestedScrollEnabled
+            >
+              {laps.length ? (
+                laps.map((item) => (
+                  <View key={item.id} style={s.lapRow}>
+                    <Text style={s.lapNumber}>{item.number}</Text>
+                    <View style={s.lapCopy}>
+                      <Text style={s.lapName}>Lap {item.number}</Text>
+                      <Text style={s.lapMeta}>Total {clock(item.total)}</Text>
+                    </View>
+                    <Text style={s.lapTime}>{clock(item.duration)}</Text>
+                  </View>
+                ))
+              ) : (
+                <View style={s.empty}>
+                  <Ionicons name="flag-outline" size={24} color="#59636E" />
+                  <Text style={s.emptyTitle}>No laps yet</Text>
+                  <Text style={s.emptySub}>Tap Lap after a focused interval.</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+
+          {error ? (
+            <View style={s.error}>
+              <Ionicons name="alert-circle-outline" size={17} color="#C79BA2" />
+              <Text style={s.errorText}>{error}</Text>
+            </View>
+          ) : null}
+          {!focusMode ? <Text style={s.safe}>Timer progress is saved automatically.</Text> : null}
+        </View>
+
+        <Modal visible={goalOpen} transparent animationType="fade" onRequestClose={() => setGoalOpen(false)}>
+          <View style={s.overlay}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setGoalOpen(false)} />
+            <View style={s.modal}>
+              <Text style={s.modalTitle}>Session goal</Text>
+              <Text style={s.modalSub}>Keep it short and specific.</Text>
+              <TextInput
+                value={goalDraft}
+                onChangeText={setGoalDraft}
+                multiline
+                placeholder="e.g. Finish 20 mechanics questions"
+                placeholderTextColor="#59636E"
+                style={s.goalInput}
+              />
+              <Pressable onPress={saveGoal} style={s.modalPrimary}>
+                <Text style={s.modalPrimaryText}>Save goal</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal visible={finishOpen} transparent animationType="fade" onRequestClose={() => setFinishOpen(false)}>
+          <View style={s.overlay}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setFinishOpen(false)} />
+            <View style={s.modal}>
+              <Text style={s.modalTitle}>Finish this study session?</Text>
+              <Text style={s.modalTime}>{clock(totalNow)}</Text>
+              <Text style={s.modalSub}>Your total time and laps will be saved before the review screen opens.</Text>
+              <Pressable disabled={saving} onPress={save} style={[s.modalPrimary, saving && s.dim]}>
+                <Text style={s.modalPrimaryText}>{saving ? "Saving…" : "Finish & save session"}</Text>
+              </Pressable>
+              <Pressable onPress={() => setFinishOpen(false)} style={s.modalSecondary}>
+                <Text style={s.modalSecondaryText}>Keep studying</Text>
+              </Pressable>
+              <Pressable onPress={() => setDiscardOpen(true)} style={s.discardLink}>
+                <Text style={s.discardLinkText}>Discard session</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal visible={discardOpen} transparent animationType="fade" onRequestClose={() => setDiscardOpen(false)}>
+          <View style={s.overlay}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setDiscardOpen(false)} />
+            <View style={s.modal}>
+              <Text style={s.modalTitle}>Discard this session?</Text>
+              <Text style={s.modalSub}>Unsaved timer time will be deleted and cannot be restored.</Text>
+              <Pressable onPress={discard} style={s.discardButton}>
+                <Text style={s.discardText}>Discard session</Text>
+              </Pressable>
+              <Pressable onPress={() => setDiscardOpen(false)} style={s.modalSecondary}>
+                <Text style={s.modalSecondaryText}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    </Screen>
+  );
 }
-const s=StyleSheet.create({root:{flex:1,backgroundColor:"#080D14"},top:{minHeight:72,paddingHorizontal:14,paddingVertical:10,flexDirection:"row",alignItems:"center",gap:10,borderBottomWidth:1,borderBottomColor:"#202A36"},back:{width:42,height:42,borderRadius:14,backgroundColor:"#151D27",alignItems:"center",justifyContent:"center"},kicker:{color:"#A68AC5",fontSize:9,fontWeight:"900",letterSpacing:1.1},title:{color:"#F2F4F6",fontSize:16,fontWeight:"900",marginTop:2},sub:{color:"#768394",fontSize:10,marginTop:2},toggle:{flexDirection:"row",backgroundColor:"#111923",borderRadius:13,padding:3,borderWidth:1,borderColor:"#283546"},togglePart:{minWidth:53,height:32,borderRadius:10,alignItems:"center",justifyContent:"center"},toggleOn:{backgroundColor:"#38264E"},toggleText:{color:"#778496",fontSize:9,fontWeight:"900"},toggleTextOn:{color:"#E7D8F7"},content:{padding:16,paddingBottom:48,maxWidth:760,width:"100%",alignSelf:"center"},goal:{minHeight:68,borderRadius:18,backgroundColor:"#141A23",borderWidth:1,borderColor:"#303C4A",padding:12,flexDirection:"row",alignItems:"center",gap:10,marginBottom:12},goalSet:{backgroundColor:"#201B16",borderColor:"#5A4825"},goalIcon:{width:42,height:42,borderRadius:13,backgroundColor:"#2A2035",alignItems:"center",justifyContent:"center"},goalLabel:{color:"#A98EC5",fontSize:9,fontWeight:"900",letterSpacing:.8},goalText:{color:"#E5E9EE",fontSize:12.5,fontWeight:"800",marginTop:3,lineHeight:17},timerCard:{borderRadius:28,backgroundColor:"#101720",borderWidth:1,borderColor:"#2C3948",padding:22,alignItems:"center"},timerLive:{borderColor:"#694F82",backgroundColor:"#151520"},status:{height:28,borderRadius:14,backgroundColor:"#18212B",paddingHorizontal:10,flexDirection:"row",alignItems:"center",gap:6},statusLive:{backgroundColor:"#241C2E"},dot:{width:7,height:7,borderRadius:4,backgroundColor:"#718093"},dotLive:{backgroundColor:"#C39AF0"},statusText:{color:"#8794A4",fontSize:9,fontWeight:"900"},statusTextLive:{color:"#D5BCEC"},timerLabel:{color:"#798697",fontSize:10,fontWeight:"900",letterSpacing:1.1,marginTop:18},clock:{color:"#F7F7F8",fontSize:55,fontWeight:"300",letterSpacing:1.5,marginTop:4},clockSimple:{fontSize:61},units:{width:"100%",maxWidth:390,flexDirection:"row",justifyContent:"space-around",marginTop:2},unit:{color:"#596676",fontSize:8,fontWeight:"900"},totalRow:{marginTop:17,minHeight:45,borderRadius:14,backgroundColor:"#0C1219",paddingHorizontal:12,flexDirection:"row",alignItems:"center",gap:8},totalLabel:{color:"#657384",fontSize:8,fontWeight:"900"},totalValue:{color:"#D5DCE4",fontSize:11,fontWeight:"900"},totalDivider:{width:1,height:22,backgroundColor:"#2C3743",marginHorizontal:4},start:{minHeight:68,borderRadius:20,backgroundColor:"#D0AEF7",paddingHorizontal:14,flexDirection:"row",alignItems:"center",gap:11,marginTop:14},play:{width:42,height:42,borderRadius:14,backgroundColor:"#FFFFFF55",alignItems:"center",justifyContent:"center"},startTitle:{color:"#160B20",fontSize:16,fontWeight:"900"},startSub:{color:"#4C365F",fontSize:10.5,fontWeight:"700",marginTop:2},lap:{minHeight:66,borderRadius:20,backgroundColor:"#734CA0",marginTop:14,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:9},lapText:{color:"#FFF",fontSize:15,fontWeight:"900",letterSpacing:1},lapHint:{color:"#D8C6E8",fontSize:10},controls:{flexDirection:"row",gap:8,marginTop:8},control:{flex:1,minHeight:51,borderRadius:16,backgroundColor:"#1A2230",borderWidth:1,borderColor:"#314052",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7},pause:{backgroundColor:"#342B1D",borderColor:"#5A4827"},controlText:{color:"#E2E6EB",fontSize:12,fontWeight:"900"},finish:{minHeight:50,borderRadius:16,backgroundColor:"#112019",borderWidth:1,borderColor:"#31513E",marginTop:8,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7},finishText:{color:"#A9D4B7",fontSize:12,fontWeight:"900"},dim:{opacity:.4},laps:{marginTop:22},lapsHead:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:8},lapsTitle:{color:"#ECEFF2",fontSize:17,fontWeight:"900"},lapsSub:{color:"#748193",fontSize:10.5,marginTop:3},count:{width:38,height:38,borderRadius:12,backgroundColor:"#21182D",alignItems:"center",justifyContent:"center"},countText:{color:"#D7BFF2",fontSize:13,fontWeight:"900"},lapRow:{minHeight:64,borderRadius:16,backgroundColor:"#101720",borderWidth:1,borderColor:"#273341",paddingHorizontal:11,flexDirection:"row",alignItems:"center",gap:10,marginBottom:7},latest:{backgroundColor:"#171321",borderColor:"#423251"},lapNo:{width:35,height:35,borderRadius:11,backgroundColor:"#1C2631",alignItems:"center",justifyContent:"center"},lapNoText:{color:"#B7C1CD",fontSize:11,fontWeight:"900"},lapName:{color:"#DDE2E8",fontSize:12,fontWeight:"900"},lapMeta:{color:"#6E7C8D",fontSize:9.5,marginTop:2},lapTime:{color:"#D8BFF2",fontSize:13,fontWeight:"900"},empty:{padding:26,borderRadius:18,backgroundColor:"#0F161F",borderWidth:1,borderColor:"#26313E",alignItems:"center"},emptyTitle:{color:"#DDE2E8",fontSize:14,fontWeight:"900",marginTop:8},emptySub:{color:"#748193",fontSize:10.5,marginTop:4},error:{marginTop:12,borderRadius:15,backgroundColor:"#25161C",borderWidth:1,borderColor:"#5A3039",padding:11,flexDirection:"row",gap:8},errorText:{flex:1,color:"#DDA3AD",fontSize:10.5,lineHeight:16},safe:{color:"#667486",fontSize:10,textAlign:"center",marginTop:15},overlay:{flex:1,backgroundColor:"rgba(3,6,10,.82)",alignItems:"center",justifyContent:"center",padding:18},modal:{width:"100%",maxWidth:430,borderRadius:24,backgroundColor:"#101720",borderWidth:1,borderColor:"#42344F",padding:17},modalIcon:{width:48,height:48,borderRadius:15,backgroundColor:"#21182D",alignItems:"center",justifyContent:"center",marginBottom:11},modalTitle:{color:"#F0F2F5",fontSize:19,fontWeight:"900"},modalTime:{color:"#D8BDF4",fontSize:29,fontWeight:"900",marginTop:8},modalSub:{color:"#7D8998",fontSize:11,lineHeight:17,marginTop:6},goalInput:{minHeight:82,borderRadius:14,backgroundColor:"#0B1119",borderWidth:1,borderColor:"#3B3047",color:"#E8ECF0",padding:11,fontSize:12,textAlignVertical:"top",marginTop:12},save:{height:49,borderRadius:14,backgroundColor:"#D0AEF7",alignItems:"center",justifyContent:"center",marginTop:14},saveText:{color:"#160B20",fontSize:12.5,fontWeight:"900"},keep:{height:45,alignItems:"center",justifyContent:"center",marginTop:5},keepText:{color:"#CDB5E8",fontSize:11.5,fontWeight:"900"},discardLink:{alignItems:"center",padding:8},discardLinkText:{color:"#B77984",fontSize:10.5,fontWeight:"900"},discard:{height:48,borderRadius:14,backgroundColor:"#5B2933",alignItems:"center",justifyContent:"center",marginTop:14},discardText:{color:"#F0B6C0",fontSize:12,fontWeight:"900"}});
+
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#0A0E13" },
+  top: {
+    minHeight: 66,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1B222B",
+  },
+  topFocus: { minHeight: 50, borderBottomColor: "#171D24" },
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#11171E",
+    borderWidth: 1,
+    borderColor: "#222B35",
+  },
+  sessionMeta: { flex: 1, minWidth: 0 },
+  kicker: { color: "#77818D", fontSize: 8, fontWeight: "900", letterSpacing: 1.1 },
+  title: { color: "#E8ECF1", fontSize: 15, fontWeight: "900", marginTop: 2 },
+  titleFocus: { fontSize: 13, color: "#AEB6C0" },
+  sub: { color: "#697480", fontSize: 9.5, marginTop: 2 },
+  body: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 720,
+    alignSelf: "center",
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
+    gap: 8,
+    minHeight: 0,
+  },
+  bodyCompact: { paddingTop: 7, gap: 6 },
+  bodyFocus: { maxWidth: 820, paddingTop: 8 },
+  goal: {
+    minHeight: 42,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#202832",
+    backgroundColor: "#0F141A",
+    paddingHorizontal: 11,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+  },
+  goalCopy: { flex: 1, minWidth: 0 },
+  goalLabel: { color: "#6D7783", fontSize: 7.5, fontWeight: "900", letterSpacing: 0.8 },
+  goalText: { color: "#BFC6CE", fontSize: 10, fontWeight: "700", marginTop: 1 },
+  timerSection: { flexShrink: 0, gap: 7 },
+  timerSectionCompact: { gap: 5 },
+  timerCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#232C36",
+    backgroundColor: "#11161C",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  timerCardCompact: { paddingVertical: 8 },
+  statusRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 },
+  dot: { width: 6, height: 6, borderRadius: 6, backgroundColor: "#68727E" },
+  dotLive: { backgroundColor: "#92A99A" },
+  statusText: { color: "#7E8894", fontSize: 8, fontWeight: "900", letterSpacing: 1 },
+  timerLabel: { color: "#66717D", fontSize: 8, fontWeight: "800", letterSpacing: 0.8 },
+  clock: { color: "#EEF1F4", fontSize: 46, fontWeight: "500", letterSpacing: 1.5, marginTop: 2 },
+  clockCompact: { fontSize: 39 },
+  totalRow: {
+    marginTop: 7,
+    width: "100%",
+    maxWidth: 430,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  totalCell: { flex: 1, alignItems: "center" },
+  totalLabel: { color: "#616C78", fontSize: 7, fontWeight: "900", letterSpacing: 0.8 },
+  totalValue: { color: "#AEB6BF", fontSize: 11, fontWeight: "800", marginTop: 2 },
+  totalDivider: { width: 1, height: 24, backgroundColor: "#28313B" },
+  startButton: {
+    minHeight: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#2A333D",
+    backgroundColor: "#171D24",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  startText: { color: "#E5E9ED", fontSize: 12, fontWeight: "900" },
+  controls: { flexDirection: "row", gap: 7 },
+  controlButton: {
+    flex: 1,
+    minHeight: 43,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#28323C",
+    backgroundColor: "#141A21",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  controlText: { color: "#D5DAE0", fontSize: 10.5, fontWeight: "800" },
+  finishButton: {
+    minHeight: 42,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#2A3930",
+    backgroundColor: "#131A17",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  finishText: { color: "#B8C8BD", fontSize: 10.5, fontWeight: "900" },
+  lapsPanel: {
+    flex: 1,
+    minHeight: 0,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#202832",
+    backgroundColor: "#0F141A",
+    overflow: "hidden",
+  },
+  lapsHead: {
+    minHeight: 48,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: "#1D252E",
+  },
+  lapsTitle: { color: "#D8DDE3", fontSize: 12, fontWeight: "900" },
+  lapsSub: { color: "#66717D", fontSize: 8.5, marginTop: 1 },
+  lapCount: { color: "#8A949F", fontSize: 11, fontWeight: "900" },
+  lapsScroll: { flex: 1, minHeight: 0 },
+  lapsContent: { padding: 8, gap: 6 },
+  emptyContent: { flexGrow: 1, justifyContent: "center", padding: 12 },
+  lapRow: {
+    minHeight: 50,
+    borderRadius: 11,
+    backgroundColor: "#131920",
+    borderWidth: 1,
+    borderColor: "#202A33",
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+  },
+  lapNumber: { width: 24, color: "#7E8894", fontSize: 10, fontWeight: "900", textAlign: "center" },
+  lapCopy: { flex: 1 },
+  lapName: { color: "#D8DDE3", fontSize: 10.5, fontWeight: "800" },
+  lapMeta: { color: "#65707C", fontSize: 8.5, marginTop: 2 },
+  lapTime: { color: "#AAB2BC", fontSize: 11, fontVariant: ["tabular-nums"] },
+  empty: { alignItems: "center", justifyContent: "center" },
+  emptyTitle: { color: "#AAB2BC", fontSize: 11, fontWeight: "900", marginTop: 7 },
+  emptySub: { color: "#66717D", fontSize: 9, marginTop: 3 },
+  error: {
+    minHeight: 36,
+    borderRadius: 11,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    backgroundColor: "#1B1416",
+    borderWidth: 1,
+    borderColor: "#3A272C",
+  },
+  errorText: { flex: 1, color: "#CBA6AC", fontSize: 9 },
+  safe: { color: "#59636F", fontSize: 8.5, textAlign: "center" },
+  dim: { opacity: 0.38 },
+  overlay: { flex: 1, backgroundColor: "#00000088", alignItems: "center", justifyContent: "center", padding: 18 },
+  modal: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 20,
+    backgroundColor: "#121820",
+    borderWidth: 1,
+    borderColor: "#29333E",
+    padding: 18,
+  },
+  modalTitle: { color: "#E8ECF0", fontSize: 17, fontWeight: "900" },
+  modalTime: { color: "#D4D9DE", fontSize: 30, fontWeight: "600", marginTop: 10, fontVariant: ["tabular-nums"] },
+  modalSub: { color: "#7C8793", fontSize: 10.5, lineHeight: 16, marginTop: 7 },
+  goalInput: {
+    minHeight: 84,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#2A343E",
+    backgroundColor: "#0E1319",
+    color: "#E5E9ED",
+    padding: 11,
+    marginTop: 13,
+    textAlignVertical: "top",
+  },
+  modalPrimary: {
+    minHeight: 45,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#33403A",
+    backgroundColor: "#18211C",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 13,
+  },
+  modalPrimaryText: { color: "#D2DDD5", fontSize: 11, fontWeight: "900" },
+  modalSecondary: {
+    minHeight: 42,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#28313B",
+    backgroundColor: "#151B22",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  modalSecondaryText: { color: "#B5BDC6", fontSize: 10.5, fontWeight: "800" },
+  discardLink: { alignItems: "center", justifyContent: "center", minHeight: 38, marginTop: 4 },
+  discardLinkText: { color: "#8D7378", fontSize: 9.5, fontWeight: "700" },
+  discardButton: {
+    minHeight: 44,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "#432A2E",
+    backgroundColor: "#211518",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 13,
+  },
+  discardText: { color: "#D1A6AD", fontSize: 10.5, fontWeight: "900" },
+});
