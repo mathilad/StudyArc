@@ -86,6 +86,19 @@ jobs:
           org.gradle.daemon=false
           PROPS
 
+          cat >> android/app/proguard-rules.pro <<'PROGUARD'
+          # Expo Asset references APIs that are absent from this SDK 54 core at
+          # shrink time. These symbols are optional compatibility paths; allow
+          # R8 to optimize the release without treating them as fatal.
+          -dontwarn expo.modules.kotlin.services.FilePermissionService
+          -dontwarn expo.modules.kotlin.services.FilePermissionService$Permission
+          -dontwarn expo.modules.kotlin.types.AnyTypeCache
+          -dontwarn expo.modules.kotlin.types.descriptors.RawTypeDescriptor
+          -dontwarn expo.modules.kotlin.types.descriptors.TypeDescriptor
+          -dontwarn expo.modules.kotlin.types.descriptors.TypeDescriptorKt
+          -dontwarn expo.modules.kotlin.types.descriptors.TypeDescriptorOfKt
+          PROGUARD
+
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
