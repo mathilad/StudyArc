@@ -1,12 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useRef, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useStudent, type ClassSchedule, type NewClass } from "../context/StudentContext";
 import { validateClassSchedule } from "../lib/scheduleValidation";
 import { format12Hour, parseTime } from "../lib/time";
 import ClockTimePicker from "./ClockTimePicker";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const showMessage = (title: string, message: string) => {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    window.alert(`${title}\n\n${message}`);
+    return;
+  }
+  Alert.alert(title, message);
+};
 
 export default function ClassFormModal({
   visible,
@@ -46,10 +54,6 @@ export default function ClassFormModal({
       return;
     }
 
-    // Initialize the form only when the modal itself opens. Previously this effect
-    // also depended on availableSubjects/initialValue object identity, so unrelated
-    // parent/context rerenders while the modal was open could overwrite user edits
-    // and put start/end times back to defaults or their original values.
     const currentSubjects = availableSubjectsRef.current;
     const currentInitial = initialValueRef.current;
     if (currentInitial) {
@@ -83,24 +87,26 @@ export default function ClassFormModal({
   };
 
   const performSave = async (proposal: NewClass) => {
+    if (saving) return;
     setSaving(true);
     try {
       await onSave(initialValue ? { ...proposal, id: initialValue.id } : proposal);
       onClose();
     } catch (error) {
-      Alert.alert("Could not save class", error instanceof Error ? error.message : "Please try again.");
+      showMessage("Could not save class", error instanceof Error ? error.message : "Please try again.");
     } finally {
       setSaving(false);
     }
   };
 
   const save = async () => {
+    if (saving) return;
     if (!availableSubjects.length || !availableSubjects.includes(subjectName)) {
-      Alert.alert("Choose a stream subject", "Classes can only use subjects selected in your A/L stream.");
+      showMessage("Choose a stream subject", "Classes can only use subjects selected in your A/L stream.");
       return;
     }
     if (parseTime(endTime) <= parseTime(startTime)) {
-      Alert.alert("Check class time", "Class end time must be after the start time.");
+      showMessage("Check class time", "Class end time must be after the start time.");
       return;
     }
 
@@ -118,9 +124,17 @@ export default function ClassFormModal({
     };
     const conflicts = validateClassSchedule(proposal, classes, profile.wakeTime, profile.sleepTime, initialValue?.id);
     if (conflicts.length) {
+      const conflictMessage = conflicts.map((item) => `• ${item.message}`).join("\n");
+
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        const shouldSave = window.confirm(`Schedule conflict\n\n${conflictMessage}\n\nSave this class anyway?`);
+        if (shouldSave) await performSave(proposal);
+        return;
+      }
+
       Alert.alert(
         "Schedule conflict",
-        conflicts.map((item) => `• ${item.message}`).join("\n"),
+        conflictMessage,
         [
           { text: "Go back", style: "cancel" },
           { text: "Save anyway", onPress: () => { performSave(proposal).catch(() => undefined); } },
