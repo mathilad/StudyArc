@@ -22,6 +22,7 @@ jobs:
     env:
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
       EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NODE_ENV: production
 
     steps:
       - name: Checkout Study Arc
@@ -30,7 +31,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.19.4"
+          node-version: "22"
+          cache: npm
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
@@ -41,8 +43,11 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Align Expo SDK dependencies
+        run: npx expo install --fix --npm
 
       - name: Generate StudyArc brand assets
         run: |
@@ -91,9 +96,6 @@ jobs:
             --stacktrace \
             --max-workers=2 \
             -PreactNativeArchitectures=arm64-v8a \
-            -x :expo:lintVitalAnalyzeRelease \
-            -x :expo-updates:lintVitalAnalyzeRelease \
-            -x :expo-modules-core:lintVitalAnalyzeRelease \
             2>&1 | tee ../gradle-build.log
 
       - name: Upload Gradle diagnostics if build fails
@@ -105,61 +107,20 @@ jobs:
             gradle-build.log
             android/build/reports/problems/**
             android/app/build/reports/**
+            android/app/build/outputs/mapping/release/missing_rules.txt
           if-no-files-found: ignore
           retention-days: 7
 
       - name: Prepare Study Arc v1.2.0 files
         run: |
           mkdir -p output
-
-          APK=$(find android/app/build/outputs/apk/release \
-            -name "*.apk" \
-            -type f \
-            | head -n 1)
-
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -n 1)
           if [ -z "$APK" ]; then
             echo "APK was not generated."
             exit 1
           fi
-
           cp "$APK" output/StudyArc-v1.2.0-arm64-min.apk
           (cd output && zip -9 StudyArc-v1.2.0-arm64-min.zip StudyArc-v1.2.0-arm64-min.apk)
-
-          python - <<'PY'
-          import os, zipfile
-
-          roots = [
-              "app", "assets", "components", "constants", "context", "data",
-              "desktop", "hooks", "lib", "plugins", "public", "screens", "scripts", "types", "supabase"
-          ]
-          top = [
-              ".env.example", "app.json", "eas.json", "eslint.config.js", "expo-env.d.ts",
-              "package.json", "package-lock.json", "tsconfig.json", "BUILD_APK_WINDOWS.bat", "INSTALL_WINDOWS.bat"
-          ]
-          skip = {
-              "assets/images/react-logo.png", "assets/images/react-logo@2x.png",
-              "assets/images/react-logo@3x.png", "assets/images/partial-react-logo.png"
-          }
-          files = []
-          for root in roots:
-              if not os.path.exists(root):
-                  continue
-              for base, dirs, names in os.walk(root):
-                  dirs[:] = [d for d in dirs if d not in {"node_modules", ".expo", "dist", "build"}]
-                  for name in names:
-                      path = os.path.join(base, name).replace("\\", "/")
-                      if path not in skip:
-                          files.append(path)
-          files.extend(path for path in top if os.path.exists(path))
-          files = sorted(set(files))
-
-          out = "output/StudyArc-v1.2.0-min-source.zip"
-          with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
-              for path in files:
-                  zf.write(path, f"StudyArc-v1.2.0/{path}")
-          print(f"Created {out} with {len(files)} files")
-          PY
-
           ls -lh output
 
       - name: Upload minimum APK ZIP artifact
@@ -167,15 +128,6 @@ jobs:
         with:
           name: StudyArc-v1.2.0-Min-APK-ZIP
           path: output/StudyArc-v1.2.0-arm64-min.zip
-          if-no-files-found: error
-          compression-level: 0
-          retention-days: 30
-
-      - name: Upload minimum source ZIP
-        uses: actions/upload-artifact@v4
-        with:
-          name: StudyArc-v1.2.0-Min-Source
-          path: output/StudyArc-v1.2.0-min-source.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
@@ -189,4 +141,3 @@ jobs:
           files: |
             output/StudyArc-v1.2.0-arm64-min.apk
             output/StudyArc-v1.2.0-arm64-min.zip
-            output/StudyArc-v1.2.0-min-source.zip
