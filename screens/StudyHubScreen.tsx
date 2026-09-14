@@ -2,9 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams,useRouter } from "expo-router";
 import React from "react";
-import { Pressable,ScrollView,StyleSheet,Text,View } from "react-native";
+import { ScrollView,StyleSheet,Text,View } from "react-native";
+import MotionPressable from "../components/MotionPressable";
 import Screen from "../components/Screen";
 
+const Pressable=MotionPressable;
 type Tool={title:string;subtitle:string;icon:keyof typeof Ionicons.glyphMap;route:string;accent:string};
 type Group={title:string;subtitle:string;tools:Tool[]};
 const GROUPS:Group[]=[
