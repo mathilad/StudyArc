@@ -9,6 +9,7 @@ import Screen from "../components/Screen";
 import { useAppConfig } from "../context/AppConfigContext";
 import { useAuth } from "../context/AuthContext";
 import { useMonetization } from "../context/MonetizationContext";
+import { usePerformance } from "../context/PerformanceContext";
 import { usePhase } from "../context/PhaseContext";
 import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
 import { useSocial } from "../context/SocialContext";
@@ -25,6 +26,7 @@ export default function MoreScreen(){
  const{user,signOut}=useAuth();
  const{settings,isAdmin}=useAppConfig();
  const{access}=useMonetization();
+ const{performanceMode,isSmallPhone}=usePerformance();
  const{settings:phaseSettings}=usePhase();
  const{protectedTimes,classWeekOverrides}=useScheduleAdjustments();
  const{profile,classes,addClass,saveProfile,uploadAvatar,refreshStudentData}=useStudent();
@@ -40,10 +42,15 @@ export default function MoreScreen(){
  const handleSignOut=()=>{if(busy)return;setBusy(true);router.replace("/login");signOut().then(r=>{if(r.error)console.warn("Supabase local sign-out cleanup failed:",r.error)}).finally(()=>setBusy(false))};
  const openUrl=(url:string)=>Linking.openURL(url).catch(()=>Alert.alert("Could not open link","Please try again."));
  return <Screen><LinearGradient colors={["#100C18","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-  <Text style={s.title}>More</Text><Text style={s.subtitle}>Profile, study phase, routine, classes and support.</Text>
+  <Text style={s.title}>More</Text><Text style={s.subtitle}>Profile, study tools, routine, settings and support.</Text>
   <Pressable onPress={()=>router.push("/profile")} style={s.profilePress}><LinearGradient colors={["#2B1B40","#131B26"]} style={s.profileCard}><Pressable onPress={handleAvatar} style={s.avatar}>{profile.avatarUrl?<Image source={{uri:profile.avatarUrl}} style={s.avatarImage}/>:<Ionicons name="person" size={30} color="#E4D2FA"/>}<View style={s.camera}><Ionicons name="camera" size={11} color="#FFF"/></View></Pressable><View style={{flex:1}}><Text style={s.profileName}>{profile.fullName||"Add your name"}</Text><Text style={s.profileMail} numberOfLines={1}>{user?.email}</Text><Text style={s.profileMeta}>{profile.district || (profile.examYear ? `G.C.E. A/L ${profile.examYear}` : "Study Arc student")}</Text></View><Ionicons name="chevron-forward" size={20} color="#9278B3"/></LinearGradient></Pressable>
   <View style={s.metrics}><View style={s.metric}><Text style={s.metricLabel}>TOTAL STUDY</Text><Text style={s.metricValue}>{fmt(totalSeconds)}</Text></View><View style={s.vline}/><View style={s.metric}><Text style={s.metricLabel}>TODAY RANK</Text><Text style={s.metricValue}>{myRank?`#${myRank.rank}`:"—"}</Text></View><View style={s.vline}/><View style={s.metric}><Text style={s.metricLabel}>SESSIONS</Text><Text style={s.metricValue}>{sessions.length}</Text></View></View>
   {access&&access.state!=="ACTIVE_FREE"&&<View style={s.accessStrip}><Ionicons name={access.state==="PREMIUM"?"diamond-outline":"key-outline"} size={18} color="#D8BEF7"/><View style={{flex:1}}><Text style={s.accessTitle}>{access.state.replaceAll("_"," ")}</Text><Text style={s.accessSub}>Study Arc account access</Text></View><Pressable onPress={()=>router.push("/access")}><Text style={s.manage}>Manage</Text></Pressable></View>}
+
+  <Text style={s.section}>QUICK ACTIONS</Text>
+  <Pressable style={s.row} onPress={()=>router.push("/search")}><View style={s.rowIcon}><Ionicons name="search" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Search</Text><Text style={s.rowSub}>Find subjects, topics, sessions and study data</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
+  <Pressable style={s.row} onPress={()=>router.push("/quick-add")}><View style={s.rowIcon}><Ionicons name="add" size={22} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Quick add</Text><Text style={s.rowSub}>Add study items without leaving your current flow</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
+  <Pressable style={s.row} onPress={()=>router.push("/plan-insights")}><View style={s.rowIcon}><Ionicons name="git-compare-outline" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Plan changes</Text><Text style={s.rowSub}>Review adjustments Study Arc has made to your plan</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
 
   <Text style={s.section}>STUDY PLAN</Text>
   <Pressable style={s.row} onPress={()=>router.push("/study-phase")}><View style={[s.rowIcon,{backgroundColor:"#B784FF18"}]}><Ionicons name="flag-outline" size={21} color="#C6A0F4"/></View><View style={s.rowText}><Text style={s.rowTitle}>Study phase</Text><Text style={s.rowSub}>{phaseSettings.phase} · You decide when to change; Study Arc only suggests.</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
@@ -55,6 +62,7 @@ export default function MoreScreen(){
 
   <Text style={s.section}>SOCIAL STUDY</Text>
   <Pressable style={s.row} onPress={()=>router.push("/leaderboard")}><View style={[s.rowIcon,{backgroundColor:"#F0C96C16"}]}><Ionicons name="trophy-outline" size={21} color="#F0C96C"/></View><View style={s.rowText}><Text style={s.rowTitle}>Daily leaderboard</Text><Text style={s.rowSub}>Ranked by study time recorded today</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
+  <Pressable style={s.row} onPress={()=>router.push("/leaderboard-settings")}><View style={s.rowIcon}><Ionicons name="eye-off-outline" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Leaderboard visibility</Text><Text style={s.rowSub}>Choose whether you appear in rankings</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
   <Pressable style={s.row} onPress={()=>router.push("/friends")}><View style={[s.rowIcon,{backgroundColor:"#65D79A16"}]}><Ionicons name="people-outline" size={21} color="#65D79A"/></View><View style={s.rowText}><Text style={s.rowTitle}>Friends</Text><Text style={s.rowSub}>{friends.filter(x=>x.isStudying).length} studying now · Your code {friendCode}</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
 
   <Text style={s.section}>DAILY ROUTINE</Text>
@@ -66,7 +74,8 @@ export default function MoreScreen(){
   {classes.length===0?<View style={s.empty}><Ionicons name="calendar-outline" size={27} color="#5F6C7C"/><Text style={s.emptyText}>No weekly classes added yet.</Text></View>:classes.slice(0,5).map(c=><Pressable key={c.id} onPress={()=>router.push("/classes")} style={s.classRow}><View style={s.classDay}><Text style={s.classDayText}>{DAYS[c.dayOfWeek]}</Text></View><View style={{flex:1}}><Text style={s.rowTitle}>{c.subjectName} · {c.classType}</Text><Text style={s.rowSub}>{format12Hour(c.startTime)}–{format12Hour(c.endTime)} · {c.deliveryMode} · {Math.max(c.preReviewMinutes,c.classType==="Paper"?60:0)}m prep/review{c.deliveryMode==="Physical"?" · 90m travel each way":""}</Text></View><Ionicons name="chevron-forward" size={18} color="#657286"/></Pressable>)}
   <Pressable onPress={()=>router.push("/classes")}><Text style={s.manage}>Manage classes, missed weeks & protected time</Text></Pressable>
 
-  <Text style={s.section}>STUDY DATA</Text>
+  <Text style={s.section}>STUDY DATA & APP</Text>
+  <Pressable style={s.row} onPress={()=>router.push("/performance-settings")}><View style={s.rowIcon}><Ionicons name="speedometer-outline" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Phone performance</Text><Text style={s.rowSub}>{performanceMode?"Performance Mode is on":isSmallPhone?"Recommended for this phone":"Reduce rendering work on slower phones"}</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
   <Pressable style={s.row} onPress={()=>router.push("/test-mark")}><View style={s.rowIcon}><Ionicons name="stats-chart-outline" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Add test marks</Text><Text style={s.rowSub}>Track MCQ, essay and weak topics</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
   <Pressable style={s.row} onPress={()=>router.push("/revision")}><View style={s.rowIcon}><Ionicons name="refresh-outline" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Start a revision session</Text><Text style={s.rowSub}>Revise any topic whenever you want</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
   <Pressable style={s.row} onPress={()=>router.push("/notification-settings")}><View style={s.rowIcon}><Ionicons name="notifications-outline" size={21} color="#B784FF"/></View><View style={s.rowText}><Text style={s.rowTitle}>Notification controls</Text><Text style={s.rowSub}>Study, class, revision, paper and missed-plan reminders</Text></View><Ionicons name="chevron-forward" size={19} color="#657286"/></Pressable>
