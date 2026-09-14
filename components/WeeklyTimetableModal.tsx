@@ -1,81 +1,37 @@
-import { Ionicons } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system/legacy";
-import React,{useMemo,useState}from"react";
-import { Modal,Platform,Pressable,ScrollView,StyleSheet,Text,View } from "react-native";
-import { useAcademic } from "../context/AcademicContext";
-import { usePhase } from "../context/PhaseContext";
-import { usePlanning } from "../context/PlanningContext";
-import { useScheduleAdjustments } from "../context/ScheduleAdjustmentsContext";
-import { useStudent } from "../context/StudentContext";
-import { generateDailyPlan,type PlanBlock } from "../lib/planner";
-import { setRuntimeAssignments } from "../lib/timetableRuntime";
-import { parseTime } from "../lib/time";
-import StudyArcDialog from "./StudyArcDialog";
-
+import{Ionicons}from"@expo/vector-icons";
+import * as MediaLibrary from"expo-media-library";
+import React,{useMemo,useRef,useState}from"react";
+import{Modal,Platform,Pressable,ScrollView,StyleSheet,Text,View}from"react-native";
+import{captureRef}from"react-native-view-shot";
+import{useAcademic}from"../context/AcademicContext";
+import{usePhase}from"../context/PhaseContext";
+import{usePlanning}from"../context/PlanningContext";
+import{useScheduleAdjustments}from"../context/ScheduleAdjustmentsContext";
+import{useStudent}from"../context/StudentContext";
+import{SUBJECTS}from"../data/subjects";
+import{generateDailyPlan,type PlanBlock}from"../lib/planner";
+import{setRuntimeAssignments}from"../lib/timetableRuntime";
+import{parseTime}from"../lib/time";
+import StudyArcDialog from"./StudyArcDialog";
 const DAY=86400000;
 const startOfWeek=(d=new Date())=>{const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-x.getDay());return x};
 const addDays=(d:Date,n:number)=>new Date(d.getTime()+n*DAY);
-const minsLabel=(m:number)=>{const n=((m%1440)+1440)%1440,h=Math.floor(n/60),min=n%60,period=h>=12?"PM":"AM",hour=h%12||12;return `${hour}:${String(min).padStart(2,"0")} ${period}`};
+const minsLabel=(m:number)=>{const n=((m%1440)+1440)%1440,h=Math.floor(n/60),min=n%60,period=h>=12?"PM":"AM",hour=h%12||12;return`${hour}:${String(min).padStart(2,"0")} ${period}`};
+const cleanTitle=(v:string)=>v.replace("Repetitive task · ","");
 const escapeXml=(v:string)=>v.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;");
-const short=(v:string,n=24)=>v.length<=n?v:`${v.slice(0,n-1)}…`;
-const typeLabel=(block:PlanBlock|null)=>block?short(block.title.replace("Repetitive task · ",""),22):"";
-
-type Props={visible:boolean;onClose:()=>void};
-type DialogState={title:string;message:string;tone?:"info"|"success"|"warning"|"danger"}|null;
-
+const wrap=(text:string,max=20)=>{const words=text.split(/\s+/),lines:string[]=[];let line="";for(const word of words){const next=line?`${line} ${word}`:word;if(next.length>max&&line){lines.push(line);line=word}else line=next}if(line)lines.push(line);return lines.length?lines:[""]};
+const colorFor=(b:PlanBlock|null)=>{if(!b)return"#33404D";if(b.subjectName&&(SUBJECTS as any)[b.subjectName]?.color)return(SUBJECTS as any)[b.subjectName].color;return b.type==="break"?"#6C7C8F":b.type==="class"?"#E7B15E":b.type==="meal"?"#78C7A0":b.type==="routine"?"#9E83C0":"#8795A7"};
+type Props={visible:boolean;onClose:()=>void};type DialogState={title:string;message:string;tone?:"info"|"success"|"warning"|"danger"}|null;
 export default function WeeklyTimetableModal({visible,onClose}:Props){
- const{profile,classes,topicProgress,testMarks,subtopicCoverage}=useStudent();
- const{settings:phaseSettings}=usePhase();
- const{preferences}=usePlanning();
- const{protectedTimes,classWeekOverrides}=useScheduleAdjustments();
- const{assignments}=useAcademic();
- const[dialog,setDialog]=useState<DialogState>(null),[exporting,setExporting]=useState(false);
- setRuntimeAssignments(assignments);
- const weekStart=useMemo(()=>startOfWeek(),[visible]);
- const days=useMemo(()=>Array.from({length:7},(_,i)=>addDays(weekStart,i)),[weekStart]);
- const phase=useMemo(()=>({phase:phaseSettings.phase,examSubjects:phaseSettings.examSubjects,examTopics:phaseSettings.examTopics,doneSubjects:phaseSettings.doneSubjects}),[phaseSettings]);
+ const{profile,classes,topicProgress,testMarks,subtopicCoverage}=useStudent(),{settings:phaseSettings}=usePhase(),{preferences}=usePlanning(),{protectedTimes,classWeekOverrides}=useScheduleAdjustments(),{assignments}=useAcademic();
+ const[dialog,setDialog]=useState<DialogState>(null),[exporting,setExporting]=useState(false);const tableRef=useRef<View>(null);setRuntimeAssignments(assignments);
+ const weekStart=useMemo(()=>startOfWeek(),[visible]),days=useMemo(()=>Array.from({length:7},(_,i)=>addDays(weekStart,i)),[weekStart]),phase=useMemo(()=>({phase:phaseSettings.phase,examSubjects:phaseSettings.examSubjects,examTopics:phaseSettings.examTopics,doneSubjects:phaseSettings.doneSubjects}),[phaseSettings]);
  const plans=useMemo(()=>days.map(d=>generateDailyPlan(d,profile,classes,topicProgress,testMarks,subtopicCoverage,phase)),[days,profile,classes,topicProgress,testMarks,subtopicCoverage,phase,protectedTimes,classWeekOverrides,preferences,assignments]);
- const wake=parseTime(profile.wakeTime||"06:00"),rawSleep=parseTime(profile.sleepTime||"22:30"),sleep=rawSleep<=wake?rawSleep+1440:rawSleep;
- const start=Math.floor(wake/60)*60,end=Math.ceil(sleep/60)*60;
- const rows=useMemo(()=>Array.from({length:Math.max(1,Math.ceil((end-start)/60))},(_,i)=>start+i*60),[end,start]);
+ const wake=parseTime(profile.wakeTime||"06:00"),rawSleep=parseTime(profile.sleepTime||"22:30"),sleep=rawSleep<=wake?rawSleep+1440:rawSleep,start=Math.floor(wake/60)*60,end=Math.ceil(sleep/60)*60,rows=useMemo(()=>Array.from({length:Math.max(1,Math.ceil((end-start)/60))},(_,i)=>start+i*60),[end,start]);
  const active=(plan:PlanBlock[],minute:number)=>plan.find(b=>{let s=parseTime(b.start),e=parseTime(b.end);if(e<=s)e+=1440;return s<minute+60&&e>minute})??null;
-
- const svg=()=>{
-  const cellW=132,timeW=74,rowH=58,headH=62,width=timeW+cellW*7,height=headH+rowH*rows.length+40;
-  const header=days.map((d,i)=>`<text x="${timeW+i*cellW+cellW/2}" y="25" text-anchor="middle" fill="#efeaf5" font-size="12" font-family="Arial" font-weight="700">${escapeXml(d.toLocaleDateString(undefined,{weekday:"short"}))}</text><text x="${timeW+i*cellW+cellW/2}" y="44" text-anchor="middle" fill="#8e829c" font-size="10" font-family="Arial">${escapeXml(d.toLocaleDateString(undefined,{month:"short",day:"numeric"}))}</text>`).join("");
-  const grid=rows.map((minute,ri)=>{
-   const y=headH+ri*rowH;
-   const time=`<text x="8" y="${y+31}" fill="#7c8998" font-size="9" font-family="Arial" font-weight="700">${escapeXml(minsLabel(minute))}</text>`;
-   const cells=plans.map((plan,di)=>{const b=active(plan,minute),x=timeW+di*cellW;return `<rect x="${x+2}" y="${y+2}" width="${cellW-4}" height="${rowH-4}" rx="7" fill="${b?'#1b2430':'#0d141c'}" stroke="${b?'#3c4b5c':'#202a35'}"/><text x="${x+8}" y="${y+23}" fill="${b?'#e3e8ed':'#485665'}" font-size="8" font-family="Arial" font-weight="700">${escapeXml(typeLabel(b)||"Free")}</text>${b?.subjectName?`<text x="${x+8}" y="${y+39}" fill="#9e87b9" font-size="7" font-family="Arial">${escapeXml(short(b.subjectName,18))}</text>`:""}`}).join("");
-   return time+cells;
-  }).join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#080d14"/><text x="8" y="25" fill="#b784ff" font-size="10" font-family="Arial" font-weight="700">STUDYARC</text><text x="8" y="43" fill="#f1f3f6" font-size="12" font-family="Arial" font-weight="700">Weekly timetable</text>${header}${grid}<text x="8" y="${height-12}" fill="#657384" font-size="8" font-family="Arial">Generated by StudyArc · ${escapeXml(weekStart.toLocaleDateString())}</text></svg>`;
- };
- const download=async()=>{
-  if(exporting)return;setExporting(true);
-  try{
-   const markup=svg(),filename=`StudyArc-timetable-${weekStart.toISOString().slice(0,10)}.svg`;
-   if(Platform.OS==="web"){
-    const g=globalThis as any,blob=new g.Blob([markup],{type:"image/svg+xml"}),url=g.URL.createObjectURL(blob),a=g.document.createElement("a");a.href=url;a.download=filename;g.document.body.appendChild(a);a.click();a.remove();g.URL.revokeObjectURL(url);setDialog({title:"Timetable downloaded",message:"Your weekly timetable was saved as a high-quality SVG image.",tone:"success"});
-   }else if(Platform.OS==="android"){
-    const permission=await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-    if(!permission.granted)return;
-    const uri=await FileSystem.StorageAccessFramework.createFileAsync(permission.directoryUri,filename,"image/svg+xml");
-    await FileSystem.StorageAccessFramework.writeAsStringAsync(uri,markup);
-    setDialog({title:"Timetable saved",message:"Your weekly timetable image was saved in the folder you selected.",tone:"success"});
-   }else{
-    const target=`${FileSystem.documentDirectory}${filename}`;await FileSystem.writeAsStringAsync(target,markup);setDialog({title:"Timetable image created",message:"StudyArc created the timetable image in the app documents folder. Web and Android provide direct user-folder download.",tone:"info"});
-   }
-  }catch(error){setDialog({title:"Could not save timetable",message:error instanceof Error?error.message:"Please try again.",tone:"danger"})}finally{setExporting(false)}
- };
-
- return <><Modal visible={visible} animationType="slide" onRequestClose={onClose}><View style={s.root}><View style={s.head}><Pressable onPress={onClose} style={s.close}><Ionicons name="close" size={21} color="#FFF"/></Pressable><View style={{flex:1}}><Text style={s.eyebrow}>OPTIONAL TABLE VIEW</Text><Text style={s.title}>Weekly timetable</Text><Text style={s.sub}>{weekStart.toLocaleDateString(undefined,{month:"short",day:"numeric"})} – {addDays(weekStart,6).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</Text></View><Pressable onPress={download} disabled={exporting} style={[s.download,exporting&&{opacity:.5}]}><Ionicons name="download-outline" size={18} color="#160B20"/><Text style={s.downloadText}>{exporting?"Saving…":"Save image"}</Text></Pressable></View>
-   <View style={s.tip}><Ionicons name="information-circle-outline" size={18} color="#C8ABEA"/><Text style={s.tipText}>This is one timetable: days are columns and time is down the left. Close it anytime to return to the normal adaptive Plan view.</Text></View>
-   <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{paddingBottom:14}}><ScrollView showsVerticalScrollIndicator contentContainerStyle={s.table}>
-    <View style={s.tableHead}><View style={s.timeHead}><Text style={s.headText}>TIME</Text></View>{days.map(d=><View key={d.toISOString()} style={s.dayHead}><Text style={s.dayName}>{d.toLocaleDateString(undefined,{weekday:"short"}).toUpperCase()}</Text><Text style={s.dayDate}>{d.toLocaleDateString(undefined,{month:"short",day:"numeric"})}</Text></View>)}</View>
-    {rows.map(minute=><View key={minute} style={s.tableRow}><View style={s.timeCell}><Text style={s.timeText}>{minsLabel(minute)}</Text></View>{plans.map((plan,di)=>{const block=active(plan,minute);return <View key={`${minute}-${di}`} style={[s.cell,block&&s.busyCell]}><Text style={[s.cellTitle,!block&&s.freeText]} numberOfLines={2}>{block?typeLabel(block):"Free"}</Text>{block?.subjectName?<Text style={s.cellSub} numberOfLines={1}>{block.subjectName}</Text>:null}</View>})}</View>)}
-   </ScrollView></ScrollView>
-  </View></Modal><StudyArcDialog visible={Boolean(dialog)} title={dialog?.title??""} message={dialog?.message??""} tone={dialog?.tone??"info"} onClose={()=>setDialog(null)}/></>
+ const svg=()=>{const cellW=148,timeW=82,rowH=94,headH=70,width=timeW+cellW*7,height=headH+rowH*rows.length+44;const header=days.map((d,i)=>`<text x="${timeW+i*cellW+cellW/2}" y="28" text-anchor="middle" fill="#F2EDF6" font-size="13" font-family="Arial" font-weight="700">${escapeXml(d.toLocaleDateString(undefined,{weekday:"short"}))}</text><text x="${timeW+i*cellW+cellW/2}" y="49" text-anchor="middle" fill="#8D99A8" font-size="10" font-family="Arial">${escapeXml(d.toLocaleDateString(undefined,{month:"short",day:"numeric"}))}</text>`).join("");const grid=rows.map((minute,ri)=>{const y=headH+ri*rowH,time=`<text x="8" y="${y+43}" fill="#8794A4" font-size="10" font-family="Arial" font-weight="700">${escapeXml(minsLabel(minute))}</text>`,cells=plans.map((plan,di)=>{const b=active(plan,minute),x=timeW+di*cellW,color=colorFor(b),title=b?cleanTitle(b.title):"Free",lines=wrap(title,20),subject=b?.subjectName?wrap(b.subjectName,20):[];let ty=y+22;const texts=[...lines.map(line=>`<text x="${x+9}" y="${ty+=14}" fill="#F2F4F7" font-size="9" font-family="Arial" font-weight="700">${escapeXml(line)}</text>`),...subject.map(line=>`<text x="${x+9}" y="${ty+=13}" fill="${color}" font-size="8" font-family="Arial">${escapeXml(line)}</text>`)].join("");return`<rect x="${x+3}" y="${y+3}" width="${cellW-6}" height="${rowH-6}" rx="9" fill="${b?"#17212C":"#0C131B"}" stroke="${color}" stroke-opacity="${b?.6:.25}"/>${texts}`}).join("");return time+cells}).join("");return`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="#080D14"/><text x="8" y="27" fill="#D2B6F3" font-size="11" font-family="Arial" font-weight="700">WEEKLY TIMETABLE</text><text x="8" y="47" fill="#F3F5F7" font-size="14" font-family="Arial" font-weight="700">${escapeXml(weekStart.toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"}))}</text>${header}${grid}<text x="8" y="${height-13}" fill="#718092" font-size="9" font-family="Arial">StudyArc · full text · subject colors</text></svg>`};
+ const saveWebPng=async()=>{const g=globalThis as any,markup=svg(),blob=new g.Blob([markup],{type:"image/svg+xml;charset=utf-8"}),url=g.URL.createObjectURL(blob);try{const image=new g.Image();await new Promise<void>((resolve,reject)=>{image.onload=()=>resolve();image.onerror=reject;image.src=url});const canvas=g.document.createElement("canvas");canvas.width=image.naturalWidth||image.width;canvas.height=image.naturalHeight||image.height;const ctx=canvas.getContext("2d");ctx.drawImage(image,0,0);const png=canvas.toDataURL("image/png");const a=g.document.createElement("a");a.href=png;a.download=`StudyArc-timetable-${weekStart.toISOString().slice(0,10)}.png`;g.document.body.appendChild(a);a.click();a.remove()}finally{g.URL.revokeObjectURL(url)}};
+ const download=async()=>{if(exporting)return;setExporting(true);try{if(Platform.OS==="web")await saveWebPng();else{if(!tableRef.current)throw new Error("Timetable preview is not ready yet.");const uri=await captureRef(tableRef,{format:"png",quality:1,result:"tmpfile"});const permission=await MediaLibrary.requestPermissionsAsync(true);if(!permission.granted){setDialog({title:"Photo access needed",message:"Allow StudyArc to save images if you want the timetable PNG in your gallery.",tone:"warning"});return}await MediaLibrary.saveToLibraryAsync(uri)}setDialog({title:"Timetable PNG saved",message:"Your full weekly timetable was saved as a PNG image with subject colors and complete text.",tone:"success"})}catch(error){setDialog({title:"Could not save timetable",message:error instanceof Error?error.message:"Please try again.",tone:"danger"})}finally{setExporting(false)}};
+ return <><Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}><View style={s.overlay}><View style={s.sheet}><View style={s.head}><Pressable onPress={onClose} style={s.close}><Ionicons name="close" size={21} color="#FFF"/></Pressable><View style={{flex:1}}><Text style={s.eyebrow}>TIMETABLE VIEW</Text><Text style={s.title}>Your complete week</Text><Text style={s.sub}>{weekStart.toLocaleDateString(undefined,{month:"short",day:"numeric"})} – {addDays(weekStart,6).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</Text></View><Pressable onPress={download} disabled={exporting} style={[s.download,exporting&&{opacity:.5}]}><Ionicons name="image-outline" size={18} color="#160B20"/><Text style={s.downloadText}>{exporting?"Saving…":"Save PNG"}</Text></Pressable></View><View style={s.tip}><Ionicons name="information-circle-outline" size={18} color="#C8ABEA"/><Text style={s.tipText}>This is one timetable: time runs down the left and all seven days are columns. Subject colors stay consistent, and text is never replaced with “...”.</Text></View><ScrollView horizontal showsHorizontalScrollIndicator><ScrollView showsVerticalScrollIndicator contentContainerStyle={s.tableWrap}><View ref={tableRef} collapsable={false} style={s.capture}><View style={s.tableHead}><View style={s.timeHead}><Text style={s.headText}>TIME</Text></View>{days.map(d=><View key={d.toISOString()} style={s.dayHead}><Text style={s.dayName}>{d.toLocaleDateString(undefined,{weekday:"short"}).toUpperCase()}</Text><Text style={s.dayDate}>{d.toLocaleDateString(undefined,{month:"short",day:"numeric"})}</Text></View>)}</View>{rows.map(minute=><View key={minute} style={s.tableRow}><View style={s.timeCell}><Text style={s.timeText}>{minsLabel(minute)}</Text></View>{plans.map((plan,di)=>{const b=active(plan,minute),color=colorFor(b);return <View key={`${minute}-${di}`} style={[s.cell,b&&{backgroundColor:color+"18",borderColor:color+"88"}]}><Text style={[s.cellTitle,!b&&s.freeText]}>{b?cleanTitle(b.title):"Free"}</Text>{b?.subjectName?<Text style={[s.cellSub,{color}]}>{b.subjectName}</Text>:null}{b?.subtitle?<Text style={s.cellMeta}>{b.subtitle}</Text>:null}</View>})}</View>)}</View></ScrollView></ScrollView></View></View></Modal><StudyArcDialog visible={Boolean(dialog)} title={dialog?.title??""} message={dialog?.message??""} tone={dialog?.tone??"info"} onClose={()=>setDialog(null)}/></>
 }
-
-const s=StyleSheet.create({root:{flex:1,backgroundColor:"#080D14"},head:{minHeight:82,padding:14,paddingTop:20,flexDirection:"row",alignItems:"center",gap:10,borderBottomWidth:1,borderBottomColor:"#26313E"},close:{width:42,height:42,borderRadius:14,backgroundColor:"#151D27",alignItems:"center",justifyContent:"center"},eyebrow:{color:"#9C82B8",fontSize:7,fontWeight:"900",letterSpacing:1.2},title:{color:"#F0F2F5",fontSize:20,fontWeight:"900",marginTop:2},sub:{color:"#718092",fontSize:8,marginTop:2},download:{height:42,borderRadius:13,backgroundColor:"#B784FF",paddingHorizontal:12,flexDirection:"row",alignItems:"center",gap:6},downloadText:{color:"#160B20",fontSize:8.5,fontWeight:"900"},tip:{margin:10,borderRadius:14,backgroundColor:"#181421",borderWidth:1,borderColor:"#3D304A",padding:10,flexDirection:"row",gap:8},tipText:{flex:1,color:"#897895",fontSize:8,lineHeight:12},table:{padding:10,paddingTop:0},tableHead:{flexDirection:"row"},timeHead:{width:72,height:54,backgroundColor:"#111923",borderWidth:1,borderColor:"#2A3745",alignItems:"center",justifyContent:"center"},headText:{color:"#6C7A8C",fontSize:7,fontWeight:"900"},dayHead:{width:126,height:54,backgroundColor:"#151C26",borderWidth:1,borderColor:"#2A3745",alignItems:"center",justifyContent:"center"},dayName:{color:"#D5DCE4",fontSize:8.5,fontWeight:"900"},dayDate:{color:"#718092",fontSize:7,marginTop:2},tableRow:{flexDirection:"row"},timeCell:{width:72,minHeight:58,backgroundColor:"#0D141C",borderWidth:1,borderColor:"#202B36",justifyContent:"center",paddingLeft:7},timeText:{color:"#798696",fontSize:7.5,fontWeight:"900"},cell:{width:126,minHeight:58,backgroundColor:"#0B1118",borderWidth:1,borderColor:"#202B36",padding:7,justifyContent:"center"},busyCell:{backgroundColor:"#18212C",borderColor:"#354354"},cellTitle:{color:"#DDE3E9",fontSize:7.8,fontWeight:"900",lineHeight:10},cellSub:{color:"#967CB1",fontSize:6.8,fontWeight:"800",marginTop:3},freeText:{color:"#465565"}});
+const s=StyleSheet.create({overlay:{flex:1,backgroundColor:"rgba(2,5,9,.86)",padding:12,alignItems:"center",justifyContent:"center"},sheet:{width:"100%",height:"94%",maxWidth:1200,borderRadius:25,backgroundColor:"#080D14",borderWidth:1,borderColor:"#394553",overflow:"hidden"},head:{minHeight:82,padding:14,flexDirection:"row",alignItems:"center",gap:10,borderBottomWidth:1,borderBottomColor:"#26313E"},close:{width:42,height:42,borderRadius:14,backgroundColor:"#151D27",alignItems:"center",justifyContent:"center"},eyebrow:{color:"#A98AC7",fontSize:9,fontWeight:"900",letterSpacing:1.2},title:{color:"#F0F2F5",fontSize:19,fontWeight:"900",marginTop:2},sub:{color:"#718092",fontSize:10,marginTop:2},download:{height:44,borderRadius:13,backgroundColor:"#D0AEF7",paddingHorizontal:13,flexDirection:"row",alignItems:"center",gap:6},downloadText:{color:"#160B20",fontSize:10,fontWeight:"900"},tip:{margin:10,borderRadius:14,backgroundColor:"#181421",borderWidth:1,borderColor:"#3D304A",padding:10,flexDirection:"row",gap:8},tipText:{flex:1,color:"#9584A0",fontSize:10,lineHeight:15},tableWrap:{padding:10,paddingTop:0,paddingBottom:24},capture:{backgroundColor:"#080D14",padding:5},tableHead:{flexDirection:"row"},timeHead:{width:82,minHeight:58,backgroundColor:"#111923",borderWidth:1,borderColor:"#2A3745",alignItems:"center",justifyContent:"center"},headText:{color:"#7B899A",fontSize:9,fontWeight:"900"},dayHead:{width:148,minHeight:58,backgroundColor:"#151C26",borderWidth:1,borderColor:"#2A3745",alignItems:"center",justifyContent:"center"},dayName:{color:"#E4E9EF",fontSize:11,fontWeight:"900"},dayDate:{color:"#7E8A99",fontSize:9,marginTop:2},tableRow:{flexDirection:"row",alignItems:"stretch"},timeCell:{width:82,minHeight:88,backgroundColor:"#0D141C",borderWidth:1,borderColor:"#202B36",justifyContent:"center",paddingLeft:8},timeText:{color:"#8491A1",fontSize:9.5,fontWeight:"900"},cell:{width:148,minHeight:88,backgroundColor:"#0B1118",borderWidth:1,borderColor:"#202B36",padding:8,justifyContent:"center"},cellTitle:{color:"#EEF1F4",fontSize:10.5,fontWeight:"900",lineHeight:14},cellSub:{fontSize:9.5,fontWeight:"900",marginTop:4,lineHeight:13},cellMeta:{color:"#7B8797",fontSize:8.5,lineHeight:12,marginTop:3},freeText:{color:"#4E5C6B"}});
