@@ -29,7 +29,7 @@ export default function AnswerSheetAnalysisRoute() {
   }, [occurrenceDate, settings.featureFlags.imageScanning, sourceClassId, subjectName]);
 
   if (settings.featureFlags.imageScanning !== true) {
-    return <View style={s.root}><LinearGradient colors={["#171020","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.card}><Ionicons name="scan-outline" size={34} color="#806F92"/><Text style={s.title}>Image scanning is off</Text><Text style={s.text}>Answer-sheet recognition is disabled by the StudyArc administrator. You can still enter paper marks and weak topics manually.</Text><Pressable onPress={()=>router.replace("/test-mark")} style={s.button}><Text style={s.buttonText}>ENTER MARKS MANUALLY</Text></Pressable></View></View>;
+    return <View style={s.root}><LinearGradient colors={["#171020","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.card}><Ionicons name="scan-outline" size={34} color="#806F92"/><Text style={s.title}>Image Scanning Under Maintenance</Text><Text style={s.text}>Answer-sheet recognition is temporarily unavailable while we perform maintenance. Please try again later. You can still enter paper marks and weak topics manually.</Text><Pressable onPress={()=>router.replace("/test-mark")} style={s.button}><Text style={s.buttonText}>ENTER MARKS MANUALLY</Text></Pressable></View></View>;
   }
 
   return <AnswerSheetAnalysisScreen />;
