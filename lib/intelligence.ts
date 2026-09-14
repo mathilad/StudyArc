@@ -36,7 +36,18 @@ export function normalizedPaperPerformance(results:PaperQuestionResult[]){const 
 
 export function burnoutRisk(profile:StudentProfile,sessions:StudySession[],outcomes:SessionOutcome[]){const cutoff=Date.now()-7*DAY,recent=sessions.filter(x=>new Date(x.startedAt).getTime()>=cutoff),hours=recent.reduce((a,x)=>a+x.durationSeconds,0)/3600;const byDay=new Map<string,number>();recent.forEach(x=>{const k=dayKey(new Date(x.startedAt));byDay.set(k,(byDay.get(k)??0)+x.durationSeconds/3600)});const extremeDays=[...byDay.values()].filter(x=>x>=8).length;const energy=outcomes.filter(x=>new Date(x.createdAt).getTime()>=cutoff&&x.energyAfter!=null);const avgEnergy=energy.length?energy.reduce((a,x)=>a+(x.energyAfter??3),0)/energy.length:3;const sleepHours=(()=>{const[wH,wM]=profile.wakeTime.split(":").map(Number),[sH,sM]=profile.sleepTime.split(":").map(Number);let wake=wH*60+wM,sleep=sH*60+sM;if(sleep<=wake)sleep+=1440;return(sleep-wake)/60})();let risk=0;if(hours>=45)risk+=30;if(extremeDays>=2)risk+=25;if(avgEnergy<=2.3)risk+=30;if(sleepHours<7)risk+=25;return{score:clamp(risk),hours:Math.round(hours*10)/10,extremeDays,avgEnergy:Math.round(avgEnergy*10)/10,sleepHours:Math.round(sleepHours*10)/10,status:risk>=60?"High":risk>=30?"Watch":"Low" as "High"|"Watch"|"Low"}}
 
-export function adaptiveBreakMinutes(lastSessionMinutes:number,focusRating:number|null,energyAfter:number|null){let value=10;if(lastSessionMinutes>=90)value=18;else if(lastSessionMinutes>=60)value=14;else if(lastSessionMinutes<=30)value=7;if((focusRating??3)<=2)value+=5;if((energyAfter??3)<=2)value+=7;return Math.max(5,Math.min(30,value))}
+export function adaptiveBreakMinutes(lastSessionMinutes:number,focusRating:number|null,energyAfter:number|null){
+  const minutes=Math.max(1,lastSessionMinutes);
+  const focus=focusRating??3;
+  const energy=energyAfter??3;
+  // Duration establishes the baseline, then tiredness (low post-session energy)
+  // and poor focus increase recovery. A short, high-energy session can stay near 7m,
+  // while long or draining sessions receive progressively more recovery time.
+  const durationBase=5+Math.min(13,minutes*.10);
+  const tirednessPenalty=Math.max(0,5-energy)*2.1;
+  const focusPenalty=Math.max(0,3-focus)*1.6;
+  return Math.max(5,Math.min(30,Math.round(durationBase+tirednessPenalty+focusPenalty)));
+}
 
 export function syllabusCompletionForecast(subjects:SubjectName[],coverage:SubtopicCoverage[],sessions:StudySession[]){let total=0,covered=0;for(const subjectName of subjects){const subject=SUBJECTS[subjectName];if(!subject)continue;total+=subject.topics.length;covered+=subject.topics.filter(t=>coverage.some(x=>x.subjectName===subjectName&&x.topicName===t.title&&x.covered)).length}const remaining=Math.max(0,total-covered);const cutoff=Date.now()-28*DAY;const recentTopicSessions=new Set(sessions.filter(x=>new Date(x.startedAt).getTime()>=cutoff&&x.topicName!=="General").map(x=>`${x.subjectName}::${x.topicName}`)).size;const weeklyPace=Math.max(.5,recentTopicSessions/4);const weeks=remaining/weeklyPace;const estimate=new Date(Date.now()+weeks*7*DAY);return{total,covered,remaining,coveragePercent:total?Math.round(covered/total*100):0,weeklyPace:Math.round(weeklyPace*10)/10,estimatedDate:remaining?estimate.toISOString():null,weeks:Math.round(weeks*10)/10}}
 
