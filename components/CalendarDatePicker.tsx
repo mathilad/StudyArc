@@ -19,8 +19,8 @@ export default function CalendarDatePicker({visible,value,onChange,onClose,title
     <View style={s.head}><View><Text style={s.eyebrow}>CALENDAR</Text><Text style={s.title}>{title}</Text></View><Pressable onPress={onClose} style={s.close}><Ionicons name="close" size={20} color="#FFF"/></Pressable></View>
     <View style={s.monthRow}><Pressable onPress={()=>shift(-1)} style={s.nav}><Ionicons name="chevron-back" size={20} color="#CDB6EA"/></Pressable><Text style={s.month}>{month.toLocaleDateString(undefined,{month:"long",year:"numeric"})}</Text><Pressable onPress={()=>shift(1)} style={s.nav}><Ionicons name="chevron-forward" size={20} color="#CDB6EA"/></Pressable></View>
     <View style={s.week}>{DAYS.map((d,i)=><Text key={`${d}-${i}`} style={s.weekText}>{d}</Text>)}</View>
-    <View style={s.grid}>{days.map(d=>{const k=key(d),chosen=selected&&key(selected)===k,isToday=key(today)===k,inMonth=sameMonth(d,month);return <Pressable key={k} onPress={()=>choose(d)} style={[s.day,chosen&&s.dayChosen,isToday&&!chosen&&s.dayToday]}><Text style={[s.dayText,!inMonth&&s.dayMuted,chosen&&s.dayChosenText]}>{d.getDate()}</Text></Pressable>})}</View>
-    <View style={s.actions}><Pressable onPress={()=>choose(today)} style={s.secondary}><Text style={s.secondaryText}>Today</Text></Pressable>{allowClear?<Pressable onPress={()=>{onChange("");onClose()}} style={s.secondary}><Text style={s.secondaryText}>Clear</Text></Pressable>:null></View>
+    <View style={s.grid}>{days.map(d=>{const k=key(d),chosen=Boolean(selected&&key(selected)===k),isToday=key(today)===k,inMonth=sameMonth(d,month);return <Pressable key={k} onPress={()=>choose(d)} style={[s.day,chosen&&s.dayChosen,isToday&&!chosen&&s.dayToday]}><Text style={[s.dayText,!inMonth&&s.dayMuted,chosen&&s.dayChosenText]}>{d.getDate()}</Text></Pressable>})}</View>
+    <View style={s.actions}><Pressable onPress={()=>choose(today)} style={s.secondary}><Text style={s.secondaryText}>Today</Text></Pressable>{allowClear?<Pressable onPress={()=>{onChange("");onClose()}} style={s.secondary}><Text style={s.secondaryText}>Clear</Text></Pressable>:null}</View>
   </View></View></Modal>
 }
 
