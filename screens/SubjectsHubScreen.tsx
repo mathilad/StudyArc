@@ -2,11 +2,13 @@ import{Ionicons}from"@expo/vector-icons";
 import{LinearGradient}from"expo-linear-gradient";
 import{useRouter}from"expo-router";
 import React,{useMemo}from"react";
-import{Pressable,ScrollView,StyleSheet,Text,View}from"react-native";
+import{ScrollView,StyleSheet,Text,View}from"react-native";
+import MotionPressable from"../components/MotionPressable";
 import Screen from"../components/Screen";
 import{useStudent}from"../context/StudentContext";
 import{SUBJECTS,expandSubjectChoices,topicDisplayName}from"../data/subjects";
 
+const Pressable=MotionPressable;
 type Tool={title:string;sub:string;icon:keyof typeof Ionicons.glyphMap;route:string;color:string};
 const TOOLS:Tool[]=[
  {title:"Test results & marks",sub:"Add MCQ, structured and essay marks plus weak-topic signals.",icon:"school-outline",route:"/test-mark",color:"#F0B477"},
