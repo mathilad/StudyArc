@@ -37,6 +37,13 @@
         }
       ],
       [
+        "expo-media-library",
+        {
+          "photosPermission": "StudyArc accesses your photo library only when you choose to save or view a generated timetable image.",
+          "savePhotosPermission": "StudyArc saves your timetable as a PNG only when you tap Save PNG."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#080D14",

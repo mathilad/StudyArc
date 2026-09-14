@@ -1,3 +1,4 @@
+import "../lib/globalTypography";
 import "../data/initializeCatalog";
 import React, { useEffect } from "react";
 import * as Font from "expo-font";
