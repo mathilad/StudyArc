@@ -26,7 +26,8 @@
         "expo-audio",
         {
           "microphonePermission": "StudyArc uses your microphone only when you choose Audio Recall or a StudyArc AI voice message.",
-          "recordAudioAndroid": true
+          "recordAudioAndroid": true,
+          "enableBackgroundPlayback": true
         }
       ],
       [
