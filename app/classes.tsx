@@ -46,6 +46,7 @@ export default function Classes() {
   const [classFilter, setClassFilter] = useState<ClassFilter>("All");
   const [protectedOpen, setProtectedOpen] = useState(false);
   const [repetitiveOpen, setRepetitiveOpen] = useState(false);
+  const [addPickerOpen, setAddPickerOpen] = useState(false);
   const [overrideClass, setOverrideClass] = useState<ClassSchedule | null>(null);
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -77,8 +78,19 @@ export default function Classes() {
   }, [filteredClasses, subjects]);
 
   const openAddClass = () => {
+    setAddPickerOpen(false);
     setEditingClass(null);
     setClassModalOpen(true);
+  };
+
+  const openAddTask = () => {
+    setAddPickerOpen(false);
+    setRepetitiveOpen(true);
+  };
+
+  const openAddProtectedTime = () => {
+    setAddPickerOpen(false);
+    setProtectedOpen(true);
   };
 
   const openEditClass = (value: ClassSchedule) => {
@@ -163,7 +175,7 @@ export default function Classes() {
     <View style={s.head}>
       <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={22} color="#FFF" /></Pressable>
       <View style={{ flex: 1 }}><Text style={s.title}>Classes & weekly commitments</Text><Text style={s.sub}>Recurring classes, repetitive tasks, this week's changes and unavailable time</Text></View>
-      <Pressable onPress={openAddClass} style={s.add}><Ionicons name="add" size={20} color="#150B1E" /></Pressable>
+      <Pressable onPress={() => setAddPickerOpen(true)} style={s.add}><Ionicons name="add" size={20} color="#150B1E" /></Pressable>
     </View>
 
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -212,6 +224,33 @@ export default function Classes() {
     <ProtectedTimeModal visible={repetitiveOpen} mode="repetitive" onClose={() => setRepetitiveOpen(false)} onSave={saveRepetitiveTask} />
     <ProtectedTimeModal visible={protectedOpen} mode="protected" onClose={() => setProtectedOpen(false)} onSave={addProtectedTime} />
     <ClassWeekOverrideModal visible={!!overrideClass} classSchedule={overrideClass} existing={overrideClass ? overrideFor(overrideClass.id) : null} onClose={() => setOverrideClass(null)} onSave={saveClassWeekOverride} onClear={() => overrideClass ? clearClassWeekOverride(overrideClass.id, currentWeek) : Promise.resolve()} />
+
+    <Modal visible={addPickerOpen} transparent animationType="fade" onRequestClose={() => setAddPickerOpen(false)}>
+      <View style={s.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setAddPickerOpen(false)} />
+        <View style={s.addPickerModal}>
+          <View style={s.addPickerIcon}><Ionicons name="add" size={25} color="#EAD8FF" /></View>
+          <Text style={s.addPickerTitle}>What are you adding?</Text>
+          <Text style={s.addPickerSub}>Choose the kind of weekly commitment first. StudyArc will open the correct form.</Text>
+          <Pressable onPress={openAddClass} style={s.addChoice}>
+            <View style={s.addChoiceIcon}><Ionicons name="school-outline" size={21} color="#DCC2FA" /></View>
+            <View style={{ flex: 1 }}><Text style={s.addChoiceTitle}>Class</Text><Text style={s.addChoiceSub}>Theory, revision, paper, extra class or paper discussion.</Text></View>
+            <Ionicons name="chevron-forward" size={18} color="#8C7A9F" />
+          </Pressable>
+          <Pressable onPress={openAddTask} style={s.addChoice}>
+            <View style={[s.addChoiceIcon, s.addChoiceTask]}><Ionicons name="repeat-outline" size={21} color="#BED7FF" /></View>
+            <View style={{ flex: 1 }}><Text style={s.addChoiceTitle}>Repetitive task</Text><Text style={s.addChoiceSub}>A weekly responsibility that reserves the same time every week.</Text></View>
+            <Ionicons name="chevron-forward" size={18} color="#8C7A9F" />
+          </Pressable>
+          <Pressable onPress={openAddProtectedTime} style={s.addChoice}>
+            <View style={s.addChoiceIcon}><Ionicons name="shield-checkmark-outline" size={21} color="#DCC2FA" /></View>
+            <View style={{ flex: 1 }}><Text style={s.addChoiceTitle}>Protected time</Text><Text style={s.addChoiceSub}>Appointments, events or any interval unavailable for study.</Text></View>
+            <Ionicons name="chevron-forward" size={18} color="#8C7A9F" />
+          </Pressable>
+          <Pressable onPress={() => setAddPickerOpen(false)} style={s.addPickerCancel}><Text style={s.addPickerCancelText}>Cancel</Text></Pressable>
+        </View>
+      </View>
+    </Modal>
 
     <Modal visible={!!pendingDelete} transparent animationType="fade" onRequestClose={() => !deleting && setPendingDelete(null)}>
       <View style={s.overlay}><Pressable style={StyleSheet.absoluteFill} disabled={deleting} onPress={() => setPendingDelete(null)} /><View style={s.modal}><View style={s.modalIcon}><Ionicons name="trash-outline" size={23} color="#F2A1AE" /></View><Text style={s.modalTitle}>Delete {pendingDelete?.kind === "class" ? "class" : pendingDelete?.kind === "task" ? "repetitive task" : "protected time"}?</Text><Text style={s.modalSubject}>{pendingDelete?.subject ? `${pendingDelete.subject} · ` : ""}{pendingDelete?.title}</Text><Text style={s.modalText}>{pendingDelete?.kind === "class" ? "This class will be removed from the recurring schedule and future plans." : pendingDelete?.kind === "task" ? "This task will stop reserving its weekly time slot." : "This interval becomes available to the planner again."}</Text><View style={s.modalActions}><Pressable disabled={deleting} onPress={() => setPendingDelete(null)} style={s.cancel}><Text style={s.cancelText}>Keep it</Text></Pressable><Pressable disabled={deleting} onPress={confirmDelete} style={[s.confirm, deleting && { opacity: .55 }]}><Ionicons name={deleting ? "hourglass-outline" : "trash-outline"} size={17} color="#FFF4F6" /><Text style={s.confirmText}>{deleting ? "Deleting…" : "Delete"}</Text></Pressable></View></View></View>
@@ -306,6 +345,17 @@ const s = StyleSheet.create({
   protectedTitle: { color: "#E8EBEF", fontSize: 12.5, fontWeight: "900" },
   protectedTag: { color: "#9C82BC", fontSize: 7.5, fontWeight: "900", letterSpacing: 1, marginTop: 5 },
   overlay: { flex: 1, backgroundColor: "rgba(3,6,10,.82)", alignItems: "center", justifyContent: "center", padding: 22 },
+  addPickerModal: { width: "100%", maxWidth: 430, borderRadius: 26, backgroundColor: "#111720", borderWidth: 1, borderColor: "#49345F", padding: 20 },
+  addPickerIcon: { width: 52, height: 52, borderRadius: 17, backgroundColor: "#2B1D3A", borderWidth: 1, borderColor: "#684B88", alignItems: "center", justifyContent: "center", alignSelf: "center" },
+  addPickerTitle: { color: "#F5F2F8", fontSize: 20, fontWeight: "900", textAlign: "center", marginTop: 12 },
+  addPickerSub: { color: "#8A8292", fontSize: 10.5, lineHeight: 16, textAlign: "center", marginTop: 5, marginBottom: 14 },
+  addChoice: { minHeight: 72, borderRadius: 17, backgroundColor: "#151C26", borderWidth: 1, borderColor: "#303C4C", padding: 11, flexDirection: "row", alignItems: "center", gap: 10, marginTop: 8 },
+  addChoiceIcon: { width: 43, height: 43, borderRadius: 13, backgroundColor: "#251A32", alignItems: "center", justifyContent: "center" },
+  addChoiceTask: { backgroundColor: "#14233A" },
+  addChoiceTitle: { color: "#ECEEF2", fontSize: 12, fontWeight: "900" },
+  addChoiceSub: { color: "#7C8898", fontSize: 8.8, lineHeight: 13, marginTop: 3 },
+  addPickerCancel: { minHeight: 44, borderRadius: 14, backgroundColor: "#171F29", borderWidth: 1, borderColor: "#2E3947", alignItems: "center", justifyContent: "center", marginTop: 14 },
+  addPickerCancelText: { color: "#B5BDC8", fontSize: 10.5, fontWeight: "900" },
   modal: { width: "100%", maxWidth: 410, borderRadius: 24, backgroundColor: "#101720", borderWidth: 1, borderColor: "#3B2C37", padding: 22, alignItems: "center" },
   modalIcon: { width: 52, height: 52, borderRadius: 17, backgroundColor: "#2B171E", borderWidth: 1, borderColor: "#5A303B", alignItems: "center", justifyContent: "center", marginBottom: 15 },
   modalTitle: { color: "#F4F5F7", fontSize: 20, fontWeight: "900", textAlign: "center" },
