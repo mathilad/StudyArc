@@ -1,21 +1,23 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./supabase";
-
-export type OfflineMutation = { id:string; userId:string; kind:string; payload:any; createdAt:string; lastError?:string|null; attempts?:number; lastAttemptAt?:string|null };
-const QUEUE_KEY="studyarc:offline:mutation-queue:v1";
+export type OfflineMutation={id:string;userId:string;kind:string;payload:any;createdAt:string;lastError?:string|null;attempts?:number;lastAttemptAt?:string|null};
+export type SyncHistoryItem={id:string;userId:string;kind:string;payload:any;createdAt:string;syncedAt:string};
+const QUEUE_KEY="studyarc:offline:mutation-queue:v1",HISTORY_KEY="studyarc:offline:sync-history:v1";
 export const makeUuid=()=>"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.floor(Math.random()*16),v=c==="x"?r:(r&3)|8;return v.toString(16)});
 export const cacheKey=(userId:string,namespace:string)=>`studyarc:cache:${userId}:${namespace}:v2`;
 export async function readJson<T>(key:string,fallback:T):Promise<T>{try{const raw=await AsyncStorage.getItem(key);return raw?JSON.parse(raw) as T:fallback}catch{return fallback}}
 export async function writeJson(key:string,value:unknown){await AsyncStorage.setItem(key,JSON.stringify(value))}
-export async function readQueue():Promise<OfflineMutation[]>{return readJson<OfflineMutation[]>(QUEUE_KEY,[])}
-let queueWrite:Promise<unknown>=Promise.resolve();
-function mutateQueue<T>(change:()=>Promise<T>):Promise<T>{const result=queueWrite.then(change);queueWrite=result.catch(()=>undefined);return result}
+export async function readQueue():Promise<OfflineMutation[]>{return readJson(QUEUE_KEY,[])}
+export async function readSyncHistory(userId?:string):Promise<SyncHistoryItem[]>{const h=await readJson<SyncHistoryItem[]>(HISTORY_KEY,[]);return (userId?h.filter(x=>x.userId===userId):h).sort((a,b)=>b.syncedAt.localeCompare(a.syncedAt))}
+let queueWrite:Promise<unknown>=Promise.resolve();function mutateQueue<T>(change:()=>Promise<T>):Promise<T>{const result=queueWrite.then(change);queueWrite=result.catch(()=>undefined);return result}
 const errorText=(e:any)=>String(e?.message??e?.details??e?.hint??e??"Unknown sync error");
 export async function markQueuedMutationFailed(id:string,error:unknown){return mutateQueue(async()=>{const q=await readQueue();await writeJson(QUEUE_KEY,q.map(x=>x.id===id?{...x,lastError:errorText(error),attempts:(x.attempts??0)+1,lastAttemptAt:new Date().toISOString()}:x))})}
 export async function clearQueuedMutationError(id:string){return mutateQueue(async()=>{const q=await readQueue();await writeJson(QUEUE_KEY,q.map(x=>x.id===id?{...x,lastError:null}:x))})}
+export async function prioritizeQueuedMutation(id:string){return mutateQueue(async()=>{const q=await readQueue(),item=q.find(x=>x.id===id);if(!item)return;await writeJson(QUEUE_KEY,[item,...q.filter(x=>x.id!==id)])})}
 async function tryImmediateStudySessionWrite(m:Omit<OfflineMutation,"id"|"createdAt">){if(m.kind!=="study_session_upsert")return false;const row=m?.payload?.sessionRow;if(!row?.id)return false;try{const a=await supabase.from("study_sessions").upsert(row,{onConflict:"id"});if(a.error)throw a.error;const laps=m?.payload?.lapRows;if(Array.isArray(laps)&&laps.length){const b=await supabase.from("study_laps").upsert(laps,{onConflict:"id"});if(b.error)throw b.error}return true}catch{return false}}
 export async function enqueueMutation(m:Omit<OfflineMutation,"id"|"createdAt">){const item=await mutateQueue(async()=>{const q=await readQueue();const queued:OfflineMutation={...m,id:makeUuid(),createdAt:new Date().toISOString(),attempts:0,lastError:null,lastAttemptAt:null};const rowId=m?.payload?.id??m?.payload?.sessionRow?.id;const coalesce=m.kind.endsWith("_upsert")&&typeof rowId==="string"&&rowId.length>0;const next=coalesce?q.filter(x=>{const old=x?.payload?.id??x?.payload?.sessionRow?.id;return !(x.userId===m.userId&&x.kind===m.kind&&old===rowId)}):q;next.push(queued);await writeJson(QUEUE_KEY,next);return queued});if(await tryImmediateStudySessionWrite(m))await removeQueuedMutation(item.id);return item}
 export async function queuedMutationsFor(userId:string,kinds:string[]){const q=await readQueue(),allowed=new Set(kinds);return q.filter(x=>x.userId===userId&&allowed.has(x.kind))}
-export async function removeQueuedMutation(id:string){return mutateQueue(async()=>{const q=await readQueue();await writeJson(QUEUE_KEY,q.filter(x=>x.id!==id))})}
+export async function removeQueuedMutation(id:string){return mutateQueue(async()=>{const q=await readQueue(),item=q.find(x=>x.id===id);await writeJson(QUEUE_KEY,q.filter(x=>x.id!==id));if(item){const h=await readJson<SyncHistoryItem[]>(HISTORY_KEY,[]);h.unshift({id:item.id,userId:item.userId,kind:item.kind,payload:item.payload,createdAt:item.createdAt,syncedAt:new Date().toISOString()});await writeJson(HISTORY_KEY,h.slice(0,250))}})}
+export async function discardQueuedMutation(id:string){return mutateQueue(async()=>{const q=await readQueue();await writeJson(QUEUE_KEY,q.filter(x=>x.id!==id))})}
 export async function queueCount(userId?:string){const q=await readQueue();return userId?q.filter(x=>x.userId===userId).length:q.length}
 export async function probeOnline(timeoutMs=6000){const url=process.env.EXPO_PUBLIC_SUPABASE_URL;if(!url)return false;const controller=typeof AbortController!=="undefined"?new AbortController():null;const timer=setTimeout(()=>controller?.abort(),Math.max(1000,timeoutMs));try{const response=await fetch(`${url}/auth/v1/health`,{method:"GET",signal:controller?.signal,headers:{apikey:process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY??""},cache:"no-store"});return response.ok||response.status<500}catch{return false}finally{clearTimeout(timer)}}
