@@ -79,17 +79,24 @@ export async function enqueueMutation(mutation: Omit<OfflineMutation, "id" | "cr
     return queued;
   });
 
-  // If a finished session reaches Supabase immediately, acknowledge the exact
-  // queued item now. Previously the successful write stayed in the queue until
-  // a later provider pass, making the sync banner grow even while writes worked.
   if (await tryImmediateStudySessionWrite(mutation)) await removeQueuedMutation(item.id);
   return item;
 }
 
+// Existing providers stop their pass when one mutation fails. Rotate the first
+// item on every retry so a permanently invalid/stale mutation cannot starve all
+// newer valid writes behind it. Successful items are removed normally; failed
+// items stay durable and get another chance on later passes.
+const queueCursors = new Map<string, number>();
 export async function queuedMutationsFor(userId: string, kinds: string[]) {
   const queue = await readQueue();
   const allowed = new Set(kinds);
-  return queue.filter(item => item.userId === userId && allowed.has(item.kind));
+  const matching = queue.filter(item => item.userId === userId && allowed.has(item.kind));
+  if (matching.length <= 1) return matching;
+  const key = `${userId}:${[...allowed].sort().join(",")}`;
+  const cursor = (queueCursors.get(key) ?? 0) % matching.length;
+  queueCursors.set(key, (cursor + 1) % matching.length);
+  return [...matching.slice(cursor), ...matching.slice(0, cursor)];
 }
 
 export async function removeQueuedMutation(id: string) {
