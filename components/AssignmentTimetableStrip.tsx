@@ -7,6 +7,7 @@ import { subjectDisplayName } from "../lib/subjectDisplay";
 
 const sameDate = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const time = (d: Date) => d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+const durationLabel = (minutes: number) => minutes % 60 === 0 ? `${minutes / 60}h block` : `${minutes} min block`;
 const dayLabel = (date: Date, now: Date) => {
   if (sameDate(date, now)) return "TODAY";
   const tomorrow = new Date(now); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -23,7 +24,7 @@ export default function AssignmentTimetableStrip() {
     const duration = Math.max(5, item.estimatedMinutes);
     const start = new Date(end.getTime() - duration * 60000);
     return { item, start, end, duration };
-  }).filter(x => x.end.getTime() >= Date.now() - 86400000).sort((a,b) => a.end.getTime() - b.end.getTime()).slice(0, 8), [assignments]);
+  }).filter(x => x.end.getTime() >= Date.now() - 86400000).sort((a,b) => a.end.getTime() - b.end.getTime()).slice(0, 12), [assignments]);
 
   if (!rows.length) return null;
 
@@ -33,14 +34,14 @@ export default function AssignmentTimetableStrip() {
   });
 
   return <View style={s.root}>
-    <View style={s.head}><View style={s.headIcon}><Ionicons name="calendar-outline" size={17} color="#79DCA2" /></View><View style={{ flex: 1 }}><Text style={s.title}>Assignment time blocks</Text><Text style={s.sub}>These are visible timetable slots calculated from each assignment's estimated time and due time.</Text></View><Pressable onPress={() => router.push("/assignment")}><Text style={s.manage}>MANAGE</Text></Pressable></View>
+    <View style={s.head}><View style={s.headIcon}><Ionicons name="calendar-outline" size={17} color="#79DCA2" /></View><View style={{ flex: 1 }}><Text style={s.title}>Homework & assignment blocks</Text><Text style={s.sub}>Whole-hour homework is reserved automatically. Scattered homework appears as separate blocks across the week.</Text></View><Pressable onPress={() => router.push("/assignment")}><Text style={s.manage}>MANAGE</Text></Pressable></View>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.list}>
       {rows.map(({ item, start, end, duration }) => <View key={item.id} style={s.card}>
         <View style={s.cardTop}><Text style={s.when}>{dayLabel(end, now)}</Text><Text style={s.timeText}>{time(start)}–{time(end)}</Text></View>
         <View style={s.timeline}><View style={s.dot}/><View style={s.bar}/><View style={s.dot}/></View>
         <Text style={s.name} numberOfLines={1}>{item.title}</Text>
         <Text style={s.subject} numberOfLines={1}>{subjectDisplayName(item.subjectName)}{item.topicName ? ` · ${item.topicName}` : ""}</Text>
-        <View style={s.bottom}><Text style={s.duration}>{duration} min block</Text><Pressable onPress={() => startAssignment(item)} style={s.start}><Ionicons name="play" size={11} color="#160B20"/><Text style={s.startText}>START</Text></Pressable></View>
+        <View style={s.bottom}><Text style={s.duration}>{durationLabel(duration)}</Text><Pressable onPress={() => startAssignment(item)} style={s.start}><Ionicons name="play" size={11} color="#160B20"/><Text style={s.startText}>START</Text></Pressable></View>
       </View>)}
     </ScrollView>
   </View>;
