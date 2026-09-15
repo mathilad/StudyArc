@@ -37,8 +37,6 @@ export async function writeJson(key: string, value: unknown) {
 
 export async function readQueue(): Promise<OfflineMutation[]> { return readJson<OfflineMutation[]>(QUEUE_KEY, []); }
 
-// All providers share this queue. Serialize read-modify-write operations so
-// concurrent profile/stream saves and sync acknowledgements cannot lose entries.
 let queueWrite: Promise<unknown> = Promise.resolve();
 function mutateQueue<T>(change: () => Promise<T>): Promise<T> {
   const result = queueWrite.then(change);
@@ -47,26 +45,20 @@ function mutateQueue<T>(change: () => Promise<T>): Promise<T> {
 }
 
 async function tryImmediateStudySessionWrite(mutation: Omit<OfflineMutation, "id" | "createdAt">) {
-  if (mutation.kind !== "study_session_upsert") return;
+  if (mutation.kind !== "study_session_upsert") return false;
   const sessionRow = mutation?.payload?.sessionRow;
-  if (!sessionRow?.id) return;
-
-  // A finished timer is important user data. Try the remote write before the
-  // caller navigates to the post-session screen. The queued mutation remains
-  // as the retry/fallback, so losing connectivity here can never lose the
-  // locally recorded session.
+  if (!sessionRow?.id) return false;
   try {
-    const { error: sessionError } = await supabase
-      .from("study_sessions")
-      .upsert(sessionRow, { onConflict: "id" });
-    if (sessionError) return;
-
+    const { error: sessionError } = await supabase.from("study_sessions").upsert(sessionRow, { onConflict: "id" });
+    if (sessionError) return false;
     const lapRows = mutation?.payload?.lapRows;
     if (Array.isArray(lapRows) && lapRows.length > 0) {
-      await supabase.from("study_laps").upsert(lapRows, { onConflict: "id" });
+      const { error: lapError } = await supabase.from("study_laps").upsert(lapRows, { onConflict: "id" });
+      if (lapError) return false;
     }
+    return true;
   } catch {
-    // Offline/error: leave the mutation in the queue for normal retry sync.
+    return false;
   }
 }
 
@@ -74,32 +66,23 @@ export async function enqueueMutation(mutation: Omit<OfflineMutation, "id" | "cr
   const item = await mutateQueue(async () => {
     const queue = await readQueue();
     const queued: OfflineMutation = { ...mutation, id: makeUuid(), createdAt: new Date().toISOString() };
-
-    // For an upsert of the same row, only the newest pending value matters.
-    // Study sessions keep their row id inside payload.sessionRow, while most
-    // other providers put it directly at payload.id.
     const rowId = mutation?.payload?.id ?? mutation?.payload?.sessionRow?.id;
     const shouldCoalesce = mutation.kind.endsWith("_upsert") && typeof rowId === "string" && rowId.length > 0;
     const nextQueue = shouldCoalesce
       ? queue.filter(existing => {
           const existingRowId = existing?.payload?.id ?? existing?.payload?.sessionRow?.id;
-          return !(
-            existing.userId === mutation.userId
-            && existing.kind === mutation.kind
-            && existingRowId === rowId
-          );
+          return !(existing.userId === mutation.userId && existing.kind === mutation.kind && existingRowId === rowId);
         })
       : queue;
-
     nextQueue.push(queued);
     await writeJson(QUEUE_KEY, nextQueue);
     return queued;
   });
 
-  // Await this attempt so Finish & save does not navigate away before an
-  // online database write has at least been attempted. The local queue/cache
-  // is already durable above and remains the source of retry safety.
-  await tryImmediateStudySessionWrite(mutation);
+  // If a finished session reaches Supabase immediately, acknowledge the exact
+  // queued item now. Previously the successful write stayed in the queue until
+  // a later provider pass, making the sync banner grow even while writes worked.
+  if (await tryImmediateStudySessionWrite(mutation)) await removeQueuedMutation(item.id);
   return item;
 }
 
