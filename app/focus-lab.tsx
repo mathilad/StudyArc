@@ -36,8 +36,8 @@ export default function FocusLab() {
   const last = sessions[0];
   const lastOutcome = outcomes.find(item => item.sessionId === last?.id);
   const recommendedBreak = last
-    ? adaptiveBreakMinutes(Math.round(last.durationSeconds / 60), last.focusRating, lastOutcome?.energyAfter ?? null)
-    : 10;
+    ? adaptiveBreakMinutes(last.durationSeconds / 60, last.focusRating, lastOutcome?.energyAfter ?? null)
+    : null;
 
   return (
     <View style={s.root}>
@@ -68,7 +68,7 @@ export default function FocusLab() {
           <Metric label="WEEKLY CONSISTENCY" value={`${consistency.weeklyConsistency}%`} sub={`${consistency.active7}/7 active days`} />
           <Metric label="RECOVERY COMEBACKS" value={String(consistency.recoveryStreak)} sub="Returned after a gap" />
           <Metric label="BURNOUT RISK" value={burnout.status} sub={`${burnout.hours}h · ${burnout.sleepHours}h sleep window`} />
-          <Metric label="NEXT BREAK" value={`${recommendedBreak}m`} sub="Adaptive recommendation" />
+          <Metric label="NEXT BREAK" value={recommendedBreak==null?"—":recommendedBreak===0?"None suggested":`${recommendedBreak}m`} sub={last?"Based on your last session":"Complete a session first"} />
         </View>
 
         <Text style={s.section}>AUTOMATIC FOCUS-WINDOW DISCOVERY</Text>
