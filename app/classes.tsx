@@ -17,7 +17,6 @@ const FILTERS = ["All", "Theory", "Revision", "Paper", "Extra Class", "Paper Dis
 const TASK_PREFIX = "__REPETITIVE_TASK__:";
 type ClassFilter = (typeof FILTERS)[number];
 type PendingDelete = { kind: "class" | "protected" | "task"; id: string; title: string; subject?: string };
-const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const taskName=(title:string)=>title.startsWith(TASK_PREFIX)?title.slice(TASK_PREFIX.length):title;
 
 const labelDate = (iso: string | null) => iso
@@ -163,7 +162,6 @@ export default function Classes() {
         <View style={s.actions}>
           <Pressable onPress={() => openEditClass(c)} style={s.editAction}><Ionicons name="create-outline" size={15} color="#AFC2DB" /><Text style={s.editActionText}>Edit</Text></Pressable>
           <Pressable onPress={() => setOverrideClass(c)} style={s.weekAction}><Ionicons name="calendar-number-outline" size={15} color="#CEB0F2" /><Text style={s.weekActionText}>This week</Text></Pressable>
-          {override?.status !== "Missed" && <Pressable onPress={() => router.push({ pathname: "/class-complete", params: { subjectName: c.subjectName, classId: c.id, occurrenceDate: todayKey() } })} style={s.covered}><Ionicons name="school-outline" size={16} color="#73DDA4" /><Text style={s.coveredText}>Log learning</Text></Pressable>}
         </View>
       </View>
       <Pressable hitSlop={8} onPress={() => setPendingDelete({ kind: "class", id: c.id, title: c.title || `${c.classType} class`, subject: c.subjectName })} style={s.delete}><Ionicons name="trash-outline" size={18} color="#A27680" /></Pressable>
@@ -319,8 +317,6 @@ const s = StyleSheet.create({
   editActionText: { color: "#AFC2DB", fontSize: 9.5, fontWeight: "900" },
   weekAction: { minHeight: 34, borderRadius: 11, backgroundColor: "#21192C", borderWidth: 1, borderColor: "#49375F", paddingHorizontal: 10, flexDirection: "row", gap: 6, alignItems: "center" },
   weekActionText: { color: "#CDB3ED", fontSize: 9.5, fontWeight: "900" },
-  covered: { minHeight: 34, borderRadius: 11, backgroundColor: "#102019", borderWidth: 1, borderColor: "#315843", paddingHorizontal: 10, flexDirection: "row", gap: 6, alignItems: "center" },
-  coveredText: { color: "#8BD4A7", fontSize: 9.5, fontWeight: "900" },
   delete: { width: 34, height: 34, borderRadius: 11, backgroundColor: "#23161B", alignItems: "center", justifyContent: "center" },
   empty: { padding: 35, alignItems: "center", backgroundColor: "#101720", borderRadius: 22, borderWidth: 1, borderColor: "#263241", marginBottom: 22 },
   emptyTitle: { color: "#EEF1F5", fontSize: 19, fontWeight: "900", marginTop: 12 },
