@@ -25,7 +25,7 @@ jobs:
       EXPO_PUBLIC_APP_DATABASE_URL: ${{ secrets.EXPO_PUBLIC_APP_DATABASE_URL }}
       EXPO_PUBLIC_APP_DATABASE_KEY: ${{ secrets.EXPO_PUBLIC_APP_DATABASE_KEY }}
       EXPO_PUBLIC_APP_DATABASE_PROVIDER: ${{ secrets.EXPO_PUBLIC_APP_DATABASE_PROVIDER }}
-      APP_VERSION: "1.0.2"
+      APP_VERSION: "1.1.7"
       NODE_ENV: production
 
     steps:
@@ -91,9 +91,6 @@ jobs:
           PROPS
 
           cat >> android/app/proguard-rules.pro <<'PROGUARD'
-          # Expo Asset references APIs that are absent from this SDK 54 core at
-          # shrink time. These symbols are optional compatibility paths; allow
-          # R8 to optimize the release without treating them as fatal.
           -dontwarn expo.modules.kotlin.services.FilePermissionService
           -dontwarn expo.modules.kotlin.services.FilePermissionService$Permission
           -dontwarn expo.modules.kotlin.types.AnyTypeCache
@@ -133,7 +130,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Prepare Study Arc v${{ env.APP_VERSION }} files
+      - name: Prepare Study Arc v${{ env.APP_VERSION }} ZIP
         run: |
           mkdir -p output
           APK=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -n 1)
@@ -145,21 +142,19 @@ jobs:
           (cd output && zip -9 "StudyArc-v${APP_VERSION}-arm64-min.zip" "StudyArc-v${APP_VERSION}-arm64-min.apk")
           ls -lh output
 
-      - name: Upload minimum APK ZIP artifact
+      - name: Upload StudyArc ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v${{ env.APP_VERSION }}-Min-APK-ZIP
+          name: StudyArc-v${{ env.APP_VERSION }}-APK-ZIP
           path: output/StudyArc-v${{ env.APP_VERSION }}-arm64-min.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
 
-      - name: Publish public v${{ env.APP_VERSION }} release
+      - name: Publish public v${{ env.APP_VERSION }} ZIP release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.APP_VERSION }}
           name: Study Arc v${{ env.APP_VERSION }}
           generate_release_notes: true
-          files: |
-            output/StudyArc-v${{ env.APP_VERSION }}-arm64-min.apk
-            output/StudyArc-v${{ env.APP_VERSION }}-arm64-min.zip
+          files: output/StudyArc-v${{ env.APP_VERSION }}-arm64-min.zip
