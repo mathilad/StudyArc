@@ -1,4 +1,5 @@
 import type { Session, User } from "@supabase/supabase-js";
+import { router } from "expo-router";
 import * as Linking from "expo-linking";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Platform } from "react-native";
@@ -53,14 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (params.access_token && params.refresh_token) {
           const { data, error } = await supabase.auth.setSession({ access_token: params.access_token, refresh_token: params.refresh_token });
           if (error) throw error;
-          if (requireFreshLogin) { await supabase.auth.signOut(); if (mounted) setSession(null); }
+          if (requireFreshLogin) { await supabase.auth.signOut({ scope: "local" }); if (mounted) { setSession(null); router.replace({ pathname: "/login", params: { account_created: "1" } }); } }
           else if (mounted) setSession(data.session ?? null);
           return;
         }
         if (params.code) {
           const { data, error } = await supabase.auth.exchangeCodeForSession(params.code);
           if (error) throw error;
-          if (requireFreshLogin) { await supabase.auth.signOut(); if (mounted) setSession(null); }
+          if (requireFreshLogin) { await supabase.auth.signOut({ scope: "local" }); if (mounted) { setSession(null); router.replace({ pathname: "/login", params: { account_created: "1" } }); } }
           else if (mounted) setSession(data.session ?? null);
         }
       } catch (error) { console.error("Unable to complete Study Arc auth link:", error); }
@@ -110,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         options: { emailRedirectTo: authRedirect("/login", "signup") },
       });
       if (error) throw error;
+      if (data.session) await supabase.auth.signOut({ scope: "local" });
       return { error: null, needsEmailConfirmation: !data.session };
     } catch (error) { return { error: messageFrom(error) }; }
   }, []);

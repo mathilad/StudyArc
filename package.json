@@ -8,7 +8,7 @@
     "android": "node scripts/ensure-deps.js && npx expo start --android",
     "ios": "node scripts/ensure-deps.js && npx expo start --ios",
     "web": "node scripts/ensure-deps.js && npx expo start --web",
-    "export:web": "node scripts/ensure-deps.js && npx expo export --platform web",
+    "export:web": "node scripts/ensure-deps.js && node scripts/prepare-auth-callback.js && npx expo export --platform web",
     "lint": "node scripts/ensure-deps.js && npx expo lint",
     "typecheck": "node scripts/ensure-deps.js && npx tsc --noEmit",
     "audit:production": "node scripts/audit-production.js"

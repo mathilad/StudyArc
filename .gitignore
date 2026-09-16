@@ -14,3 +14,7 @@ web-build/
 # system files
 .DS_Store
 *.log
+
+# Generated callback and local Supabase CLI state
+public/auth-callback.html
+supabase/.temp/

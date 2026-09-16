@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useMemo, useRef, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, TextInput, StyleSheet, Text, View } from "react-native";
 import { format12Hour, minutesToTime, parseTime } from "../lib/time";
 
 export default function ClockTimePicker({
@@ -20,6 +20,8 @@ export default function ClockTimePicker({
   const [hour, setHour] = useState(((Math.floor(initial / 60) + 11) % 12) + 1);
   const [minute, setMinute] = useState(initial % 60);
   const [period, setPeriod] = useState<"AM" | "PM">(Math.floor(initial / 60) >= 12 ? "PM" : "AM");
+  const [minuteText, setMinuteText] = useState(String(initial % 60).padStart(2, "0"));
+  const minuteValid = /^\d{1,2}$/.test(minuteText) && Number(minuteText) <= 59;
   const wasVisible = useRef(false);
 
   React.useEffect(() => {
@@ -31,6 +33,7 @@ export default function ClockTimePicker({
       const mins = parseTime(value);
       setHour(((Math.floor(mins / 60) + 11) % 12) + 1);
       setMinute(mins % 60);
+      setMinuteText(String(mins % 60).padStart(2, "0"));
       setPeriod(Math.floor(mins / 60) >= 12 ? "PM" : "AM");
     }
     wasVisible.current = visible;
@@ -51,7 +54,7 @@ export default function ClockTimePicker({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.overlay}>
+      <KeyboardAvoidingView style={s.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View style={s.sheet}>
           <View style={s.header}>
             <View>
@@ -83,19 +86,17 @@ export default function ClockTimePicker({
           </View>
 
           <Text style={s.minuteLabel}>MINUTES</Text>
-          <View style={s.minutes}>
-            {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
-              <Pressable key={m} onPress={() => setMinute(m)} style={[s.minute, minute === m && s.minuteActive]}>
-                <Text style={[s.minuteText, minute === m && s.minuteTextActive]}>{String(m).padStart(2, "0")}</Text>
-              </Pressable>
-            ))}
-          </View>
+          <TextInput accessibilityLabel="Minutes, 0 to 59" keyboardType="number-pad" inputMode="numeric" maxLength={2} selectTextOnFocus
+            value={minuteText} onChangeText={text => { const digits = text.replace(/\D/g, ""); setMinuteText(digits); if (digits && Number(digits) < 60) setMinute(Number(digits)); }}
+            onBlur={() => { if (minuteValid) setMinuteText(String(Number(minuteText)).padStart(2, "0")); }}
+            style={[s.timePreviewText, { textAlign: "center", backgroundColor: "#19222E", borderRadius: 14, padding: 12 }]} />
+          <Text style={s.minuteLabel}>{minuteValid ? "Type any minute from 00 to 59" : "Enter minutes between 00 and 59"}</Text>
 
-          <Pressable onPress={() => { onChange(output); onClose(); }} style={s.done}>
+          <Pressable disabled={!minuteValid} onPress={() => { onChange(output); onClose(); }} style={[s.done, !minuteValid && { opacity: 0.4 }]}>
             <Text style={s.doneText}>Set {format12Hour(output)}</Text>
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

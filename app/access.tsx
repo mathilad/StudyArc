@@ -39,6 +39,11 @@ export default function AccessScreen() {
     if (!enabledMethod) setSelectedMethodId(paymentMethods.find((method) => method.enabled)?.id ?? null);
   }, [paymentMethods, selectedMethodId]);
 
+  useEffect(() => {
+    const timer = setInterval(() => { refreshMonetization().catch(() => undefined); }, 15000);
+    return () => clearInterval(timer);
+  }, [refreshMonetization]);
+
   const selectedPlan = plans.find(p=>p.id===selectedPlanId) ?? plans[0];
   const pending = useMemo(()=>payments.find(p=>p.status==="PENDING") ?? null,[payments]);
   const approved = useMemo(()=>payments.find(p=>p.status==="APPROVED") ?? null,[payments]);
@@ -74,14 +79,14 @@ export default function AccessScreen() {
     Animated.timing(progress,{toValue:1,duration:4400,easing:Easing.inOut(Easing.cubic),useNativeDriver:false}).start(async({finished})=>{
       if(!finished)return;
       await AsyncStorage.setItem(`studyarc:payment-approved-seen:${session.user.id}:${acceptedPaymentId}`,"1");
-      router.replace("/(tabs)");
+      router.replace("/plan-building");
     });
     return()=>{progress.removeListener(listener);progress.stopAnimation()};
   },[acceptedPaymentId,activationStage,progress,router,session?.user?.id]);
   if (!session) return <Redirect href="/login" />;
   if (adminLoading) return null;
   if (isAdmin) return <Redirect href="/admin" />;
-  if (!loading && approvalChecked && !activationStage && access && !["BLOCKED","PAYMENT_REQUIRED","PAYMENT_PENDING"].includes(access.state)) return <Redirect href="/(tabs)" />;
+  if (!busy && !loading && approvalChecked && !activationStage && access && !["BLOCKED","PAYMENT_REQUIRED","PAYMENT_PENDING"].includes(access.state)) return <Redirect href="/" />;
 
   const startPayment = async () => {
     if (!selectedPlan || !selectedMethodId) { setMessage("Select an active payment method first."); return; }
@@ -103,7 +108,7 @@ export default function AccessScreen() {
   const redeem = async () => {
     if(!activationCode.trim()) return;
     setBusy(true); setMessage(null);
-    try { await redeemActivationCode(activationCode); router.replace("/(tabs)"); }
+    try { await redeemActivationCode(activationCode); router.replace("/plan-building"); }
     catch(e){ setMessage(e instanceof Error?e.message:"Activation failed."); }
     finally{ setBusy(false); }
   };

@@ -1,3 +1,4 @@
+import officialCourseTopics from "./officialCourseTopics.json";
 import { AL_STREAMS } from "./alStreams";
 import { SUBJECTS, type SubjectConfig } from "./subjects";
 
@@ -25,6 +26,11 @@ const genericConfig = (subject: string): SubjectConfig => {
     }],
   };
 };
+
+// Retain original Sinhala course headings where a reviewed English translation is unavailable.
+for (const [subject, topics] of Object.entries(officialCourseTopics)) {
+  if (!(subject in SUBJECTS)) (SUBJECTS as Record<string, SubjectConfig>)[subject] = { ...genericConfig(subject), topics };
+}
 
 // SUBJECTS began as the science-stream catalog. Keep its verified rich content,
 // but register every stream subject so older screens and contexts can safely

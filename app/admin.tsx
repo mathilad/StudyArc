@@ -16,16 +16,18 @@ export default function AdminScreen(){
   const[error,setError]=useState<string|null>(null);
   const[saving,setSaving]=useState<string|null>(null);
   const[contact,setContact]=useState(settings.contactEmail);
+  const[signupApp,setSignupApp]=useState(settings.signupAppUrl);
+  const[signupWeb,setSignupWeb]=useState(settings.signupWebUrl);
   const[website,setWebsite]=useState(settings.websiteUrl);
   const[coffee,setCoffee]=useState(settings.buyMeACoffeeUrl);
   const[aMargin,setAMargin]=useState(String(settings.testAMarginPercent));
 
-  useEffect(()=>{setContact(settings.contactEmail);setWebsite(settings.websiteUrl);setCoffee(settings.buyMeACoffeeUrl);setAMargin(String(settings.testAMarginPercent))},[settings]);
+  useEffect(()=>{setSignupApp(settings.signupAppUrl);setSignupWeb(settings.signupWebUrl);setContact(settings.contactEmail);setWebsite(settings.websiteUrl);setCoffee(settings.buyMeACoffeeUrl);setAMargin(String(settings.testAMarginPercent))},[settings]);
   useEffect(()=>{if(isAdmin)getAdminStats().then(setStats).catch(e=>setError(e instanceof Error?e.message:"Could not load admin metrics."))},[getAdminStats,isAdmin]);
   if(!loading&&!session)return <Redirect href="/login"/>;
   if(!loading&&session&&!refreshing&&!isAdmin)return <Redirect href="/(tabs)"/>;
 
-  const saveValue=async(key:"contactEmail"|"websiteUrl"|"buyMeACoffeeUrl"|"testAMarginPercent")=>{setError(null);setSaving(key);try{if(key==="contactEmail")await updateSetting(key,contact.trim());else if(key==="websiteUrl")await updateSetting(key,website.trim());else if(key==="buyMeACoffeeUrl")await updateSetting(key,coffee.trim());else await updateSetting(key,Math.max(0,Math.min(100,Number(aMargin)||65)))}catch(e){setError(e instanceof Error?e.message:"Could not save setting.")}finally{setSaving(null)}};
+  const saveValue=async(key:"signupAppUrl"|"signupWebUrl"|"contactEmail"|"websiteUrl"|"buyMeACoffeeUrl"|"testAMarginPercent")=>{setError(null);setSaving(key);try{if(key==="signupAppUrl"||key==="signupWebUrl"){const value=(key==="signupAppUrl"?signupApp:signupWeb).trim();const url=new URL(value);if(url.username||url.password||url.search||url.hash||(key==="signupWebUrl"?url.protocol!=="https:":url.protocol!=="studyarc:"))throw new Error("Use a clean HTTPS website URL or studyarc:// app URL without query parameters.");await updateSetting(key,value)}else if(key==="contactEmail")await updateSetting(key,contact.trim());else if(key==="websiteUrl")await updateSetting(key,website.trim());else if(key==="buyMeACoffeeUrl")await updateSetting(key,coffee.trim());else await updateSetting(key,Math.max(0,Math.min(100,Number(aMargin)||65)))}catch(e){setError(e instanceof Error?e.message:"Could not save setting.")}finally{setSaving(null)}};
   const setFeature=async(key:"imageScanning"|"aiFeatures",enabled:boolean)=>{setError(null);setSaving(key);try{await updateSetting("featureFlags",{...settings.featureFlags,[key]:enabled})}catch(e){setError(e instanceof Error?e.message:"Could not update feature.")}finally{setSaving(null)}};
   const reload=async()=>{setError(null);await refresh();try{setStats(await getAdminStats())}catch(e){setError(e instanceof Error?e.message:"Could not refresh admin metrics.")}};
 
@@ -45,6 +47,8 @@ export default function AdminScreen(){
 
       <Text style={s.section}>APP CONFIGURATION</Text><Text style={s.help}>These values are read at runtime. Changing them does not require an APK update.</Text>
       <Setting label="CONTACT EMAIL" value={contact} onChange={setContact} onSave={()=>saveValue("contactEmail")} busy={saving==="contactEmail"}/>
+      <Setting label="SIGNUP: OPEN APP LINK" value={signupApp} onChange={setSignupApp} onSave={()=>saveValue("signupAppUrl")} busy={saving==="signupAppUrl"}/>
+      <Setting label="SIGNUP: WEBSITE FALLBACK" value={signupWeb} onChange={setSignupWeb} onSave={()=>saveValue("signupWebUrl")} busy={saving==="signupWebUrl"}/>
       <Setting label="WEBSITE" value={website} onChange={setWebsite} onSave={()=>saveValue("websiteUrl")} busy={saving==="websiteUrl"}/>
       <Setting label="BUY ME A COFFEE" value={coffee} onChange={setCoffee} onSave={()=>saveValue("buyMeACoffeeUrl")} busy={saving==="buyMeACoffeeUrl"}/>
       <Setting label="TEST A-RANGE THRESHOLD (%)" value={aMargin} onChange={setAMargin} onSave={()=>saveValue("testAMarginPercent")} busy={saving==="testAMarginPercent"} keyboardType="numeric"/>

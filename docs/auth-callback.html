@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
   <meta name="theme-color" content="#080D14" />
   <title>Return to Study Arc</title>
   <style>
@@ -15,38 +16,61 @@
     <h1 id="title">Returning to Study Arc…</h1>
     <p id="message">Your email action is complete. Study Arc should open automatically.</p>
     <a id="openButton" class="button" href="studyarc://login">OPEN STUDY ARC</a>
+    <a id="webButton" class="button" href="https://mathilad.github.io/StudyArc/login">CONTINUE ON WEBSITE</a>
     <div class="status" id="status">If the app does not open automatically, tap the button above. This page does not store your password or authentication token.</div>
     <p class="small">You can close this browser tab after Study Arc opens.</p>
   </main>
   <script>
-    (function(){
-      var params=new URLSearchParams(window.location.search);
-      var requestedTarget=params.get('target');
-
-      if(requestedTarget==='account-created'){
-        params.delete('target');
-        if(!params.get('auth_flow'))params.set('auth_flow','signup');
-        var successQuery=params.toString();
-        var successUrl='https://mathilad.github.io/studyarcweb/account-created.html'+(successQuery?'?'+successQuery:'')+(window.location.hash||'');
-        window.location.replace(successUrl);
+    (async function(){
+      const query=new URLSearchParams(location.search), hash=new URLSearchParams(location.hash.slice(1));
+      const get=key=>hash.get(key)||query.get(key);
+      const title=document.getElementById('title'), message=document.getElementById('message');
+      const appButton=document.getElementById('openButton'), webButton=document.getElementById('webButton');
+      const backend='__SUPABASE_URL__', apiKey='__SUPABASE_KEY__';
+      const recovery=query.get('target')==='reset-password'||get('type')==='recovery';
+      if(get('error')||get('error_description')){
+        title.textContent='This email link could not be completed';
+        message.textContent=get('error_description')||'This link may have expired. Return to Study Arc and request a new email.';
         return;
       }
-
-      var target=requestedTarget==='reset-password'?'reset-password':'login';
-      params.delete('target');
-      var query=params.toString();
-      var deep='studyarc://'+target+(query?'?'+query:'')+(window.location.hash||'');
-      var button=document.getElementById('openButton');
-      button.href=deep;
-      if(target==='reset-password'){
-        document.getElementById('title').textContent='Continue password reset';
-        document.getElementById('message').textContent='Your secure reset link is ready. Return to Study Arc to choose your new password.';
-        button.textContent='OPEN PASSWORD RESET';
+      let app='studyarc://login', web='https://mathilad.github.io/StudyArc/login';
+      try{
+        const response=await fetch(backend+'/rest/v1/app_settings?select=key,value&key=in.(signup_app_url,signup_web_url)',{headers:{apikey:apiKey},signal:AbortSignal.timeout(3500)});
+        if(response.ok)for(const row of await response.json()){
+          const url=new URL(row.value);
+          if(url.username||url.password||url.search||url.hash)continue;
+          if(row.key==='signup_app_url'&&url.protocol==='studyarc:')app=url.href;
+          if(row.key==='signup_web_url'&&url.protocol==='https:')web=url.href;
+        }
+      }catch{/* Default destinations remain available offline. */}
+      if(recovery){
+        app='studyarc://reset-password'+location.search+location.hash;
+        web='https://mathilad.github.io/StudyArc/reset-password'+location.search+location.hash;
+        title.textContent='Continue password reset';
+        message.textContent='Open Study Arc to choose your new password.';
       }else{
-        document.getElementById('title').textContent='Email confirmed';
-        document.getElementById('message').textContent='Your Study Arc email action completed successfully. Return to the app to continue.';
+        // Confirm the result before showing success; do not send tokens to configurable destinations.
+        try{
+          const token=get('access_token');
+          if(!token)throw new Error('No confirmation token was received. Please request a new confirmation email from Study Arc.');
+          const response=await fetch(backend+'/auth/v1/user',{headers:{apikey:apiKey,Authorization:'Bearer '+token},signal:AbortSignal.timeout(8000)});
+          const user=await response.json();
+          if(!response.ok||!user.email_confirmed_at)throw new Error('The confirmation could not be verified. Please sign in or request a new email.');
+          app+='?account_created=1'; web+='?account_created=1';
+          title.textContent='Account created successfully';
+          message.textContent='Your email is confirmed. Sign in to start using Study Arc.';
+          history.replaceState(null,'',location.pathname);
+        }catch(error){title.textContent='Unable to verify email';message.textContent=error.message;return;}
       }
-      setTimeout(function(){ window.location.href=deep; },350);
+      appButton.href=app;webButton.href=web;
+      document.getElementById('status').textContent='If the mobile app does not open, you will continue on the website. You can also choose either button.';
+      const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      let fallback;
+      const stop=()=>{if(document.hidden)clearTimeout(fallback)};
+      document.addEventListener('visibilitychange',stop);
+      appButton.addEventListener('click',()=>{clearTimeout(fallback);fallback=setTimeout(()=>{if(!document.hidden)location.replace(web)},2200)});
+      if(mobile){fallback=setTimeout(()=>{if(!document.hidden)location.replace(web)},2200);location.href=app;}
+      else setTimeout(()=>location.replace(web),1500);
     })();
   </script>
 </body>

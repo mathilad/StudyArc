@@ -42,6 +42,7 @@ export default function AdminUsersScreen() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [selected, setSelected] = useState<AdminUser | null>(null);
   const [planId, setPlanId] = useState<string | null>(plans[0]?.id ?? null);
+  const [months, setMonths] = useState<number | null>(1);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -126,10 +127,10 @@ export default function AdminUsersScreen() {
     if (!selected || !planId) return;
     setBusy(true);
     try {
-      const { error } = await supabase.rpc("admin_grant_premium", {
+      const { error } = await supabase.rpc("admin_extend_premium", {
         target_user: selected.user_id,
         target_plan: planId,
-        custom_days: null,
+        premium_months: months,
         reason: reason.trim() || "Admin grant",
       });
       if (error) throw error;
@@ -149,11 +150,12 @@ export default function AdminUsersScreen() {
     setBusy(true);
     try {
       const { data, error } = await supabase.rpc(
-        "admin_generate_activation_code",
+        "admin_generate_timed_activation_code",
         {
           target_user: selected.user_id,
           target_plan: planId,
           valid_days: 30,
+          premium_months: months,
         },
       );
       if (error) throw error;
@@ -328,6 +330,9 @@ export default function AdminUsersScreen() {
                 </Pressable>
               ))}
             </View>
+            <Text style={s.label}>PREMIUM DURATION</Text>
+            <View style={s.wrap}>{[1,2,3,6,12,null].map(value=><Pressable key={String(value)} onPress={()=>setMonths(value)} style={[s.chip,months===value&&s.chipOn]}><Text style={[s.chipText,months===value&&s.chipTextOn]}>{value==null?"Plan default":`${value} month${value===1?"":"s"}`}</Text></Pressable>)}</View>
+            <Text style={s.meta}>Extends from the current expiry, or today if expired. Codes must be redeemed within 30 days; the selected Premium period begins on redemption.</Text>
             <View style={s.actions}>
               <Pressable
                 disabled={busy || !planId}
@@ -335,7 +340,7 @@ export default function AdminUsersScreen() {
                 style={s.actionPrimary}
               >
                 <Ionicons name="diamond-outline" size={17} color="#160B20" />
-                <Text style={s.actionPrimaryText}>Grant Premium</Text>
+                <Text style={s.actionPrimaryText}>Extend Premium</Text>
               </Pressable>
               <Pressable
                 disabled={busy || !planId}

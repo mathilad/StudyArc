@@ -5,7 +5,7 @@ import { useAppConfig } from "../context/AppConfigContext";
 import { useAuth } from "../context/AuthContext";
 import { useMonetization } from "../context/MonetizationContext";
 import { useStudent } from "../context/StudentContext";
-import { hasSeenInitialPlan, isWithinFirstDays } from "../lib/experience";
+import { hasSeenInitialPlan } from "../lib/experience";
 
 const dateKey=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const startDay=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();
@@ -33,10 +33,6 @@ export default function Index() {
     let live = true;
     const user = session?.user;
     if (!user || !profile.onboardingComplete) {
-      setPlanGate("skip");
-      return () => { live = false; };
-    }
-    if (!isWithinFirstDays(user.created_at, 1)) {
       setPlanGate("skip");
       return () => { live = false; };
     }

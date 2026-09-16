@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import { usePathname } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useOffline } from "../context/OfflineContext";
 
 export default function OfflineStatusBanner() {
+  const pathname = usePathname();
   const { isOnline, checking, pendingChanges, refreshConnectivity } = useOffline();
   const [retrying, setRetrying] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -13,7 +15,7 @@ export default function OfflineStatusBanner() {
     setDismissed(false);
   }, [statusKey]);
 
-  if (dismissed || (isOnline && pendingChanges === 0 && !checking)) return null;
+  if (["/stopwatch", "/paper-stopwatch"].includes(pathname) || dismissed || (isOnline && pendingChanges === 0 && !checking)) return null;
 
   const retry = async () => {
     if (retrying) return;

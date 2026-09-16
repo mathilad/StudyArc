@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, Redirect, useRouter } from "expo-router";
+import { Link, Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,6 +17,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { account_created } = useLocalSearchParams<{ account_created?: string }>();
   const { session, loading, signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,7 +47,8 @@ export default function LoginScreen() {
     <KeyboardAvoidingView style={s.page} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <LinearGradient colors={["#211331", "#0B1119", "#080D14"]} style={StyleSheet.absoluteFill} />
       <View style={s.card}>
-        <View style={s.logo}><View style={s.logoMark}><Ionicons name="sparkles" size={20} color="#E7D6FF" /></View><Text style={s.logoText}>Study<Text style={s.logoAccent}> Arc</Text></Text><Text style={s.kicker}>YOUR ADAPTIVE STUDY JOURNEY</Text></View>
+        <View style={s.logo}><Image source={require("../assets/brand/studyarc-logo.png")} style={{ width: 88, height: 88, marginBottom: 12 }} resizeMode="contain" /><Text style={s.logoText}>Study<Text style={s.logoAccent}> Arc</Text></Text><Text style={s.kicker}>YOUR ADAPTIVE STUDY JOURNEY</Text></View>
+        {account_created === "1" ? <Text accessibilityRole="alert" style={[s.subtitle, { color: "#8BD4A7" }]}>Account created successfully. Sign in to continue.</Text> : null}
         <Text style={s.title}>Welcome back</Text>
         <Text style={s.subtitle}>Sign in with the email and password you created for Study Arc.</Text>
 
@@ -111,7 +114,7 @@ const s = StyleSheet.create({
   subtitle: { color: "#8E98A7", fontSize: 14, textAlign: "center", lineHeight: 21, marginTop: 8, marginBottom: 26 },
   label: { color: "#7D8796", fontSize: 10, fontWeight: "900", letterSpacing: 1.2, marginBottom: 8, marginTop: 12 },
   inputWrap: { height: 52, backgroundColor: "#11161F", borderWidth: 1, borderColor: "#252D39", borderRadius: 14, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 10 },
-  input: { flex: 1, color: "#F2F4F7", fontSize: 15 },
+  input: { flex: 1, outlineWidth: 0, color: "#F2F4F7", fontSize: 15 },
   forgotRow: { alignItems: "flex-end", marginTop: 10 },
   link: { color: "#B784FF", fontWeight: "800" },
   error: { color: "#FF8F9C", fontSize: 12, lineHeight: 18, marginTop: 14, textAlign: "center" },

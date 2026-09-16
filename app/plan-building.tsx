@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AccessibilityInfo, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useAcademic } from "../context/AcademicContext";
 import { useAuth } from "../context/AuthContext";
 import { useStudent } from "../context/StudentContext";
@@ -18,12 +18,26 @@ const BUILD_STEPS = [
   { icon: "school-outline" as const, title: "Analysing your subjects", detail: "Checking your A/L subjects, covered lessons and current priorities." },
   { icon: "calendar-outline" as const, title: "Checking your real week", detail: "Fitting classes, travel, assignments, wake time and sleep around study." },
   { icon: "scale-outline" as const, title: "Balancing your workload", detail: "Distributing useful study time without overloading a single day." },
-  { icon: "refresh-outline" as const, title: "Scheduling revision", detail: "Prioritising weak topics, recall-due work and paper practice." },
+  { icon: "refresh-outline" as const, title: "Scheduling time to revise", detail: "Prioritising weak topics, recall-due work and paper practice." },
   { icon: "sparkles-outline" as const, title: "Preparing your first week", detail: "Turning your data into a practical Study Arc plan." },
 ];
 
 export default function PlanBuildingScreen() {
   const router = useRouter();
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    let live = true;
+    let animation: Animated.CompositeAnimation | undefined;
+    AccessibilityInfo.isReduceMotionEnabled().then(reduced => {
+      if (!live || reduced) return;
+      animation = Animated.loop(Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]));
+      animation.start();
+    });
+    return () => { live = false; animation?.stop(); };
+  }, [pulse]);
   const { user, loading: authLoading } = useAuth();
   const { settings } = useAppConfig();
   const { profile, classes, topicProgress, testMarks, subtopicCoverage, loading: studentLoading } = useStudent();
@@ -92,11 +106,12 @@ export default function PlanBuildingScreen() {
     <LinearGradient colors={["#251538", "#0D111A", "#080D14"]} style={StyleSheet.absoluteFill} />
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.brandRow}><Text style={s.brand}>Study<Text style={s.brandAccent}> Arc</Text></Text><Text style={s.version}>v1.1.6</Text></View>
-      <View style={s.heroIcon}><Ionicons name={ready ? "checkmark" : "sparkles"} size={34} color={ready ? "#160B20" : "#E9D8FF"} /></View>
+      <Animated.View style={[s.heroIcon, { transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) }] }]}><Ionicons name={ready ? "checkmark" : "sparkles"} size={34} color={ready ? "#160B20" : "#E9D8FF"} /></Animated.View>
       <Text style={s.kicker}>{ready ? "YOUR FIRST WEEK IS READY" : "BUILDING YOUR STUDY ARC"}</Text>
-      <Text style={s.title}>{ready ? "Your plan is ready." : "Creating a plan around your real life."}</Text>
+      <Text style={s.title}>{ready ? "Your plan is ready." : "Your plan is being generated…"}</Text>
       <Text style={s.subtitle}>{ready ? "Study Arc will keep adjusting this plan as your classes, results, assignments and revision needs change." : active.detail}</Text>
 
+      <Text style={s.subtitle}>You can change your plan and timetable later.</Text>
       <View style={s.progressTrack}><View style={[s.progressFill, { width: `${percent}%` }]} /></View>
       <View style={s.progressRow}><Text style={s.progressText}>{ready ? "Complete" : active.title}</Text><Text style={s.progressPct}>{percent}%</Text></View>
 

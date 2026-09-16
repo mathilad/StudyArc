@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg,{Circle,Line,Polyline} from "react-native-svg";
 import { useAcademic } from "../context/AcademicContext";
@@ -16,6 +16,7 @@ type TrendPoint={date:string;score:number;label:string;subject:string};
 
 export default function PaperAnalysisScreen(){
  const router=useRouter();
+ const [selectedSubject,setSelectedSubject]=useState("All subjects");
  const{profile,testMarks,topicProgress}=useStudent();
  const{paperTopicResults}=useAcademic();
  const{questionResults}=useIntelligence();
@@ -46,7 +47,8 @@ export default function PaperAnalysisScreen(){
  return <View style={s.root}><LinearGradient colors={["#171023","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.header}><Pressable onPress={()=>router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF"/></Pressable><View style={{flex:1}}><Text style={s.title}>Paper performance</Text><Text style={s.sub}>Trend, marks, timed papers, question accuracy and weak lessons.</Text></View></View><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
   <View style={s.note}><Ionicons name="analytics-outline" size={21} color="#C8A6F0"/><Text style={s.noteText}>Performance combines timed paper sessions, test marks, answer-sheet analysis and saved question results. It shows readiness signals, not predicted grades.</Text></View>
   <View style={s.graphCard}><View style={s.graphHead}><View><Text style={s.graphKicker}>ALL PAPER PERFORMANCE</Text><Text style={s.graphTitle}>Performance trend</Text><Text style={s.graphSub}>{overallTrend.length?`${overallTrend.length} recent scored papers/tests · oldest to newest`:"Add scored paper data to build your trend."}</Text></View>{overallTrend.length?<Text style={s.latest}>{overallTrend[overallTrend.length-1].score}%</Text>:null}</View><TrendGraph points={overallTrend}/>{overallTrend.length>=2?<View style={s.change}><Ionicons name={overallTrend[overallTrend.length-1].score>=overallTrend[0].score?"trending-up":"trending-down"} size={18} color={overallTrend[overallTrend.length-1].score>=overallTrend[0].score?"#79D39B":"#E6A06A"}/><Text style={s.changeText}>{overallTrend[overallTrend.length-1].score-overallTrend[0].score>=0?"+":""}{overallTrend[overallTrend.length-1].score-overallTrend[0].score} points across the shown period</Text></View>:null}</View>
-  {rows.map(row=><View key={row.subject} style={s.card}><View style={s.cardHead}><View style={{flex:1}}><Text style={s.subject}>{row.subject}</Text><Text style={s.meta}>{row.paperSessions.length} timed session{row.paperSessions.length===1?"":"s"} · {row.questions.length} scored question{row.questions.length===1?"":"s"}</Text></View><Pressable onPress={()=>router.push({pathname:"/past-paper",params:{subjectName:row.subject}})} style={s.practice}><Ionicons name="play-outline" size={16} color="#160B20"/><Text style={s.practiceText}>Practise</Text></Pressable></View>
+  <Text style={s.label}>CHOOSE SUBJECT</Text><View style={[s.wrap,{marginBottom:14}]}>{["All subjects",...subjects].map(subject=><Pressable key={subject} onPress={()=>setSelectedSubject(subject)} accessibilityRole="button" accessibilityState={{selected:selectedSubject===subject}} style={[s.pill,selectedSubject===subject&&{backgroundColor:"#503174"}]}><Text style={s.pillText}>{subject}</Text></Pressable>)}</View>
+  {rows.filter(row=>selectedSubject==="All subjects"||row.subject===selectedSubject).map(row=><View key={row.subject} style={s.card}><View style={s.cardHead}><View style={{flex:1}}><Text style={s.subject}>{row.subject}</Text><Text style={s.meta}>{row.paperSessions.length} timed session{row.paperSessions.length===1?"":"s"} · {row.questions.length} scored question{row.questions.length===1?"":"s"}</Text></View><Pressable onPress={()=>router.push({pathname:"/past-paper",params:{subjectName:row.subject}})} style={s.practice}><Ionicons name="play-outline" size={16} color="#160B20"/><Text style={s.practiceText}>Practise</Text></Pressable></View>
    {row.trend.length>=2?<View style={s.subjectGraph}><Text style={s.label}>SUBJECT TREND</Text><TrendGraph points={row.trend} compact/></View>:null}
    <View style={s.metrics}><Metric label="MCQ / PART A SIGNAL" value={row.mcq}/><Metric label="ESSAY / PART B SIGNAL" value={row.essay}/><Metric label="QUESTION ACCURACY" value={row.questionAccuracy}/><Metric label="AVG QUESTION" value={row.avgQuestion}/></View>
    <Text style={s.label}>PAPER COVERAGE</Text><View style={s.wrap}>{row.sectionCounts.size?[...row.sectionCounts.entries()].map(([name,count])=><View key={name} style={s.pill}><Text style={s.pillText}>{name} · {count}</Text></View>):<Text style={s.emptyInline}>No timed paper sections recorded yet.</Text>}</View>
