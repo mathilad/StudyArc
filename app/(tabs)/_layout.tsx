@@ -47,7 +47,8 @@ export default function TabsLayout() {
         headerTitle: () => (
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Image
-              source={require("../../assets/images/icon.png")}
+              source={require("../../assets/images/study-arc-brand.png")}
+              accessibilityLabel="StudyArc logo"
               resizeMode="contain"
               style={{ width: 30, height: 30, borderRadius: 8, marginRight: 9 }}
             />

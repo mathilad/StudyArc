@@ -1,23 +1,21 @@
 from pathlib import Path
 import shutil
-import cairosvg
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-SVG = ROOT / "assets" / "brand" / "studyarc-logo.svg"
+SOURCE = ROOT / "assets" / "brand" / "studyarc-logo.png"
 
 
 def render(path: Path, size: int) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    cairosvg.svg2png(
-        url=str(SVG),
-        write_to=str(path),
-        output_width=size,
-        output_height=size,
-    )
+    with Image.open(SOURCE) as image:
+        image.convert("RGB").resize(
+            (size, size), Image.Resampling.LANCZOS
+        ).save(path, format="PNG", optimize=True)
 
 
-# Expo/Android source assets. Use a high-resolution true PNG generated on the
-# build runner so Jimp/Expo never has to consume a damaged binary committed to git.
+# Keep Expo, the top bar, splash screen and web icons on the approved artwork.
+# Resizing preserves the supplied design; it does not add source detail.
 main_icon = ROOT / "assets" / "images" / "icon.png"
 render(main_icon, 1024)
 
@@ -33,4 +31,4 @@ for target in [
 render(ROOT / "assets" / "images" / "favicon.png", 256)
 render(ROOT / "public" / "favicon.png", 256)
 
-print("Generated StudyArc brand PNG assets from", SVG)
+print("Generated StudyArc brand PNG assets from", SOURCE)
