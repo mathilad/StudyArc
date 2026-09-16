@@ -97,6 +97,7 @@ export default function PastPaperYearsScreen() {
     </View>
 
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <Pressable onPress={()=>router.push({pathname:"/manual-past-paper",params:{subjectName,topicName,paperSection:section}})} style={s.contextCard}><Text style={s.title}>Record completed work</Text><Text style={s.sub}>Already done a paper or question? Add it without starting the timer.</Text></Pressable>
       <View style={s.contextCard}>
         <View style={s.contextIcon}><Ionicons name={isLessonPractice ? "book" : "layers"} size={22} color="#E1CCF8" /></View>
         <View style={{ flex: 1 }}>

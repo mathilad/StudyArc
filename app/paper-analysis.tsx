@@ -19,17 +19,19 @@ export default function PaperAnalysisScreen(){
  const [selectedSubject,setSelectedSubject]=useState("All subjects");
  const{profile,testMarks,topicProgress}=useStudent();
  const{paperTopicResults}=useAcademic();
- const{questionResults}=useIntelligence();
+ const{questionResults:savedQuestionResults}=useIntelligence();
  const{sessions}=useStudy();
+ const questionResults=useMemo(()=>[...savedQuestionResults,...sessions.filter(x=>x.manualPaper?.questionNo&&x.manualPaper.marksTotal!=null).map(x=>({id:x.id,sessionId:x.id,subjectName:x.subjectName,topicName:x.topicName,paperLabel:`${x.paperYear} · ${x.paperSection} · Attempt ${x.attemptNo??1}`,questionNo:x.manualPaper!.questionNo!,marksAwarded:x.manualPaper!.marksAwarded!,marksTotal:x.manualPaper!.marksTotal!,durationSeconds:x.durationSeconds,confidence:null,mistakeType:null,difficultyRating:null,createdAt:x.startedAt}))],[savedQuestionResults,sessions]);
  const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
  const overallTrend=useMemo<TrendPoint[]>(()=>{
   const points:TrendPoint[]=[];
   testMarks.forEach(mark=>{const vals=[mark.mcqPercent,mark.essayPercent].filter((x):x is number=>x!=null);if(vals.length)points.push({date:mark.testDate,score:Math.round(vals.reduce((a,b)=>a+b,0)/vals.length),label:mark.title,subject:mark.subjectName})});
+  sessions.forEach(item=>{const result=item.manualPaper;if(result&&!result.questionNo&&result.marksTotal!=null&&result.marksAwarded!=null)points.push({date:item.startedAt,score:Math.round(result.marksAwarded/result.marksTotal*100),label:`${item.paperYear} · ${item.paperSection} · Attempt ${item.attemptNo??1}`,subject:item.subjectName})});
   const groups=new Map<string,typeof questionResults>();
-  questionResults.filter(q=>q.marksTotal>0).forEach(q=>{const key=`${q.subjectName}::${q.paperLabel??q.createdAt.slice(0,10)}::${q.createdAt.slice(0,10)}`;groups.set(key,[...(groups.get(key)??[]),q])});
-  groups.forEach((qs,key)=>{const total=qs.reduce((a,q)=>a+q.marksTotal,0),got=qs.reduce((a,q)=>a+q.marksAwarded,0);if(!total)return;const [subject,label,date]=key.split("::");points.push({date,score:Math.round(got/total*100),label:label||"Paper",subject})});
+  questionResults.filter(q=>q.marksTotal>0).forEach(q=>{const key=q.sessionId??`${q.subjectName}::${q.paperLabel??q.createdAt.slice(0,10)}::${q.createdAt.slice(0,10)}`;groups.set(key,[...(groups.get(key)??[]),q])});
+  groups.forEach(qs=>{const total=qs.reduce((a,q)=>a+q.marksTotal,0),got=qs.reduce((a,q)=>a+q.marksAwarded,0);if(!total)return;const first=qs[0];points.push({date:first.createdAt,score:Math.round(got/total*100),label:first.paperLabel||"Paper",subject:first.subjectName})});
   return points.sort((a,b)=>a.date.localeCompare(b.date));
- },[questionResults,testMarks]);
+ },[questionResults,testMarks,sessions]);
  const rows=useMemo(()=>subjects.map(subject=>{
   const paperSessions=sessions.filter(x=>x.studyType==="Past Papers"&&x.subjectName===subject);
   const marks=testMarks.filter(x=>x.subjectName===subject);
@@ -47,8 +49,9 @@ export default function PaperAnalysisScreen(){
  return <View style={s.root}><LinearGradient colors={["#171023","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.header}><Pressable onPress={()=>router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF"/></Pressable><View style={{flex:1}}><Text style={s.title}>Paper performance</Text><Text style={s.sub}>Trend, marks, timed papers, question accuracy and weak lessons.</Text></View></View><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
   <View style={s.note}><Ionicons name="analytics-outline" size={21} color="#C8A6F0"/><Text style={s.noteText}>Performance combines timed paper sessions, test marks, answer-sheet analysis and saved question results. It shows readiness signals, not predicted grades.</Text></View>
 
+  <Pressable onPress={()=>router.push("/manual-past-paper")} style={[s.practice,{alignSelf:"flex-start",marginVertical:12}]}><Text style={s.practiceText}>+ Record completed paper / question</Text></Pressable>
   <Text style={s.label}>CHOOSE SUBJECT</Text><View style={[s.wrap,{marginBottom:14}]}>{["All subjects",...subjects].map(subject=><Pressable key={subject} onPress={()=>setSelectedSubject(subject)} accessibilityRole="button" accessibilityState={{selected:selectedSubject===subject}} style={[s.pill,selectedSubject===subject&&{backgroundColor:"#503174"}]}><Text style={s.pillText}>{subject}</Text></Pressable>)}</View>
-  {rows.filter(row=>selectedSubject==="All subjects"||row.subject===selectedSubject).map(row=><View key={row.subject} style={s.card}><View style={s.cardHead}><View style={{flex:1}}><Text style={s.subject}>{row.subject}</Text><Text style={s.meta}>{row.paperSessions.length} timed session{row.paperSessions.length===1?"":"s"} · {row.questions.length} scored question{row.questions.length===1?"":"s"}</Text></View><Pressable onPress={()=>router.push({pathname:"/past-paper",params:{subjectName:row.subject}})} style={s.practice}><Ionicons name="play-outline" size={16} color="#160B20"/><Text style={s.practiceText}>Practise</Text></Pressable></View>
+  {rows.filter(row=>selectedSubject==="All subjects"||row.subject===selectedSubject).map(row=><View key={row.subject} style={s.card}><View style={s.cardHead}><View style={{flex:1}}><Text style={s.subject}>{row.subject}</Text><Text style={s.meta}>{row.paperSessions.length} paper session{row.paperSessions.length===1?"":"s"} · {row.questions.length} scored question{row.questions.length===1?"":"s"}</Text></View><Pressable onPress={()=>router.push({pathname:"/past-paper",params:{subjectName:row.subject}})} style={s.practice}><Ionicons name="play-outline" size={16} color="#160B20"/><Text style={s.practiceText}>Practise</Text></Pressable></View>
    <View style={s.subjectGraph}><Text style={s.label}>MARKS OVER TIME</Text><PaperTrendGraph points={row.trend}/></View>
    <View style={s.metrics}><Metric label="MCQ / PART A SIGNAL" value={row.mcq}/><Metric label="ESSAY / PART B SIGNAL" value={row.essay}/><Metric label="QUESTION ACCURACY" value={row.questionAccuracy}/><Metric label="AVG QUESTION" value={row.avgQuestion}/></View>
    <Text style={s.label}>PAPER COVERAGE</Text><View style={s.wrap}>{row.sectionCounts.size?[...row.sectionCounts.entries()].map(([name,count])=><View key={name} style={s.pill}><Text style={s.pillText}>{name} · {count}</Text></View>):<Text style={s.emptyInline}>No timed paper sections recorded yet.</Text>}</View>

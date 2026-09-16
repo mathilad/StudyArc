@@ -50,6 +50,7 @@ export default function PastPaperScreen() {
         {availableSubjects.map(item => <Pressable key={item} onPress={() => setSubject(item)} style={[s.subjectChip, subject === item && s.subjectChipOn]}><Text style={[s.subjectText, subject === item && s.subjectTextOn]}>{item}</Text></Pressable>)}
       </ScrollView>
 
+      <Pressable onPress={()=>router.push({pathname:"/manual-past-paper",params:{subjectName:subject}})} style={[s.scopeFeatured,{padding:16,marginTop:18}]}><Text style={s.scopeTitleFeatured}>Record a completed paper or question</Text><Text style={s.scopeSubFeatured}>Add manual attempts, marks and repeat attempts.</Text></Pressable>
       <Text style={s.label}>PRACTICE SCOPE</Text>
       <Pressable onPress={() => openYears("General")} style={s.scopeFeatured}>
         <LinearGradient colors={["#382452", "#241833"]} style={s.scopeGradient}>

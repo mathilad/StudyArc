@@ -19,7 +19,7 @@ const TECHNOLOGY_SUBJECTS = new Set(["Engineering Technology", "Biosystems Techn
 
 export function paperSectionsForSubject(subjectName: string): FlexiblePaperSection[] {
   if (MATH_SUBJECTS.has(subjectName)) return ["Part A", "Part B", "Full Paper"];
-  if (SCIENCE_SUBJECTS.has(subjectName)) return ["MCQ", "Structured", "Essay", "Full MCQ Paper", "Full Essay Paper"];
+  if (SCIENCE_SUBJECTS.has(subjectName)) return ["MCQ", "Structured", "Essay", "Full MCQ Paper", "Full Essay Paper", "Full Paper"];
   if (TECHNOLOGY_SUBJECTS.has(subjectName)) return ["Paper I", "Paper II", "Full Paper"];
   return ["Paper I", "Paper II", "Full Paper"];
 }
