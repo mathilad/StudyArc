@@ -12,19 +12,22 @@ import { expandSubjectChoices, topicDisplayName } from "../data/subjects";
 import { daysUntilExam, examDateLabel } from "../lib/exams";
 import { combinedPerformance, levelForScore, questionAccuracy } from "../lib/performanceAnalysis";
 import { recommendTaskNow } from "../lib/planner";
+import { useRevisePreferences } from "../context/RevisePreferencesContext";
+import { reviseLessonKey } from "../lib/revisePreferences";
 import { mergeSessionIntent } from "../lib/sessionIntent";
 
 const formatStudy=(seconds:number)=>{const h=Math.floor(seconds/3600),m=Math.floor((seconds%3600)/60);return h?`${h}h ${m}m`:`${m}m`};
 
 export default function HomeScreen({footer}:{footer?:React.ReactNode}={}){
  const router=useRouter();
+ const { excluded } = useRevisePreferences();
  const{profile,topicProgress,subtopicCoverage,testMarks}=useStudent();
  const{assignments}=useAcademic();
  const{mistakes,questionResults,captures}=useIntelligence();
  const{todaySeconds}=useStudy();
  const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
  const openAssignments=useMemo(()=>assignments.filter(x=>!x.completed),[assignments]);
- const revisionDue=useMemo(()=>topicProgress.filter(x=>x.nextRecallAt&&new Date(x.nextRecallAt).getTime()<=Date.now()),[topicProgress]);
+ const revisionDue=useMemo(()=>topicProgress.filter(x=>!excluded.includes(reviseLessonKey(x.subjectName,x.topicName))&&x.nextRecallAt&&new Date(x.nextRecallAt).getTime()<=Date.now()),[topicProgress,excluded]);
  const activeMistakes=useMemo(()=>mistakes.filter(x=>!x.resolved),[mistakes]);
  const coveredLessons=useMemo(()=>new Set(subtopicCoverage.filter(x=>x.covered).map(x=>`${x.subjectName}|${x.topicName}`)).size,[subtopicCoverage]);
  const coveredSubtopics=useMemo(()=>subtopicCoverage.filter(x=>x.covered).length,[subtopicCoverage]);
@@ -32,7 +35,7 @@ export default function HomeScreen({footer}:{footer?:React.ReactNode}={}){
  const scanAccuracy=useMemo(()=>questionAccuracy(questionResults),[questionResults]);
  const scannedPapers=useMemo(()=>captures.filter(x=>x.captureKind==="answer_sheet"||x.captureKind==="paper_marking").length,[captures]);
  const examDays=profile.examYear?daysUntilExam(profile.examYear):null,examDate=profile.examYear?examDateLabel(profile.examYear):null;
- const recommended=useMemo(()=>recommendTaskNow(50,profile,topicProgress,testMarks,subtopicCoverage),[profile,subtopicCoverage,testMarks,topicProgress]);
+ const recommended=useMemo(()=>recommendTaskNow(50,profile,topicProgress,testMarks,subtopicCoverage),[profile,subtopicCoverage,testMarks,topicProgress,excluded]);
  const recommendedTitle=recommended?`${recommended.subjectName} · ${topicDisplayName(recommended.subjectName,recommended.topicName,profile.medium)}`:"General focus session";
  const recommendedMeta=recommended?`${recommended.minutes} min · ${recommended.reason}`:"45 min · Start now and classify the lesson when you finish.";
  const continueTopic=useMemo(()=>topicProgress.filter(x=>x.lastStudiedAt).sort((a,b)=>new Date(b.lastStudiedAt!).getTime()-new Date(a.lastStudiedAt!).getTime())[0]??null,[topicProgress]);

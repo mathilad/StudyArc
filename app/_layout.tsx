@@ -24,6 +24,7 @@ import { AcademicCatalogProvider } from "../context/AcademicCatalogContext";
 import { AcademicProvider } from "../context/AcademicContext";
 import { AppConfigProvider } from "../context/AppConfigContext";
 import { AssignmentEnhancementsProvider } from "../context/AssignmentEnhancementsContext";
+import { RevisePreferencesProvider } from "../context/RevisePreferencesContext";
 import { AuthProvider } from "../context/AuthContext";
 import { ClassLearningProvider } from "../context/ClassLearningContext";
 import { IntelligenceProvider } from "../context/IntelligenceContext";
@@ -55,7 +56,7 @@ function RootContent() {
   }, []);
 
   return <View style={{ flex: 1, backgroundColor: "#080D14" }}>
-    <AuthProvider><AppConfigProvider><OfflineProvider><MonetizationProvider><StudentProvider><AcademicCatalogProvider><AcademicProvider><AssignmentEnhancementsProvider><ClassLearningProvider><PlanningProvider><ScheduleAdjustmentsProvider><PhaseProvider><StudyProvider><IntelligenceProvider><SocialProvider>
+    <AuthProvider><RevisePreferencesProvider><AppConfigProvider><OfflineProvider><MonetizationProvider><StudentProvider><AcademicCatalogProvider><AcademicProvider><AssignmentEnhancementsProvider><ClassLearningProvider><PlanningProvider><ScheduleAdjustmentsProvider><PhaseProvider><StudyProvider><IntelligenceProvider><SocialProvider>
       <StatusBar hidden />
       <OfficialExamSync />
       <NotificationScheduler />
@@ -75,7 +76,7 @@ function RootContent() {
       <AppUpdateNotice />
       <OfflineStatusBanner />
       <GlobalProcessingOverlay />
-    </SocialProvider></IntelligenceProvider></StudyProvider></PhaseProvider></ScheduleAdjustmentsProvider></PlanningProvider></ClassLearningProvider></AssignmentEnhancementsProvider></AcademicProvider></AcademicCatalogProvider></StudentProvider></MonetizationProvider></OfflineProvider></AppConfigProvider></AuthProvider>
+    </SocialProvider></IntelligenceProvider></StudyProvider></PhaseProvider></ScheduleAdjustmentsProvider></PlanningProvider></ClassLearningProvider></AssignmentEnhancementsProvider></AcademicProvider></AcademicCatalogProvider></StudentProvider></MonetizationProvider></OfflineProvider></AppConfigProvider></RevisePreferencesProvider></AuthProvider>
   </View>;
 }
 

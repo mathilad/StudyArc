@@ -1,8 +1,21 @@
-import AsyncStorage from"@react-native-async-storage/async-storage";
-const KEY="@study-arc/revise-excluded-subjects/v1";
-let excluded=new Set<string>();
-export async function loadReviseExcludedSubjects(){try{const raw=await AsyncStorage.getItem(KEY);excluded=new Set(raw?JSON.parse(raw):[])}catch{excluded=new Set()}return [...excluded]}
-export async function saveReviseExcludedSubjects(subjects:string[]){excluded=new Set(subjects);await AsyncStorage.setItem(KEY,JSON.stringify([...excluded]));return [...excluded]}
-export function setRuntimeReviseExcludedSubjects(subjects:string[]){excluded=new Set(subjects)}
-export function isSubjectExcludedFromRevise(subject:string){return excluded.has(subject)}
-export function getRuntimeReviseExcludedSubjects(){return [...excluded]}
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { findTopic } from "../data/subjects";
+
+const keyFor = (userId: string) => `@study-arc/revise-excluded-lessons/v2/${userId}`;
+let excluded = new Set<string>();
+
+// Stable catalogue IDs survive lesson title edits. Include the subject to avoid collisions.
+export function reviseLessonKey(subject: string, topic: string) {
+  return JSON.stringify([subject, findTopic(subject, topic)?.id ?? topic]);
+}
+export async function loadReviseExcludedLessons(userId: string): Promise<string[]> {
+  const raw = await AsyncStorage.getItem(keyFor(userId));
+  const values: unknown = raw ? JSON.parse(raw) : [];
+  if (!Array.isArray(values) || values.some(value => typeof value !== "string")) throw new Error("Could not read saved lesson choices.");
+  return [...new Set(values as string[])];
+}
+export async function saveReviseExcludedLessons(userId: string, lessons: string[]) {
+  await AsyncStorage.setItem(keyFor(userId), JSON.stringify([...new Set(lessons)]));
+}
+export function setRuntimeReviseExcludedLessons(lessons: string[]) { excluded = new Set(lessons); }
+export function isLessonExcludedFromRevise(subject: string, topic: string) { return excluded.has(reviseLessonKey(subject, topic)); }

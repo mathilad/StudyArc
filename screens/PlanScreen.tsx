@@ -1,3 +1,4 @@
+import { useRevisePreferences } from "../context/RevisePreferencesContext";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -23,6 +24,7 @@ const signedMinutes=(minutes:number)=>{const sign=minutes>0?"+":minutes<0?"−":
 
 export default function PlanScreen(){
   const router=useRouter();
+  const { excluded: reviseExcluded } = useRevisePreferences();
   const{profile,classes,topicProgress,testMarks,subtopicCoverage,saveProfile}=useStudent();
   const{settings:phaseSettings}=usePhase();
   const{preferences,updatePreferences,setSubjectAdjustment,resetDefaults}=usePlanning();
@@ -35,11 +37,11 @@ export default function PlanScreen(){
   const phaseOptions=useMemo(()=>({phase:phaseSettings.phase,examSubjects:phaseSettings.examSubjects,examTopics:phaseSettings.examTopics,doneSubjects:phaseSettings.doneSubjects}),[phaseSettings]);
   const subjects=useMemo(()=>expandSubjectChoices(profile.subjectChoices),[profile.subjectChoices]);
   const subjectBuckets=useMemo(()=>[...new Set(subjects.map(planningBucketFor))],[subjects]);
-  const dayPlan=useMemo(()=>generateDailyPlan(selectedDate,profile,classes,topicProgress,testMarks,subtopicCoverage,phaseOptions),[selectedDate,profile,classes,topicProgress,testMarks,subtopicCoverage,phaseOptions,protectedTimes,classWeekOverrides,preferences]);
+  const dayPlan=useMemo(()=>generateDailyPlan(selectedDate,profile,classes,topicProgress,testMarks,subtopicCoverage,phaseOptions),[selectedDate,profile,classes,topicProgress,testMarks,subtopicCoverage,phaseOptions,protectedTimes,classWeekOverrides,preferences,reviseExcluded]);
   const visiblePlan=filter==="All"?dayPlan:dayPlan.filter(x=>!x.subjectName||x.subjectName===filter);
   const weekStart=useMemo(()=>startOfWeek(selectedDate),[selectedDate]);
   const weekDays=useMemo(()=>Array.from({length:7},(_,i)=>addDays(weekStart,i)),[weekStart]);
-  const weekPlans=useMemo(()=>Array.from({length:7},(_,i)=>generateDailyPlan(addDays(weekStart,i),profile,classes,topicProgress,testMarks,subtopicCoverage,phaseOptions)),[weekStart,profile,classes,topicProgress,testMarks,subtopicCoverage,phaseOptions,protectedTimes,classWeekOverrides,preferences]);
+  const weekPlans=useMemo(()=>Array.from({length:7},(_,i)=>generateDailyPlan(addDays(weekStart,i),profile,classes,topicProgress,testMarks,subtopicCoverage,phaseOptions)),[weekStart,profile,classes,topicProgress,testMarks,subtopicCoverage,phaseOptions,protectedTimes,classWeekOverrides,preferences,reviseExcluded]);
   const weekly=useMemo(()=>weeklySubjectMinutes(profile,classes,weekPlans),[profile,classes,weekPlans]);
   const fullWork=phaseSettings.phase==="Exam Month";
   const bonusUnlocked=sameDate(selectedDate,new Date())&&todaySeconds>=12*3600;
