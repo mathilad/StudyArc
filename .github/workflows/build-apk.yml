@@ -1,4 +1,4 @@
-name: Build Study Arc APK
+name: Build StudyArc Universal APK
 
 on:
   workflow_dispatch:
@@ -9,15 +9,15 @@ permissions:
   contents: write
 
 concurrency:
-  group: study-arc-apk-${{ github.ref }}
+  group: studyarc-universal-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-apk:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[build-apk]')
-    name: Build Android APK
+    name: Build Android Universal APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     env:
       EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
@@ -29,31 +29,30 @@ jobs:
       NODE_ENV: production
 
     steps:
-      - name: Checkout Study Arc
+      - name: Checkout StudyArc
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
 
       - name: Setup Java 17
         uses: actions/setup-java@v5
         with:
-          distribution: "temurin"
+          distribution: temurin
           java-version: "17"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: platform-tools
 
       - name: Install dependencies
         env:
           NODE_ENV: development
         run: npm install --include=dev --no-audit --no-fund
 
-      - name: Align Expo SDK dependencies
+      - name: Align Expo dependencies
         env:
           NODE_ENV: development
         run: npx expo install --fix --npm
@@ -66,24 +65,17 @@ jobs:
       - name: Type-check app
         run: npm run typecheck
 
-      - name: Lint app
-        continue-on-error: true
-        run: npm run lint
-
-      - name: Show Study Arc configuration
-        run: npx expo config --type public
-
       - name: Generate Android project
         env:
           CI: "1"
         run: npx expo prebuild --platform android --clean
 
-      - name: Configure minimum-size release
+      - name: Configure universal release
         run: |
           cat >> android/gradle.properties <<'PROPS'
           android.enableMinifyInReleaseBuilds=true
           android.enableShrinkResourcesInReleaseBuilds=true
-          reactNativeArchitectures=arm64-v8a
+          reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
           org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
           org.gradle.workers.max=2
           org.gradle.parallel=false
@@ -100,24 +92,22 @@ jobs:
           -dontwarn expo.modules.kotlin.types.descriptors.TypeDescriptorOfKt
           PROGUARD
 
-      - name: Make Gradle executable
-        run: chmod +x android/gradlew
-
-      - name: Build StudyArc app release APK only
+      - name: Build universal release APK
         working-directory: android
-        timeout-minutes: 30
+        timeout-minutes: 40
         shell: bash
         run: |
           set -o pipefail
+          chmod +x gradlew
           ./gradlew :app:assembleRelease \
             --no-daemon \
             --console=plain \
             --stacktrace \
             --max-workers=2 \
-            -PreactNativeArchitectures=arm64-v8a \
+            -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64 \
             2>&1 | tee ../gradle-build.log
 
-      - name: Upload Gradle diagnostics if build fails
+      - name: Upload diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -130,31 +120,29 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Prepare Study Arc v${{ env.APP_VERSION }} ZIP
+      - name: Prepare APK and ZIP
         run: |
           mkdir -p output
           APK=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -n 1)
-          if [ -z "$APK" ]; then
-            echo "APK was not generated."
-            exit 1
-          fi
-          cp "$APK" "output/StudyArc-v${APP_VERSION}-arm64-min.apk"
-          (cd output && zip -9 "StudyArc-v${APP_VERSION}-arm64-min.zip" "StudyArc-v${APP_VERSION}-arm64-min.apk")
-          ls -lh output
+          test -n "$APK" || { echo "APK was not generated"; exit 1; }
+          cp "$APK" "output/StudyArc-v${APP_VERSION}-universal.apk"
+          cd output
+          zip -0 "StudyArc-v${APP_VERSION}-universal.zip" "StudyArc-v${APP_VERSION}-universal.apk"
+          ls -lh
 
-      - name: Upload StudyArc ZIP artifact
+      - name: Upload APK ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v${{ env.APP_VERSION }}-APK-ZIP
-          path: output/StudyArc-v${{ env.APP_VERSION }}-arm64-min.zip
+          name: StudyArc-v${{ env.APP_VERSION }}-Universal-APK
+          path: output/StudyArc-v${{ env.APP_VERSION }}-universal.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
 
-      - name: Publish public v${{ env.APP_VERSION }} ZIP release
+      - name: Publish release ZIP
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.APP_VERSION }}
-          name: Study Arc v${{ env.APP_VERSION }}
+          tag_name: v${{ env.APP_VERSION }}-universal
+          name: StudyArc v${{ env.APP_VERSION }} Universal APK
           generate_release_notes: true
-          files: output/StudyArc-v${{ env.APP_VERSION }}-arm64-min.zip
+          files: output/StudyArc-v${{ env.APP_VERSION }}-universal.zip
