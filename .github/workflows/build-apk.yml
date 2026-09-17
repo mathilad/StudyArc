@@ -1,4 +1,4 @@
-name: Build StudyArc Universal APK
+name: Build StudyArc Normal APK
 
 on:
   workflow_dispatch:
@@ -9,13 +9,13 @@ permissions:
   contents: write
 
 concurrency:
-  group: studyarc-universal-apk-${{ github.ref }}
+  group: studyarc-normal-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-apk:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[build-apk]')
-    name: Build Android Universal APK
+    name: Build Normal Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -48,9 +48,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "ANDROID_HOME=${ANDROID_HOME:-}"
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-}"
-          test -d "${ANDROID_HOME}" || { echo "Android SDK is missing on runner"; exit 1; }
+          test -d "${ANDROID_HOME}" || { echo "Android SDK missing"; exit 1; }
           yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
 
       - name: Install dependencies
@@ -76,12 +74,12 @@ jobs:
           CI: "1"
         run: npx expo prebuild --platform android --clean
 
-      - name: Configure universal release
+      - name: Configure normal phone build
         run: |
           cat >> android/gradle.properties <<'PROPS'
           android.enableMinifyInReleaseBuilds=true
           android.enableShrinkResourcesInReleaseBuilds=true
-          reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+          reactNativeArchitectures=arm64-v8a
           org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
           org.gradle.workers.max=2
           org.gradle.parallel=false
@@ -98,57 +96,62 @@ jobs:
           -dontwarn expo.modules.kotlin.types.descriptors.TypeDescriptorOfKt
           PROGUARD
 
-      - name: Build universal release APK
+      - name: Build normal release APK
         working-directory: android
         timeout-minutes: 40
         shell: bash
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew :app:assembleRelease \
-            --no-daemon \
-            --console=plain \
-            --stacktrace \
-            --max-workers=2 \
-            -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64 \
-            2>&1 | tee ../gradle-build.log
+          ./gradlew :app:assembleRelease --no-daemon --console=plain --stacktrace --max-workers=2 -PreactNativeArchitectures=arm64-v8a 2>&1 | tee ../gradle-build.log
+
+      - name: Verify APK is installable
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -n 1)
+          test -f "$APK"
+          BUILD_TOOLS=$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          "${BUILD_TOOLS}/aapt" dump badging "$APK" | head -n 20
+          "${BUILD_TOOLS}/apksigner" verify --verbose --print-certs "$APK"
 
       - name: Upload diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v${{ env.APP_VERSION }}-Gradle-Diagnostics
+          name: StudyArc-v${{ env.APP_VERSION }}-Build-Diagnostics
           path: |
             gradle-build.log
             android/build/reports/problems/**
             android/app/build/reports/**
-            android/app/build/outputs/mapping/release/missing_rules.txt
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Prepare APK and ZIP
+      - name: Prepare normal APK
         run: |
           mkdir -p output
           APK=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -n 1)
-          test -n "$APK" || { echo "APK was not generated"; exit 1; }
-          cp "$APK" "output/StudyArc-v${APP_VERSION}-universal.apk"
-          cd output
-          zip -0 "StudyArc-v${APP_VERSION}-universal.zip" "StudyArc-v${APP_VERSION}-universal.apk"
-          ls -lh
+          cp "$APK" "output/StudyArc-v${APP_VERSION}.apk"
+          sha256sum "output/StudyArc-v${APP_VERSION}.apk" > "output/StudyArc-v${APP_VERSION}.apk.sha256"
+          ls -lh output/
 
-      - name: Upload APK ZIP artifact
+      - name: Upload normal APK
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v${{ env.APP_VERSION }}-Universal-APK
-          path: output/StudyArc-v${{ env.APP_VERSION }}-universal.zip
+          name: StudyArc-v${{ env.APP_VERSION }}-Normal-APK
+          path: |
+            output/StudyArc-v${{ env.APP_VERSION }}.apk
+            output/StudyArc-v${{ env.APP_VERSION }}.apk.sha256
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
 
-      - name: Publish release ZIP
+      - name: Publish normal APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.APP_VERSION }}-universal
-          name: StudyArc v${{ env.APP_VERSION }} Universal APK
+          tag_name: v${{ env.APP_VERSION }}-normal
+          name: StudyArc v${{ env.APP_VERSION }} Normal Android APK
           generate_release_notes: true
-          files: output/StudyArc-v${{ env.APP_VERSION }}-universal.zip
+          files: |
+            output/StudyArc-v${{ env.APP_VERSION }}.apk
+            output/StudyArc-v${{ env.APP_VERSION }}.apk.sha256
