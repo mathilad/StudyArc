@@ -37,6 +37,7 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
   const { progress, subtasks, priorities, setProgress, addSubtask, toggleSubtask, deleteSubtask } = useAssignmentEnhancements();
 
   const subjects = useMemo(() => expandSubjectChoices(profile.subjectChoices), [profile.subjectChoices]);
+  const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -57,6 +58,14 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
       (priorities[a.id] ?? 1000) - (priorities[b.id] ?? 1000)
       || (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999")
     );
+  const searchTerms = search.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const visibleAssignments = open.filter(item => {
+    const searchable = [item.title, item.subjectName, subjectDisplayName(item.subjectName), item.topicName,
+      item.topicName ? topicDisplayName(item.subjectName, item.topicName, profile.medium) : "",
+      ...subtasks.filter(task => task.assignmentId === item.id).map(task => task.title)
+    ].filter(Boolean).join(" ").toLocaleLowerCase();
+    return searchTerms.every(term => searchable.includes(term));
+  });
   const completedCount = assignments.filter((item) => item.completed).length;
   const totalRemaining = open.reduce((sum, item) => {
     const pct = progress[item.id] ?? 0;
@@ -196,15 +205,21 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
           {onPrioritize ? <Ionicons name="chevron-forward" size={19} color="#B69A69" /> : null}
         </Pressable>
 
+        <View style={s.searchBar}>
+          <Ionicons name="search-outline" size={20} color="#B99AD9" />
+          <TextInput value={search} onChangeText={setSearch} accessibilityLabel="Search assignments" placeholder="Search assignments, subjects or lessons…" placeholderTextColor="#7E8B9D" autoCorrect={false} autoCapitalize="none" returnKeyType="search" style={s.searchInput} />
+          {search.length > 0 && <Pressable accessibilityLabel="Clear assignment search" onPress={() => setSearch("")} style={s.clearSearch}><Ionicons name="close-circle" size={21} color="#B99AD9" /></Pressable>}
+        </View>
         <Text style={s.section}>OPEN WORKLOAD · PRIORITY ORDER</Text>
-        {open.length ? open.map((assignment, index) => {
+        {searchTerms.length > 0 && <Text accessibilityLiveRegion="polite" style={s.searchCount}>{visibleAssignments.length} of {open.length} open assignments</Text>}
+        {visibleAssignments.length ? visibleAssignments.map((assignment) => {
           const pct = progress[assignment.id] ?? 0;
           const state = risk(assignment);
           const tasks = subtasks.filter((item) => item.assignmentId === assignment.id);
           return (
             <View key={assignment.id} style={[s.item, state.high && s.itemRisk]}>
               <View style={s.itemTop}>
-                <View style={s.priorityRank}><Text style={s.priorityRankText}>#{index + 1}</Text></View>
+                <View style={s.priorityRank}><Text style={s.priorityRankText}>#{open.findIndex(item => item.id === assignment.id) + 1}</Text></View>
                 <Pressable onPress={() => startAssignment(assignment)} style={s.play}><Ionicons name="play" size={14} color="#160B20" /></Pressable>
                 <View style={{ flex: 1 }}>
                   <Text style={s.itemTitle}>{assignment.title}</Text>
@@ -259,9 +274,9 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
         }) : (
           <View style={s.empty}>
             <View style={s.emptyIcon}><Ionicons name="ribbon-outline" size={32} color="#EBCB7C" /></View>
-            <Text style={s.emptyTitle}>Workload clear</Text>
-            <Text style={s.emptyText}>No open assignments. Use the + button above when new homework arrives.</Text>
-            <Pressable onPress={addNew} style={s.emptyAdd}><Text style={s.emptyAddText}>Add work</Text></Pressable>
+            <Text style={s.emptyTitle}>{searchTerms.length ? "No matching assignments" : "Workload clear"}</Text>
+            <Text style={s.emptyText}>{searchTerms.length ? "Try a different title, subject or lesson, or clear your search." : "No open assignments. Use the + button above when new homework arrives."}</Text>
+            <Pressable onPress={searchTerms.length ? () => setSearch("") : addNew} style={s.emptyAdd}><Text style={s.emptyAddText}>{searchTerms.length ? "Clear search" : "Add work"}</Text></Pressable>
           </View>
         )}
       </ScrollView>
@@ -321,5 +336,6 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
 }
 
 const s = StyleSheet.create({
+  searchBar:{flexDirection:"row",alignItems:"center",gap:9,marginTop:18,paddingHorizontal:12,minHeight:50,borderRadius:14,backgroundColor:"#121B27",borderWidth:1,borderColor:"#384356"},searchInput:{flex:1,minWidth:0,color:"#F0E9F7",fontSize:13,paddingVertical:12},clearSearch:{minWidth:40,minHeight:44,alignItems:"center",justifyContent:"center"},searchCount:{color:"#A4AEC0",fontSize:11,marginBottom:12},
   root:{flex:1,backgroundColor:"#080D14"},head:{padding:18,paddingTop:22,flexDirection:"row",alignItems:"center",gap:9},back:{width:42,height:42,borderRadius:14,backgroundColor:"#151B25",alignItems:"center",justifyContent:"center"},eyebrow:{color:"#A98ACA",fontSize:7.5,fontWeight:"900",letterSpacing:1.2},title:{color:"#F5F6F8",fontSize:22,fontWeight:"900",marginTop:1},sub:{color:"#748194",fontSize:8.7,lineHeight:13,marginTop:2},scan:{width:42,height:42,borderRadius:14,backgroundColor:"#21182D",borderWidth:1,borderColor:"#4C3960",alignItems:"center",justifyContent:"center"},topAdd:{width:50,height:50,borderRadius:25,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center",shadowColor:"#B784FF",shadowOpacity:.28,shadowRadius:12,shadowOffset:{width:0,height:5},elevation:8},content:{padding:18,paddingBottom:105,maxWidth:780,width:"100%",alignSelf:"center"},hero:{borderRadius:23,padding:16,borderWidth:1,borderColor:"#59416F"},heroTop:{flexDirection:"row",alignItems:"center",justifyContent:"space-between"},heroLabel:{color:"#BCA3D7",fontSize:7.5,fontWeight:"900",letterSpacing:1.2},heroValue:{color:"#F4EDF9",fontSize:30,fontWeight:"900",marginTop:4},heroSub:{color:"#9587A2",fontSize:8.5,marginTop:2},heroIcon:{width:58,height:58,borderRadius:19,backgroundColor:"#322A20",borderWidth:1,borderColor:"#665337",alignItems:"center",justifyContent:"center"},heroAdd:{height:45,borderRadius:13,backgroundColor:"#B784FF",marginTop:14,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7},heroAddText:{color:"#160B20",fontSize:10,fontWeight:"900"},priorityInfo:{borderRadius:16,backgroundColor:"#201A13",borderWidth:1,borderColor:"#514127",padding:12,flexDirection:"row",alignItems:"center",gap:9,marginTop:12},priorityTitle:{color:"#E7D6B4",fontSize:10,fontWeight:"900"},prioritySub:{color:"#938268",fontSize:8.3,lineHeight:13,marginTop:3},section:{color:"#8190A3",fontSize:8.5,fontWeight:"900",letterSpacing:1.2,marginTop:18,marginBottom:9},item:{borderRadius:19,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:13,marginBottom:9},itemRisk:{borderColor:"#61422F",backgroundColor:"#171713"},itemTop:{flexDirection:"row",alignItems:"center",gap:8},priorityRank:{minWidth:37,height:28,borderRadius:10,backgroundColor:"#21182D",borderWidth:1,borderColor:"#4B3860",alignItems:"center",justifyContent:"center",paddingHorizontal:6},priorityRankText:{color:"#D8C1F3",fontSize:8.5,fontWeight:"900"},play:{width:38,height:38,borderRadius:12,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center"},itemTitle:{color:"#E8EDF2",fontSize:11.5,fontWeight:"900"},itemSub:{color:"#718093",fontSize:7.8,lineHeight:12,marginTop:3},edit:{width:34,height:34,borderRadius:11,backgroundColor:"#1A222D",alignItems:"center",justifyContent:"center"},progressTop:{flexDirection:"row",justifyContent:"space-between",marginTop:12},progressLabel:{color:"#687789",fontSize:7,fontWeight:"900"},progressValue:{color:"#C5A5E9",fontSize:8,fontWeight:"900"},progressBar:{height:5,borderRadius:4,backgroundColor:"#26313E",overflow:"hidden",marginTop:5},progressFill:{height:5,backgroundColor:"#B784FF"},progressChoices:{flexDirection:"row",gap:5,marginTop:9},progressChip:{flex:1,height:31,borderRadius:9,backgroundColor:"#17202B",alignItems:"center",justifyContent:"center"},progressChipOn:{backgroundColor:"#382653"},progressChipText:{color:"#778597",fontSize:7.5,fontWeight:"900"},progressChipTextOn:{color:"#EEE4FB"},riskRow:{flexDirection:"row",alignItems:"center",gap:8,marginTop:9},riskBadge:{borderRadius:9,backgroundColor:"#17251D",paddingHorizontal:8,paddingVertical:5},riskHigh:{backgroundColor:"#351C1E"},riskText:{color:"#D8D0DA",fontSize:7.2,fontWeight:"900"},tasks:{marginTop:9},task:{minHeight:34,flexDirection:"row",alignItems:"center",gap:7,borderTopWidth:1,borderTopColor:"#202A36"},taskText:{flex:1,color:"#B7C1CC",fontSize:8.5},taskDone:{textDecorationLine:"line-through",color:"#637081"},addTaskRow:{flexDirection:"row",gap:6,marginTop:8},taskInput:{flex:1,height:38,borderRadius:10,backgroundColor:"#0B1119",borderWidth:1,borderColor:"#293646",paddingHorizontal:9,color:"#E7EBEF",fontSize:8.5},taskAdd:{width:38,height:38,borderRadius:10,backgroundColor:"#B784FF",alignItems:"center",justifyContent:"center"},empty:{minHeight:230,borderRadius:21,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",alignItems:"center",justifyContent:"center",padding:20},emptyIcon:{width:64,height:64,borderRadius:22,backgroundColor:"#2A2216",alignItems:"center",justifyContent:"center"},emptyTitle:{color:"#E9EDF1",fontSize:17,fontWeight:"900",marginTop:13},emptyText:{color:"#748194",fontSize:9,textAlign:"center",lineHeight:14,marginTop:5},emptyAdd:{height:42,borderRadius:12,backgroundColor:"#B784FF",paddingHorizontal:18,alignItems:"center",justifyContent:"center",marginTop:13},emptyAddText:{color:"#160B20",fontSize:9,fontWeight:"900"},overlay:{flex:1,backgroundColor:"rgba(3,6,10,.78)",justifyContent:"flex-end"},sheet:{maxHeight:"91%",borderTopLeftRadius:28,borderTopRightRadius:28,backgroundColor:"#0F161F",borderWidth:1,borderColor:"#2A3747",padding:18},modalHead:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",marginBottom:4},modalTitle:{color:"#F2F4F7",fontSize:21,fontWeight:"900",marginTop:2},close:{width:40,height:40,borderRadius:13,backgroundColor:"#19232E",alignItems:"center",justifyContent:"center"},label:{color:"#758295",fontSize:7.5,fontWeight:"900",letterSpacing:.9,marginTop:14,marginBottom:6},input:{height:48,borderRadius:13,backgroundColor:"#0B1119",borderWidth:1,borderColor:"#2A3747",paddingHorizontal:11,color:"#EAF0F5",fontSize:10},wrap:{flexDirection:"row",flexWrap:"wrap",gap:6},chip:{minHeight:35,borderRadius:10,backgroundColor:"#17202B",borderWidth:1,borderColor:"#2C3948",paddingHorizontal:9,alignItems:"center",justifyContent:"center"},chipOn:{backgroundColor:"#392653",borderColor:"#7755A2"},chipText:{color:"#8190A2",fontSize:8.3,fontWeight:"800"},chipTextOn:{color:"#F0E5FD"},dateField:{minHeight:53,borderRadius:13,backgroundColor:"#111923",borderWidth:1,borderColor:"#2D3949",paddingHorizontal:11,flexDirection:"row",alignItems:"center",gap:8},dateValue:{flex:1,color:"#E2E7EC",fontSize:9.5,fontWeight:"900"},quickDates:{flexDirection:"row",gap:6,marginTop:7,flexWrap:"wrap"},dateButton:{minHeight:34,borderRadius:9,backgroundColor:"#1B1725",borderWidth:1,borderColor:"#433553",paddingHorizontal:10,alignItems:"center",justifyContent:"center"},dateButtonText:{color:"#CEBCE3",fontSize:7.8,fontWeight:"900"},primary:{height:50,borderRadius:14,backgroundColor:"#B784FF",marginTop:18,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:6},primaryText:{color:"#160B20",fontSize:10,fontWeight:"900"},disabled:{opacity:.45}
 });
