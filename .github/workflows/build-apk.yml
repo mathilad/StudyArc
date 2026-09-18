@@ -1,4 +1,4 @@
-name: Build StudyArc Redmi A3 APK
+name: Build StudyArc Compatible APK
 
 on:
   workflow_dispatch:
@@ -9,13 +9,13 @@ permissions:
   contents: write
 
 concurrency:
-  group: studyarc-redmi-a3-apk-${{ github.ref }}
+  group: studyarc-compatible-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-apk:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[build-apk]')
-    name: Build Redmi A3 32-bit APK
+    name: Build Android ARM Compatible APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -63,12 +63,12 @@ jobs:
         env:
           CI: "1"
         run: npx expo prebuild --platform android --clean
-      - name: Configure Redmi A3 32-bit build
+      - name: Configure broad ARM compatibility build
         run: |
           cat >> android/gradle.properties <<'PROPS'
           android.enableMinifyInReleaseBuilds=true
           android.enableShrinkResourcesInReleaseBuilds=true
-          reactNativeArchitectures=armeabi-v7a
+          reactNativeArchitectures=armeabi-v7a,arm64-v8a
           org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
           org.gradle.workers.max=2
           org.gradle.parallel=false
@@ -83,15 +83,15 @@ jobs:
           -dontwarn expo.modules.kotlin.types.descriptors.TypeDescriptorKt
           -dontwarn expo.modules.kotlin.types.descriptors.TypeDescriptorOfKt
           PROGUARD
-      - name: Build Redmi A3 release APK
+      - name: Build compatible release APK
         working-directory: android
         timeout-minutes: 40
         shell: bash
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew :app:assembleRelease --no-daemon --console=plain --stacktrace --max-workers=2 -PreactNativeArchitectures=armeabi-v7a 2>&1 | tee ../gradle-build.log
-      - name: Verify APK and 32-bit ABI
+          ./gradlew :app:assembleRelease --no-daemon --console=plain --stacktrace --max-workers=2 -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,arm64-v8a 2>&1 | tee ../gradle-build.log
+      - name: Verify APK, signature and ARM ABIs
         shell: bash
         run: |
           set -euo pipefail
@@ -100,13 +100,13 @@ jobs:
           BUILD_TOOLS=$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
           "${BUILD_TOOLS}/aapt" dump badging "$APK" | tee apk-badging.txt
           grep -q "armeabi-v7a" apk-badging.txt
-          if grep -q "arm64-v8a" apk-badging.txt; then echo "Unexpected 64-bit ABI"; exit 1; fi
+          grep -q "arm64-v8a" apk-badging.txt
           "${BUILD_TOOLS}/apksigner" verify --verbose --print-certs "$APK"
       - name: Upload diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v${{ env.APP_VERSION }}-Redmi-A3-Diagnostics
+          name: StudyArc-v${{ env.APP_VERSION }}-Compatibility-Diagnostics
           path: |
             gradle-build.log
             apk-badging.txt
@@ -114,29 +114,29 @@ jobs:
             android/app/build/reports/**
           if-no-files-found: ignore
           retention-days: 7
-      - name: Prepare Redmi A3 APK
+      - name: Prepare compatible APK
         run: |
           mkdir -p output
           APK=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -n 1)
-          cp "$APK" "output/StudyArc-v${APP_VERSION}-Redmi-A3-32bit.apk"
-          sha256sum "output/StudyArc-v${APP_VERSION}-Redmi-A3-32bit.apk" > "output/StudyArc-v${APP_VERSION}-Redmi-A3-32bit.apk.sha256"
+          cp "$APK" "output/StudyArc-v${APP_VERSION}-Compatible.apk"
+          sha256sum "output/StudyArc-v${APP_VERSION}-Compatible.apk" > "output/StudyArc-v${APP_VERSION}-Compatible.apk.sha256"
           ls -lh output/
-      - name: Upload Redmi A3 APK
+      - name: Upload compatible APK
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v${{ env.APP_VERSION }}-Redmi-A3-32bit-APK
+          name: StudyArc-v${{ env.APP_VERSION }}-Compatible-APK
           path: |
-            output/StudyArc-v${{ env.APP_VERSION }}-Redmi-A3-32bit.apk
-            output/StudyArc-v${{ env.APP_VERSION }}-Redmi-A3-32bit.apk.sha256
+            output/StudyArc-v${{ env.APP_VERSION }}-Compatible.apk
+            output/StudyArc-v${{ env.APP_VERSION }}-Compatible.apk.sha256
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
-      - name: Publish Redmi A3 APK release
+      - name: Publish compatible APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.APP_VERSION }}-redmi-a3-32bit
-          name: StudyArc v${{ env.APP_VERSION }} Redmi A3 32-bit APK
+          tag_name: v${{ env.APP_VERSION }}-compatible
+          name: StudyArc v${{ env.APP_VERSION }} Compatible Android APK
           generate_release_notes: true
           files: |
-            output/StudyArc-v${{ env.APP_VERSION }}-Redmi-A3-32bit.apk
-            output/StudyArc-v${{ env.APP_VERSION }}-Redmi-A3-32bit.apk.sha256
+            output/StudyArc-v${{ env.APP_VERSION }}-Compatible.apk
+            output/StudyArc-v${{ env.APP_VERSION }}-Compatible.apk.sha256
