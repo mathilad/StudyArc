@@ -1,4 +1,4 @@
-name: Build StudyArc Compatible APK
+name: Build StudyArc Normal APK
 
 on:
   workflow_dispatch:
@@ -9,13 +9,13 @@ permissions:
   contents: write
 
 concurrency:
-  group: studyarc-compatible-apk-${{ github.ref }}
+  group: studyarc-normal-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-apk:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[build-apk]')
-    name: Build Android ARM Compatible APK
+    name: Build Normal Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -26,6 +26,7 @@ jobs:
       EXPO_PUBLIC_APP_DATABASE_PROVIDER: ${{ secrets.EXPO_PUBLIC_APP_DATABASE_PROVIDER }}
       APP_VERSION: "1.1.7"
       NODE_ENV: production
+
     steps:
       - name: Checkout StudyArc
         uses: actions/checkout@v4
@@ -39,59 +40,29 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Verify Android SDK
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -d "${ANDROID_HOME}" || { echo "Android SDK missing"; exit 1; }
-          yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
       - name: Install dependencies
         env:
           NODE_ENV: development
         run: npm install --include=dev --no-audit --no-fund
-      - name: Align Expo dependencies
-        env:
-          NODE_ENV: development
-        run: npx expo install --fix --npm
       - name: Generate StudyArc brand assets
         run: |
           python -m pip install --quiet Pillow
           python scripts/generate-studyarc-brand-assets.py
       - name: Type-check app
         run: npm run typecheck
-      - name: Generate Android project
+      - name: Generate normal Android project
         env:
           CI: "1"
         run: npx expo prebuild --platform android --clean
-      - name: Configure broad ARM compatibility build
-        run: |
-          cat >> android/gradle.properties <<'PROPS'
-          android.enableMinifyInReleaseBuilds=true
-          android.enableShrinkResourcesInReleaseBuilds=true
-          reactNativeArchitectures=armeabi-v7a,arm64-v8a
-          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
-          org.gradle.workers.max=2
-          org.gradle.parallel=false
-          org.gradle.daemon=false
-          PROPS
-          cat >> android/app/proguard-rules.pro <<'PROGUARD'
-          -dontwarn expo.modules.kotlin.services.FilePermissionService
-          -dontwarn expo.modules.kotlin.services.FilePermissionService$Permission
-          -dontwarn expo.modules.kotlin.types.AnyTypeCache
-          -dontwarn expo.modules.kotlin.types.descriptors.RawTypeDescriptor
-          -dontwarn expo.modules.kotlin.types.descriptors.TypeDescriptor
-          -dontwarn expo.modules.kotlin.types.descriptors.TypeDescriptorKt
-          -dontwarn expo.modules.kotlin.types.descriptors.TypeDescriptorOfKt
-          PROGUARD
-      - name: Build compatible release APK
+      - name: Build normal release APK
         working-directory: android
-        timeout-minutes: 40
+        timeout-minutes: 45
         shell: bash
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew :app:assembleRelease --no-daemon --console=plain --stacktrace --max-workers=2 -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,arm64-v8a 2>&1 | tee ../gradle-build.log
-      - name: Verify APK, signature and ARM ABIs
+          ./gradlew :app:assembleRelease --no-daemon --console=plain --stacktrace 2>&1 | tee ../gradle-build.log
+      - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
@@ -99,44 +70,31 @@ jobs:
           test -f "$APK"
           BUILD_TOOLS=$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
           "${BUILD_TOOLS}/aapt" dump badging "$APK" | tee apk-badging.txt
-          grep -q "armeabi-v7a" apk-badging.txt
-          grep -q "arm64-v8a" apk-badging.txt
           "${BUILD_TOOLS}/apksigner" verify --verbose --print-certs "$APK"
       - name: Upload diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v${{ env.APP_VERSION }}-Compatibility-Diagnostics
+          name: StudyArc-Normal-Build-Diagnostics
           path: |
             gradle-build.log
             apk-badging.txt
-            android/build/reports/problems/**
-            android/app/build/reports/**
           if-no-files-found: ignore
           retention-days: 7
-      - name: Prepare compatible APK
+      - name: Prepare APK
         run: |
           mkdir -p output
           APK=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -n 1)
-          cp "$APK" "output/StudyArc-v${APP_VERSION}-Compatible.apk"
-          sha256sum "output/StudyArc-v${APP_VERSION}-Compatible.apk" > "output/StudyArc-v${APP_VERSION}-Compatible.apk.sha256"
+          cp "$APK" "output/StudyArc-v${APP_VERSION}-Normal.apk"
+          sha256sum "output/StudyArc-v${APP_VERSION}-Normal.apk" > "output/StudyArc-v${APP_VERSION}-Normal.apk.sha256"
           ls -lh output/
-      - name: Upload compatible APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: StudyArc-v${{ env.APP_VERSION }}-Compatible-APK
+          name: StudyArc-v${{ env.APP_VERSION }}-Normal-APK
           path: |
-            output/StudyArc-v${{ env.APP_VERSION }}-Compatible.apk
-            output/StudyArc-v${{ env.APP_VERSION }}-Compatible.apk.sha256
+            output/StudyArc-v${{ env.APP_VERSION }}-Normal.apk
+            output/StudyArc-v${{ env.APP_VERSION }}-Normal.apk.sha256
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
-      - name: Publish compatible APK release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ env.APP_VERSION }}-compatible
-          name: StudyArc v${{ env.APP_VERSION }} Compatible Android APK
-          generate_release_notes: true
-          files: |
-            output/StudyArc-v${{ env.APP_VERSION }}-Compatible.apk
-            output/StudyArc-v${{ env.APP_VERSION }}-Compatible.apk.sha256
