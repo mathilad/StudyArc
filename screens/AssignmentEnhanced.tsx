@@ -133,6 +133,8 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
     }
   };
 
+  const scheduleAssignment = (assignment: Assignment) => router.push({ pathname: "/tasks", params: { assignmentId: assignment.id } } as never);
+
   const startAssignment = (assignment: Assignment) => router.push({
     pathname: "/stopwatch",
     params: {
@@ -255,6 +257,7 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
 
               <View style={s.riskRow}>
                 <View style={[s.riskBadge, state.high && s.riskHigh]}><Text style={s.riskText}>{state.label}</Text></View>
+                <Pressable onPress={() => scheduleAssignment(assignment)} style={s.dateButton}><Ionicons name="calendar-outline" size={15} color="#D8C0F4" /><Text style={s.dateButtonText}> Plan as task</Text></Pressable>
               </View>
 
               {tasks.length ? <View style={s.tasks}>{tasks.map((task) => (
