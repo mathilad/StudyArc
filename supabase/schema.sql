@@ -386,8 +386,6 @@ create table if not exists public.daily_reviews (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   review_date date not null,
-  pages_studied integer not null default 0 check (pages_studied >= 0),
-  pages_revised integer not null default 0 check (pages_revised >= 0),
   completed_blocks integer not null default 0 check (completed_blocks >= 0),
   day_rating integer not null default 3 check (day_rating between 1 and 5),
   attention_topics text[] not null default '{}',
