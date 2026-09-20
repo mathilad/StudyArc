@@ -2,7 +2,7 @@ import {Ionicons} from "@expo/vector-icons";
 import {LinearGradient} from "expo-linear-gradient";
 import {useLocalSearchParams,useRouter} from "expo-router";
 import React,{useEffect,useMemo,useRef,useState} from "react";
-import {PanResponder,Pressable,ScrollView,StyleSheet,Text,TextInput,View,useWindowDimensions} from "react-native";
+import {Animated,PanResponder,Pressable,ScrollView,StyleSheet,Text,TextInput,View,useWindowDimensions} from "react-native";
 import Screen from "../components/Screen";
 import {useAcademic} from "../context/AcademicContext";
 import {useTaskPlanning,type PlannedTask} from "../context/TaskPlanningContext";
@@ -10,9 +10,9 @@ const key=(d:Date)=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"
 const dateFrom=(v:string)=>new Date(v+"T12:00:00"); const plus=(n:number)=>{const d=new Date();d.setDate(d.getDate()+n);return key(d)};
 const dayLabel=(v:string)=>dateFrom(v).toLocaleDateString(undefined,{weekday:"short",day:"numeric"});
 function DraggableTask({task,onDrop,onToggle}:{task:PlannedTask;onDrop:(id:string,dx:number,dy:number)=>void;onToggle:()=>void}){
- const pan=useRef(new (require("react-native").Animated.ValueXY)()).current;
- const responder=useMemo(()=>PanResponder.create({onStartShouldSetPanResponder:()=>false,onMoveShouldSetPanResponder:(_,g)=>Math.abs(g.dx)>8||Math.abs(g.dy)>8,onPanResponderGrant:()=>pan.setOffset({x:(pan.x as any)._value,y:(pan.y as any)._value}),onPanResponderMove:require("react-native").Animated.event([null,{dx:pan.x,dy:pan.y}],{useNativeDriver:false}),onPanResponderRelease:(_,g)=>{pan.flattenOffset();pan.setValue({x:0,y:0});onDrop(task.id,g.dx,g.dy)},onPanResponderTerminate:()=>{pan.flattenOffset();pan.setValue({x:0,y:0})}}),[onDrop,pan,task.id]);
- return <require("react-native").Animated.View {...responder.panHandlers} style={[s.task,{transform:pan.getTranslateTransform()}]}><Pressable onPress={onToggle}><Ionicons name={task.completed?"checkmark-circle":"ellipse-outline"} size={24} color={task.completed?"#75D09C":"#7C899A"}/></Pressable><View style={{flex:1}}><Text style={[s.taskTitle,task.completed&&s.done]}>{task.title}</Text><Text style={s.meta}>{task.plannedDate??"Unscheduled"} · {task.estimatedMinutes} min{task.assignmentId?" · Assignment":""}</Text></View><Ionicons name="reorder-three" size={24} color="#8D789F"/></require("react-native").Animated.View>
+ const pan=useRef(new Animated.ValueXY()).current;
+ const responder=useMemo(()=>PanResponder.create({onStartShouldSetPanResponder:()=>false,onMoveShouldSetPanResponder:(_,g)=>Math.abs(g.dx)>8||Math.abs(g.dy)>8,onPanResponderGrant:()=>pan.setOffset({x:(pan.x as any)._value,y:(pan.y as any)._value}),onPanResponderMove:Animated.event([null,{dx:pan.x,dy:pan.y}],{useNativeDriver:false}),onPanResponderRelease:(_,g)=>{pan.flattenOffset();pan.setValue({x:0,y:0});onDrop(task.id,g.dx,g.dy)},onPanResponderTerminate:()=>{pan.flattenOffset();pan.setValue({x:0,y:0})}}),[onDrop,pan,task.id]);
+ return <Animated.View {...responder.panHandlers} style={[s.task,{transform:pan.getTranslateTransform()}]}><Pressable onPress={onToggle}><Ionicons name={task.completed?"checkmark-circle":"ellipse-outline"} size={24} color={task.completed?"#75D09C":"#7C899A"}/></Pressable><View style={{flex:1}}><Text style={[s.taskTitle,task.completed&&s.done]}>{task.title}</Text><Text style={s.meta}>{task.plannedDate??"Unscheduled"} · {task.estimatedMinutes} min{task.assignmentId?" · Assignment":""}</Text></View><Ionicons name="reorder-three" size={24} color="#8D789F"/></Animated.View>
 }
 export default function Tasks(){
  const router=useRouter(),p=useLocalSearchParams<{assignmentId?:string}>(),{width}=useWindowDimensions();const{assignments}=useAcademic();const{tasks,addTask,toggleTask,rescheduleTask,reorderTask}=useTaskPlanning();const[tab,setTab]=useState<"Today"|"Tomorrow"|"Week"|"Unscheduled">("Today"),[title,setTitle]=useState("");const today=key(new Date()),tomorrow=plus(1),assignment=assignments.find(x=>x.id===p.assignmentId);
