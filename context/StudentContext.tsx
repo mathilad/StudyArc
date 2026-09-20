@@ -73,8 +73,6 @@ export type SubtopicCoverage = {
 export type DailyReview = {
   id: string;
   reviewDate: string;
-  pagesStudied: number;
-  pagesRevised: number;
   completedBlocks: number;
   dayRating: number;
   attentionTopics: string[];
@@ -340,8 +338,6 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
       const nextReviews: DailyReview[] = (rr.data ?? []).map((r: any) => ({
         id: r.id,
         reviewDate: r.review_date,
-        pagesStudied: Number(r.pages_studied ?? 0),
-        pagesRevised: Number(r.pages_revised ?? 0),
         completedBlocks: Number(r.completed_blocks ?? 0),
         dayRating: Number(r.day_rating ?? 3),
         attentionTopics: r.attention_topics ?? [],
@@ -674,8 +670,6 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
         id: local.id,
         user_id: user.id,
         review_date: local.reviewDate,
-        pages_studied: local.pagesStudied,
-        pages_revised: local.pagesRevised,
         completed_blocks: local.completedBlocks,
         day_rating: local.dayRating,
         attention_topics: local.attentionTopics,
