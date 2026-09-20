@@ -19,13 +19,6 @@ export default function Index() {
   const { isAdmin, refreshing: adminLoading } = useAppConfig();
   const [introComplete, setIntroComplete] = useState(false);
   const [planGate, setPlanGate] = useState<PlanGate>("loading");
-  const yesterdayKey=useMemo(()=>{const d=new Date();d.setDate(d.getDate()-1);return dateKey(d)},[]);
-  const yesterdayReviewed=dailyReviews.some(row=>row.reviewDate===yesterdayKey);
-  const accountExistedYesterday=useMemo(()=>{
-    const created=session?.user?.created_at?new Date(session.user.created_at):null;
-    if(!created||Number.isNaN(created.getTime()))return true;
-    return startDay(created)<startDay(new Date());
-  },[session?.user?.created_at]);
 
   useEffect(() => { const timer = setTimeout(() => setIntroComplete(true), 650); return () => clearTimeout(timer); }, []);
 
@@ -51,6 +44,5 @@ export default function Index() {
   if (!access || ["BLOCKED", "PAYMENT_REQUIRED", "PAYMENT_PENDING"].includes(access.state)) return <Redirect href="/access" />;
   if (planGate === "loading") return <StudyArcLoader />;
   if (planGate === "show") return <Redirect href="/plan-building" />;
-  if (accountExistedYesterday && !yesterdayReviewed) return <Redirect href={{pathname:"/daily-review",params:{reviewDate:yesterdayKey,mode:"yesterday"}}} />;
   return <Redirect href="/(tabs)" />;
 }
