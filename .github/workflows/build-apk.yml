@@ -87,14 +87,31 @@ jobs:
           APK=$(find android/app/build/outputs/apk/release -name "*.apk" -type f | head -n 1)
           cp "$APK" "output/StudyArc-v${APP_VERSION}-Normal.apk"
           sha256sum "output/StudyArc-v${APP_VERSION}-Normal.apk" > "output/StudyArc-v${APP_VERSION}-Normal.apk.sha256"
-          ls -lh output/
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: StudyArc-v${{ env.APP_VERSION }}-Normal-APK
           path: |
             output/StudyArc-v${{ env.APP_VERSION }}-Normal.apk
             output/StudyArc-v${{ env.APP_VERSION }}-Normal.apk.sha256
-          if-no-files-found: error
           compression-level: 0
           retention-days: 30
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${APP_VERSION}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "StudyArc $TAG" --notes "StudyArc Android release $TAG"
+          gh release upload "$TAG" "output/StudyArc-v${APP_VERSION}-Normal.apk" "output/StudyArc-v${APP_VERSION}-Normal.apk.sha256" --clobber
+          gh release view "$TAG" --json url -q .url > release-url.txt
+      - name: Notify opted-in WhatsApp users
+        env:
+          STUDYARC_SUPABASE_URL: ${{ secrets.STUDYARC_SUPABASE_URL }}
+          STUDYARC_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STUDYARC_SUPABASE_SERVICE_ROLE_KEY }}
+          WHATSAPP_ACCESS_TOKEN: ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          WHATSAPP_TEMPLATE_NAME: ${{ secrets.WHATSAPP_TEMPLATE_NAME }}
+          WHATSAPP_TEMPLATE_LANGUAGE: ${{ vars.WHATSAPP_TEMPLATE_LANGUAGE || 'en_US' }}
+        run: |
+          RELEASE_URL=$(cat release-url.txt)
+          node scripts/send-whatsapp-release.mjs "${APP_VERSION}" "${RELEASE_URL}"
