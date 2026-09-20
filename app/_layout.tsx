@@ -38,6 +38,7 @@ import { SocialProvider } from "../context/SocialContext";
 import { StudentProvider } from "../context/StudentContext";
 import { StudyProvider } from "../context/StudyContext";
 import { TypographyProvider } from "../context/TypographyContext";
+import { TaskPlanningProvider } from "../context/TaskPlanningContext";
 
 function RootContent() {
   const { performanceMode } = usePerformance();
@@ -56,7 +57,7 @@ function RootContent() {
   }, []);
 
   return <View style={{ flex: 1, backgroundColor: "#080D14" }}>
-    <AuthProvider><RevisePreferencesProvider><AppConfigProvider><OfflineProvider><MonetizationProvider><StudentProvider><AcademicCatalogProvider><AcademicProvider><AssignmentEnhancementsProvider><ClassLearningProvider><PlanningProvider><ScheduleAdjustmentsProvider><PhaseProvider><StudyProvider><IntelligenceProvider><SocialProvider>
+    <AuthProvider><RevisePreferencesProvider><AppConfigProvider><OfflineProvider><MonetizationProvider><StudentProvider><AcademicCatalogProvider><AcademicProvider><TaskPlanningProvider><AssignmentEnhancementsProvider><ClassLearningProvider><PlanningProvider><ScheduleAdjustmentsProvider><PhaseProvider><StudyProvider><IntelligenceProvider><SocialProvider>
       <StatusBar hidden />
       <OfficialExamSync />
       <NotificationScheduler />
@@ -68,7 +69,7 @@ function RootContent() {
       <Stack screenOptions={{ headerShown: false, animation: performanceMode ? "none" : "slide_from_right", contentStyle: { backgroundColor: "#080D14" } }}>
         <Stack.Screen name="index" /><Stack.Screen name="login" /><Stack.Screen name="signup" /><Stack.Screen name="forgot-password" /><Stack.Screen name="reset-password" /><Stack.Screen name="onboarding" /><Stack.Screen name="plan-building" /><Stack.Screen name="access" /><Stack.Screen name="(tabs)" />
         <Stack.Screen name="search" /><Stack.Screen name="quick-add" /><Stack.Screen name="ai-assistant" /><Stack.Screen name="plan-insights" /><Stack.Screen name="intelligence" /><Stack.Screen name="mistake-bank" /><Stack.Screen name="mini-mock" /><Stack.Screen name="paper-lab" /><Stack.Screen name="smart-capture" /><Stack.Screen name="answer-sheet-analysis" /><Stack.Screen name="recognized-paper-text" /><Stack.Screen name="focus-lab" /><Stack.Screen name="journey" /><Stack.Screen name="class-progress" /><Stack.Screen name="class-voice" /><Stack.Screen name="recovery" /><Stack.Screen name="free-time" /><Stack.Screen name="audio-recall" /><Stack.Screen name="feynman" /><Stack.Screen name="focus-shield" /><Stack.Screen name="offline-pack" /><Stack.Screen name="calendar-sync" /><Stack.Screen name="exam-simulation" /><Stack.Screen name="question-bank" />
-        <Stack.Screen name="subject" /><Stack.Screen name="topic" /><Stack.Screen name="stopwatch" /><Stack.Screen name="manual-past-paper" /><Stack.Screen name="manual-session" /><Stack.Screen name="session-complete" /><Stack.Screen name="past-paper" /><Stack.Screen name="past-paper-years" /><Stack.Screen name="paper-stopwatch" /><Stack.Screen name="paper-analysis" /><Stack.Screen name="revision" /><Stack.Screen name="classes" /><Stack.Screen name="class-reminder" /><Stack.Screen name="profile" /><Stack.Screen name="study-phase" /><Stack.Screen name="test-mark" /><Stack.Screen name="notifications" /><Stack.Screen name="notification-settings" /><Stack.Screen name="leaderboard" /><Stack.Screen name="leaderboard-settings" /><Stack.Screen name="performance-settings" /><Stack.Screen name="text-size" /><Stack.Screen name="friends" /><Stack.Screen name="bonus-work" /><Stack.Screen name="daily-review" /><Stack.Screen name="about" /><Stack.Screen name="contact" /><Stack.Screen name="privacy" /><Stack.Screen name="terms" /><Stack.Screen name="data-controls" /><Stack.Screen name="reports" /><Stack.Screen name="assignment" /><Stack.Screen name="assignment-quick" /><Stack.Screen name="planner-controls" /><Stack.Screen name="admin" /><Stack.Screen name="admin-updates" /><Stack.Screen name="admin-monetization" /><Stack.Screen name="admin-users" /><Stack.Screen name="admin-catalog" /><Stack.Screen name="admin-planner-health" /><Stack.Screen name="admin-exam-sync" /><Stack.Screen name="exams" />
+        <Stack.Screen name="subject" /><Stack.Screen name="topic" /><Stack.Screen name="stopwatch" /><Stack.Screen name="manual-past-paper" /><Stack.Screen name="manual-session" /><Stack.Screen name="session-complete" /><Stack.Screen name="past-paper" /><Stack.Screen name="past-paper-years" /><Stack.Screen name="paper-stopwatch" /><Stack.Screen name="paper-analysis" /><Stack.Screen name="revision" /><Stack.Screen name="classes" /><Stack.Screen name="class-reminder" /><Stack.Screen name="profile" /><Stack.Screen name="study-phase" /><Stack.Screen name="test-mark" /><Stack.Screen name="notifications" /><Stack.Screen name="notification-settings" /><Stack.Screen name="leaderboard" /><Stack.Screen name="leaderboard-settings" /><Stack.Screen name="performance-settings" /><Stack.Screen name="text-size" /><Stack.Screen name="friends" /><Stack.Screen name="bonus-work" /><Stack.Screen name="daily-review" /><Stack.Screen name="about" /><Stack.Screen name="contact" /><Stack.Screen name="privacy" /><Stack.Screen name="terms" /><Stack.Screen name="data-controls" /><Stack.Screen name="reports" /><Stack.Screen name="assignment" /><Stack.Screen name="assignment-quick" /><Stack.Screen name="tasks" /><Stack.Screen name="planner-controls" /><Stack.Screen name="admin" /><Stack.Screen name="admin-updates" /><Stack.Screen name="admin-monetization" /><Stack.Screen name="admin-users" /><Stack.Screen name="admin-catalog" /><Stack.Screen name="admin-planner-health" /><Stack.Screen name="admin-exam-sync" /><Stack.Screen name="exams" />
       </Stack>
       <AssignmentFlowDock />
       <ClassSaveVoicePrompt />
@@ -76,7 +77,7 @@ function RootContent() {
       <AppUpdateNotice />
       <OfflineStatusBanner />
       <GlobalProcessingOverlay />
-    </SocialProvider></IntelligenceProvider></StudyProvider></PhaseProvider></ScheduleAdjustmentsProvider></PlanningProvider></ClassLearningProvider></AssignmentEnhancementsProvider></AcademicProvider></AcademicCatalogProvider></StudentProvider></MonetizationProvider></OfflineProvider></AppConfigProvider></RevisePreferencesProvider></AuthProvider>
+    </SocialProvider></IntelligenceProvider></StudyProvider></PhaseProvider></ScheduleAdjustmentsProvider></PlanningProvider></ClassLearningProvider></AssignmentEnhancementsProvider></TaskPlanningProvider></AcademicProvider></AcademicCatalogProvider></StudentProvider></MonetizationProvider></OfflineProvider></AppConfigProvider></RevisePreferencesProvider></AuthProvider>
   </View>;
 }
 
