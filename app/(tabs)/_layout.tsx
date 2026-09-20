@@ -93,6 +93,7 @@ export default function TabsLayout() {
             subjects: "book-outline",
             timer: "timer-outline",
             plan: "calendar-outline",
+            tasks: "checkbox-outline",
             more: "grid-outline",
           };
           return <Ionicons name={icons[route.name] ?? "ellipse-outline"} size={size} color={color} />;
@@ -104,6 +105,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="subjects" options={{ title: "Subjects" }} />
       <Tabs.Screen name="timer" options={{ title: "Timer" }} />
       <Tabs.Screen name="plan" options={{ title: "Plan" }} />
+      <Tabs.Screen name="tasks" options={{ title: "Tasks" }} />
       <Tabs.Screen name="more" options={{ title: "More" }} />
       <Tabs.Screen name="sessions" options={{ href: null }} />
       <Tabs.Screen name="statistics" options={{ href: null }} />
