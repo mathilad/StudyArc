@@ -5,12 +5,13 @@ import { Animated,Modal,Pressable,StyleSheet,Text,View } from "react-native";
 import { useRewards } from "../context/RewardsContext";
 
 export default function RewardToast(){
- const{lastReward,clearLastReward}=useRewards();
+ const{lastReward,clearLastReward,equippedItem}=useRewards();
+ const milestoneFx=equippedItem("milestone-effects");
  const y=useRef(new Animated.Value(-80)).current,opacity=useRef(new Animated.Value(0)).current;
  useEffect(()=>{if(!lastReward)return;y.setValue(-80);opacity.setValue(0);Animated.parallel([Animated.spring(y,{toValue:0,useNativeDriver:true,speed:18,bounciness:4}),Animated.timing(opacity,{toValue:1,duration:180,useNativeDriver:true})]).start();const id=setTimeout(()=>clearLastReward(),lastReward.levelUp?3000:2200);return()=>clearTimeout(id)},[clearLastReward,lastReward,opacity,y]);
  if(!lastReward)return null;
  const t=lastReward.transaction;
- if(lastReward.levelUp)return <Modal transparent animationType="fade" visible onRequestClose={clearLastReward}><Pressable style={s.levelBack} onPress={clearLastReward}><LinearGradient colors={["#30164D","#161124","#080D14"]} style={s.levelCard}><View style={s.levelRing}><Ionicons name="sparkles" size={38} color="#F5D77B"/></View><Text style={s.levelKicker}>LEVEL UP</Text><Text style={s.levelValue}>Level {lastReward.levelAfter}</Text><Text style={s.levelSub}>Your StudyArc level increased.</Text><View style={s.rewardLine}><Text style={s.coin}>+{t.coins} AC</Text><Text style={s.dot}>•</Text><Text style={s.xp}>+{t.xp} XP</Text></View><Text style={s.tap}>Tap anywhere to continue</Text></LinearGradient></Pressable></Modal>;
+ if(lastReward.levelUp)return <Modal transparent animationType="fade" visible onRequestClose={clearLastReward}><Pressable style={s.levelBack} onPress={clearLastReward}><LinearGradient colors={milestoneFx?[milestoneFx.colors[0],milestoneFx.colors[2],"#080D14"]:["#30164D","#161124","#080D14"]} style={s.levelCard}><View style={[s.levelRing,milestoneFx&&{borderColor:milestoneFx.colors[1]}]}><Ionicons name={milestoneFx?.previewVariant%2?"trophy":"sparkles"} size={38} color={milestoneFx?.colors[1]??"#F5D77B"}/></View><Text style={s.levelKicker}>{milestoneFx?milestoneFx.name.toUpperCase():"LEVEL UP"}</Text><Text style={s.levelValue}>Level {lastReward.levelAfter}</Text><Text style={s.levelSub}>Your StudyArc level increased.</Text><View style={s.rewardLine}><Text style={s.coin}>+{t.coins} AC</Text><Text style={s.dot}>•</Text><Text style={s.xp}>+{t.xp} XP</Text></View><Text style={s.tap}>Tap anywhere to continue</Text></LinearGradient></Pressable></Modal>;
  return <View pointerEvents="box-none" style={s.toastHost}><Animated.View style={[s.toast,{opacity,transform:[{translateY:y}]}]}><View style={s.coinIcon}><Ionicons name="diamond" size={16} color="#170D20"/></View><View style={{flex:1}}><Text style={s.toastTitle}>{t.label}</Text><Text style={s.toastSub}>{t.coins>0?`+${t.coins} Arc Coins`:""}{t.coins>0&&t.xp>0?"  ·  ":""}{t.xp>0?`+${t.xp} XP`:""}</Text></View><Pressable onPress={clearLastReward} hitSlop={8}><Ionicons name="close" size={17} color="#837493"/></Pressable></Animated.View></View>
 }
 const s=StyleSheet.create({
