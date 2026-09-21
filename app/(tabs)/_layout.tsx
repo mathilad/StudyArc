@@ -7,6 +7,7 @@ import { useAppConfig } from "../../context/AppConfigContext";
 import { useAuth } from "../../context/AuthContext";
 import { useMonetization } from "../../context/MonetizationContext";
 import { useStudent } from "../../context/StudentContext";
+import { useRewards } from "../../context/RewardsContext";
 
 export default function TabsLayout() {
   const router = useRouter();
@@ -16,6 +17,8 @@ export default function TabsLayout() {
   const { profile, loading: studentLoading } = useStudent();
   const { access, loading: accessLoading } = useMonetization();
   const { isAdmin, refreshing: adminLoading } = useAppConfig();
+  const { equippedItem, coinBalance, level } = useRewards();
+  const activeTheme = equippedItem("themes");
 
   if (authLoading || (session && adminLoading)) return <StudyArcLoader compact />;
   if (!session) return <Redirect href="/login" />;
@@ -31,7 +34,7 @@ export default function TabsLayout() {
         headerTitleAlign: "left",
         headerShadowVisible: false,
         headerTintColor: "#F7FBFF",
-        headerStyle: { backgroundColor: "#0B1119" },
+        headerStyle: { backgroundColor: activeTheme?.colors[2] ?? "#0B1119" },
         headerTitleContainerStyle: { left: fromHome && route.name !== "index" ? 2 : 16 },
         headerLeftContainerStyle: { left: 10 },
         headerRightContainerStyle: { right: 14 },
@@ -58,7 +61,7 @@ export default function TabsLayout() {
           </View>
         ),
         headerRight: () => (
-          <Pressable
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}><Pressable onPress={() => router.push("/rewards")} hitSlop={8} style={{ height: 34, paddingHorizontal: 9, borderRadius: 11, backgroundColor: "#21182B", borderWidth: 1, borderColor: "#3E2F4D", flexDirection: "row", alignItems: "center", gap: 4 }}><Ionicons name="diamond" size={13} color="#EBCF79" /><Text style={{ color: "#EBCF79", fontSize: 8, fontWeight: "900" }}>{coinBalance} · L{level}</Text></Pressable><Pressable
             onPress={() => router.push("/notifications")}
             hitSlop={10}
             style={({ pressed }) => ({
@@ -73,13 +76,13 @@ export default function TabsLayout() {
             })}
           >
             <Ionicons name="notifications-outline" size={21} color="#E7DDF4" />
-          </Pressable>
+          </Pressable></View>
         ),
         sceneStyle: { backgroundColor: "#080D14" },
-        tabBarActiveTintColor: "#C59AFF",
+        tabBarActiveTintColor: activeTheme?.colors[1] ?? "#C59AFF",
         tabBarInactiveTintColor: "#667386",
         tabBarStyle: {
-          backgroundColor: "#0B1119",
+          backgroundColor: activeTheme?.colors[2] ?? "#0B1119",
           borderTopColor: "#1F2A38",
           height: 74,
           paddingBottom: 10,
