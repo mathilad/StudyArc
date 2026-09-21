@@ -5,6 +5,7 @@ import { cacheKey, enqueueMutation, makeUuid, queuedMutationsFor, readJson, remo
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
 import { useOffline } from "./OfflineContext";
+import { useRewards } from "./RewardsContext";
 
 export type Exam = { id: string; name: string; examType: string; startsOn: string | null; endsOn: string | null; isMainExam: boolean };
 export type ExamComponent = { id: string; examId: string; subjectName: string; componentName: string; examAt: string | null };
@@ -51,6 +52,7 @@ const mapPaperTopic = (r: any): PaperTopicResult => ({ id: r.id, subjectName: r.
 export function AcademicProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const { isOnline, syncTick } = useOffline();
+  const { awardAssignment } = useRewards();
   const [state, setState] = useState<Cache>(DEFAULT_CACHE);
   const [loading, setLoading] = useState(true);
 
@@ -192,8 +194,9 @@ export function AcademicProvider({ children }: { children: React.ReactNode }) {
     }
     const nextState={...state,assignments:nextAssignments};setState(nextState);await persist(nextState);
     for(const row of rows)await enqueueMutation({userId:user.id,kind:"assignment_upsert",payload:{id:row.id,user_id:user.id,source_class_id:row.sourceClassId,title:row.title,subject_name:row.subjectName,topic_name:row.topicName,due_at:row.dueAt,estimated_minutes:row.estimatedMinutes,completed:row.completed,repeat_pattern:row.repeatPattern,series_id:row.seriesId,updated_at:new Date().toISOString()}});
-    if(isOnline)syncQueue().catch(()=>undefined);
-  }, [isOnline,persist,state,syncQueue,user]);
+    if(isOnline)await syncQueue().catch(()=>undefined);
+    if(completed&&!current.completed)await awardAssignment(id,`Completed ${current.title}`);
+  }, [awardAssignment,isOnline,persist,state,syncQueue,user]);
 
   const addPaperTopicResult = useCallback(async (value: Omit<PaperTopicResult, "id" | "recordedAt">) => {
     if (!user) throw new Error("You must be signed in.");
