@@ -1,10 +1,12 @@
 import * as ImagePicker from "expo-image-picker";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { findTopic, type StudyMedium, type SubjectName } from "../data/subjects";
+import { SUBJECTS, expandSubjectChoices, findTopic, type StudyMedium, type SubjectName } from "../data/subjects";
 import { cacheKey, enqueueMutation, makeUuid, queuedMutationsFor, readJson, removeQueuedMutation, writeJson } from "../lib/offlineStore";
 import { supabase } from "../lib/supabase";
+import { SYLLABUS_MILESTONES } from "../lib/rewardEngine";
 import { useAuth } from "./AuthContext";
 import { useOffline } from "./OfflineContext";
+import { useRewards } from "./RewardsContext";
 
 export type StudentProfile = {
   fullName: string;
@@ -166,6 +168,7 @@ const mapProfile = (r: any): StudentProfile => ({
 export function StudentProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
   const { isOnline, checking, syncTick, refreshConnectivity } = useOffline();
+  const { awardPersonalBest, awardMilestone } = useRewards();
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
   const [classes, setClasses] = useState<ClassSchedule[]>([]);
   const [testMarks, setTestMarks] = useState<TestMark[]>([]);
@@ -530,9 +533,12 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
         weak_topics: local.weakTopics,
       },
     });
-    if (isOnline) syncQueue().catch(() => undefined);
+    if (isOnline) await syncQueue().catch(() => undefined);
+    const score = local.mcqPercent != null && local.essayPercent != null ? (local.mcqPercent + local.essayPercent) / 2 : (local.mcqPercent ?? local.essayPercent);
+    const previousScores = testMarks.filter(x => x.subjectName === local.subjectName).map(x => x.mcqPercent != null && x.essayPercent != null ? (x.mcqPercent + x.essayPercent) / 2 : (x.mcqPercent ?? x.essayPercent)).filter((x): x is number => x != null);
+    if (score != null && previousScores.length && score > Math.max(...previousScores)) await awardPersonalBest(local.id, `New ${local.subjectName} personal best`);
     refreshConnectivity().catch(() => undefined);
-  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
+  }, [awardPersonalBest, classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
 
   const deleteTestMark = useCallback(async (id: string) => {
     if (!user) return;
@@ -633,9 +639,13 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
       kind: "topic_progress_upsert",
       payload: { user_id: user.id, subject_name: subjectName, topic_name: topicName, coverage: coverageScore, knowledge: nextProgressRow.knowledge, memory: nextProgressRow.memory, performance: nextProgressRow.performance, last_studied_at: nextProgressRow.lastStudiedAt, next_recall_at: nextProgressRow.nextRecallAt, updated_at: now },
     });
-    if (isOnline) syncQueue().catch(() => undefined);
+    if (isOnline) await syncQueue().catch(() => undefined);
+    const selectedSubjects = expandSubjectChoices(profile.subjectChoices);
+    const allTopicKeys = selectedSubjects.flatMap(name => (SUBJECTS[name as keyof typeof SUBJECTS]?.topics ?? []).map(topicRow => `${name}::${topicRow.title}`));
+    const overallCoverage = allTopicKeys.length ? Math.round(allTopicKeys.reduce((sum,key) => { const [subject,topic] = key.split("::"); return sum + (nextProgress.find(x => x.subjectName===subject && x.topicName===topic)?.coverage ?? 0); },0) / allTopicKeys.length) : 0;
+    for (const milestone of SYLLABUS_MILESTONES) if (overallCoverage >= milestone.percent) await awardMilestone(`syllabus:${milestone.percent}`);
     refreshConnectivity().catch(() => undefined);
-  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
+  }, [awardMilestone, classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
 
   const setSubtopicCovered = useCallback(async (
     subjectName: string,
