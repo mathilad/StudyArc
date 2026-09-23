@@ -3,23 +3,26 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React,{useMemo,useState} from "react";
 import { Pressable,ScrollView,StyleSheet,Text,View } from "react-native";
+import FeatureDisabledScreen from "../components/FeatureDisabledScreen";
 import { useRewards } from "../context/RewardsContext";
 import { useAppConfig } from "../context/AppConfigContext";
+import { rewardFlagEnabled } from "../lib/rewardFeatureFlags";
 
 type Filter="all"|"earned"|"spent";
 export default function RewardHistoryScreen(){
  const router=useRouter();
  const{settings}=useAppConfig();
  const historyEnabled=rewardFlagEnabled(settings.featureFlags,"rewardsSystem")&&rewardFlagEnabled(settings.featureFlags,"arcCoins")&&rewardFlagEnabled(settings.featureFlags,"rewardHistory");
+ const xpOn=rewardFlagEnabled(settings.featureFlags,"rewardsSystem")&&rewardFlagEnabled(settings.featureFlags,"xpLevels");
  const{transactions,coinBalance,lifetimeCoins,xp}=useRewards();
  const[filter,setFilter]=useState<Filter>("all");
- if(!historyEnabled)return <FeatureDisabledScreen title="Arc Coin history is off" message="The StudyArc administrator has temporarily disabled Arc Coin history. Existing reward and purchase records are preserved."/>;
  const rows=useMemo(()=>transactions.filter(x=>filter==="all"||(filter==="earned"?x.coins>=0:x.coins<0)),[filter,transactions]);
+ if(!historyEnabled)return <FeatureDisabledScreen title="Arc Coin history is off" message="The StudyArc administrator has temporarily disabled Arc Coin history. Existing reward and purchase records are preserved."/>;
  return <View style={s.root}><LinearGradient colors={["#15101F","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.header}><Pressable onPress={()=>router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF"/></Pressable><View style={{flex:1}}><Text style={s.kicker}>TRANSPARENT REWARD LEDGER</Text><Text style={s.title}>Arc Coin History</Text></View></View><ScrollView contentContainerStyle={s.content}>
-  <View style={s.summary}><Mini label="CURRENT BALANCE" value={`${coinBalance} AC`} icon="diamond-outline"/><Mini label="LIFETIME EARNED" value={`${lifetimeCoins} AC`} icon="trending-up-outline"/><Mini label="LIFETIME XP" value={xp.toLocaleString()} icon="sparkles-outline"/></View>
+  <View style={s.summary}><Mini label="CURRENT BALANCE" value={`${coinBalance} AC`} icon="diamond-outline"/><Mini label="LIFETIME EARNED" value={`${lifetimeCoins} AC`} icon="trending-up-outline"/>{xpOn?<Mini label="LIFETIME XP" value={xp.toLocaleString()} icon="sparkles-outline"/>:null}</View>
   <View style={s.filters}>{(["all","earned","spent"] as Filter[]).map(x=><Pressable key={x} onPress={()=>setFilter(x)} style={[s.filter,filter===x&&s.filterOn]}><Text style={[s.filterText,filter===x&&s.filterTextOn]}>{x==="all"?"All":x==="earned"?"Earned":"Spent"}</Text></Pressable>)}</View>
-  <View style={s.list}>{rows.length?rows.map(row=><View key={row.id} style={s.row}><View style={[s.icon,row.coins<0?s.spendIcon:s.earnIcon]}><Ionicons name={row.coins<0?"bag-check-outline":"add-circle-outline"} size={18} color={row.coins<0?"#E6A7B2":"#9DE0B7"}/></View><View style={{flex:1}}><Text style={s.rowTitle}>{row.label}</Text><Text style={s.rowMeta}>{new Date(row.createdAt).toLocaleString()} · {row.kind.replaceAll("-"," ").toUpperCase()}</Text><Text style={s.eventKey} numberOfLines={1}>{row.eventKey}</Text></View><View style={{alignItems:"flex-end"}}><Text style={[s.amount,row.coins<0&&s.spend]}>{row.coins>0?"+":""}{row.coins} AC</Text>{row.xp>0?<Text style={s.xp}>+{row.xp} XP</Text>:null}</View></View>):<View style={s.empty}><Ionicons name="receipt-outline" size={33} color="#566273"/><Text style={s.emptyText}>No Arc Coin transactions in this view yet.</Text></View>}</View>
-  <Text style={s.note}>Each legitimate reward uses a unique event key, so the same completed work cannot award coins twice. Purchases are recorded as negative Arc Coin transactions; XP is never spent.</Text>
+  <View style={s.list}>{rows.length?rows.map(row=><View key={row.id} style={s.row}><View style={[s.icon,row.coins<0?s.spendIcon:s.earnIcon]}><Ionicons name={row.coins<0?"bag-check-outline":"add-circle-outline"} size={18} color={row.coins<0?"#E6A7B2":"#9DE0B7"}/></View><View style={{flex:1}}><Text style={s.rowTitle}>{row.label}</Text><Text style={s.rowMeta}>{new Date(row.createdAt).toLocaleString()} · {row.kind.replaceAll("-"," ").toUpperCase()}</Text><Text style={s.eventKey} numberOfLines={1}>{row.eventKey}</Text></View><View style={{alignItems:"flex-end"}}><Text style={[s.amount,row.coins<0&&s.spend]}>{row.coins>0?"+":""}{row.coins} AC</Text>{xpOn&&row.xp>0?<Text style={s.xp}>+{row.xp} XP</Text>:null}</View></View>):<View style={s.empty}><Ionicons name="receipt-outline" size={33} color="#566273"/><Text style={s.emptyText}>No Arc Coin transactions in this view yet.</Text></View>}</View>
+  <Text style={s.note}>Each legitimate reward uses a unique event key, so the same completed work cannot award coins twice. Purchases are recorded as negative Arc Coin transactions; XP is never spent when XP is enabled.</Text>
  </ScrollView></View>
 }
 function Mini({label,value,icon}:{label:string;value:string;icon:string}){return <View style={s.mini}><Ionicons name={icon as any} size={18} color="#B993DD"/><Text style={s.miniValue}>{value}</Text><Text style={s.miniLabel}>{label}</Text></View>}
