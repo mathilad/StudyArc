@@ -2,8 +2,10 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { cacheKey, enqueueMutation, makeUuid, markQueuedMutationFailed, queuedMutationsFor, readJson, removeQueuedMutation, writeJson } from "../lib/offlineStore";
 import { HOUR_MILESTONES, STREAK_MILESTONES, SYLLABUS_MILESTONES, levelFromXp, levelProgress, rewardLabelForMilestone, studySessionReward } from "../lib/rewardEngine";
 import { REWARD_CATALOG, type RewardCategory, type RewardItem, rewardItemById } from "../lib/rewardsCatalog";
+import { rewardCategoryEnabled, rewardFlagEnabled, rewardStoreEnabled } from "../lib/rewardFeatureFlags";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./AuthContext";
+import { useAppConfig } from "./AppConfigContext";
 import { useOffline } from "./OfflineContext";
 import type { PaperSection, StudyType } from "./StudyContext";
 
@@ -77,7 +79,15 @@ const mapLedger = (row: any): RewardTransaction => ({
 
 export function RewardsProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
+  const { settings } = useAppConfig();
   const { isOnline, syncTick } = useOffline();
+  const featureFlags = settings.featureFlags;
+  const rewardsOn = rewardFlagEnabled(featureFlags, "rewardsSystem");
+  const xpOn = rewardsOn && rewardFlagEnabled(featureFlags, "xpLevels");
+  const coinsOn = rewardsOn && rewardFlagEnabled(featureFlags, "arcCoins");
+  const storeOn = rewardStoreEnabled(featureFlags);
+  const milestonesOn = rewardsOn && rewardFlagEnabled(featureFlags, "rewardMilestones");
+  const popupsOn = rewardsOn && rewardFlagEnabled(featureFlags, "rewardPopups");
   const [snapshot, setSnapshot] = useState<RewardSnapshot>(EMPTY);
   const snapshotRef = useRef<RewardSnapshot>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -184,7 +194,10 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
   const progress = useMemo(() => levelProgress(totals.xp), [totals.xp]);
 
   const grant = useCallback(async (value: { eventKey: string; eventKind: string; sourceId?: string | null; label: string; coins: number; xp: number; kind: RewardTransaction["kind"] }) => {
-    if (!user || (value.coins <= 0 && value.xp <= 0)) return;
+    if (!user || !rewardsOn) return;
+    const awardedCoins = coinsOn ? Math.max(0, Math.floor(value.coins)) : 0;
+    const awardedXp = xpOn ? Math.max(0, Math.floor(value.xp)) : 0;
+    if (awardedCoins <= 0 && awardedXp <= 0) return;
     const current = snapshotRef.current;
     if (current.transactions.some(row => row.eventKey === value.eventKey)) return;
     const beforeXp = current.transactions.reduce((sum, row) => sum + Math.max(0, row.xp), 0);
@@ -192,8 +205,8 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
       id: makeUuid(),
       eventKey: value.eventKey,
       kind: value.kind,
-      coins: Math.max(0, Math.floor(value.coins)),
-      xp: Math.max(0, Math.floor(value.xp)),
+      coins: awardedCoins,
+      xp: awardedXp,
       label: value.label,
       itemId: null,
       createdAt: new Date().toISOString(),
@@ -201,10 +214,10 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     await applySnapshot({ ...current, transactions: [transaction, ...current.transactions] });
     const beforeLevel = levelFromXp(beforeXp);
     const afterLevel = levelFromXp(beforeXp + transaction.xp);
-    setLastReward({ transaction, levelBefore: beforeLevel, levelAfter: afterLevel, levelUp: afterLevel > beforeLevel });
+    if (popupsOn) setLastReward({ transaction, levelBefore: beforeLevel, levelAfter: afterLevel, levelUp: xpOn && afterLevel > beforeLevel });
     await enqueueMutation({ userId: user.id, kind: "reward_event", payload: { eventKey: value.eventKey, eventKind: value.eventKind, sourceId: value.sourceId ?? null, label: value.label } });
     if (isOnline) void syncQueue().then(refreshRewards);
-  }, [applySnapshot, isOnline, refreshRewards, syncQueue, user]);
+  }, [applySnapshot, coinsOn, isOnline, popupsOn, refreshRewards, rewardsOn, syncQueue, user, xpOn]);
 
   const awardStudySession = useCallback(async (value: { id: string; durationSeconds: number; studyType: StudyType; paperSection?: PaperSection | null }) => {
     const reward = studySessionReward(value);
@@ -224,6 +237,7 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     grant({ eventKey: `test-best:${testId}`, eventKind: "test_personal_best", sourceId: testId, label, coins: 10, xp: 30, kind: "test" }), [grant]);
 
   const awardMilestone = useCallback(async (code: string) => {
+    if (!milestonesOn) return;
     const hour = HOUR_MILESTONES.find(x => code === `hours:${x.hours}`);
     const streak = STREAK_MILESTONES.find(x => code === `streak:${x.days}`);
     const syllabus = SYLLABUS_MILESTONES.find(x => code === `syllabus:${x.percent}`);
@@ -231,12 +245,13 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     const reward = hour ?? streak ?? syllabus ?? fixed;
     if (!reward) return;
     await grant({ eventKey: `milestone:${code}`, eventKind: "milestone", sourceId: code, label: rewardLabelForMilestone(code), coins: reward.coins, xp: reward.xp, kind: "milestone" });
-  }, [grant]);
+  }, [grant, milestonesOn]);
 
   const purchaseItem = useCallback(async (itemId: string) => {
     if (!user) throw new Error("Sign in to use the Arc Store.");
+    if (!storeOn) throw new Error("The Arc Store is currently disabled by the StudyArc administrator.");
     const item = rewardItemById(itemId);
-    if (!item) throw new Error("This Arc Store item is unavailable.");
+    if (!item || !rewardCategoryEnabled(featureFlags, item.category)) throw new Error("This customization category is currently disabled by the StudyArc administrator.");
     const current = snapshotRef.current;
     if (current.ownedItemIds.includes(itemId)) return;
     const balance = Math.max(0, current.transactions.reduce((sum, row) => sum + row.coins, 0));
@@ -251,23 +266,23 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     await applySnapshot({ ...current, transactions: [transaction, ...current.transactions], ownedItemIds: [...current.ownedItemIds, itemId] });
     await enqueueMutation({ userId: user.id, kind: "reward_purchase", payload: { itemId } });
     if (isOnline) void syncQueue().then(refreshRewards);
-  }, [applySnapshot, isOnline, refreshRewards, syncQueue, user]);
+  }, [applySnapshot, featureFlags, isOnline, refreshRewards, storeOn, syncQueue, user]);
 
   const equipItem = useCallback(async (itemId: string) => {
     if (!user) return;
     const item = rewardItemById(itemId);
-    if (!item) throw new Error("This customization is unavailable.");
+    if (!item || !rewardCategoryEnabled(featureFlags, item.category)) throw new Error("This customization category is currently disabled by the StudyArc administrator.");
     const current = snapshotRef.current;
     if (!current.ownedItemIds.includes(itemId)) throw new Error("Buy this customization before equipping it.");
     const next = { ...current, equipped: { ...current.equipped, [item.category]: itemId } };
     await applySnapshot(next);
     await enqueueMutation({ userId: user.id, kind: "reward_equip", payload: { itemId } });
     if (isOnline) void syncQueue().then(refreshRewards);
-  }, [applySnapshot, isOnline, refreshRewards, syncQueue, user]);
+  }, [applySnapshot, featureFlags, isOnline, refreshRewards, syncQueue, user]);
 
   const isOwned = useCallback((itemId: string) => snapshot.ownedItemIds.includes(itemId), [snapshot.ownedItemIds]);
   const isEquipped = useCallback((itemId: string) => Object.values(snapshot.equipped).includes(itemId), [snapshot.equipped]);
-  const equippedItem = useCallback((category: RewardCategory) => rewardItemById(snapshot.equipped[category]), [snapshot.equipped]);
+  const equippedItem = useCallback((category: RewardCategory) => rewardCategoryEnabled(featureFlags, category) ? rewardItemById(snapshot.equipped[category]) : undefined, [featureFlags, snapshot.equipped]);
 
   const value = useMemo<RewardContextValue>(() => ({
     transactions: snapshot.transactions,
@@ -282,7 +297,7 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     equipped: snapshot.equipped,
     lastReward,
     loading,
-    catalog: REWARD_CATALOG,
+    catalog: storeOn ? REWARD_CATALOG.filter(item => rewardCategoryEnabled(featureFlags, item.category)) : [],
     purchaseItem,
     equipItem,
     awardStudySession,
@@ -296,7 +311,7 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     isOwned,
     isEquipped,
     equippedItem,
-  }), [awardAssignment, awardDailyPlan, awardMilestone, awardPersonalBest, awardStudySession, awardTask, equipItem, equippedItem, isEquipped, isOwned, lastReward, loading, progress, purchaseItem, refreshRewards, snapshot.equipped, snapshot.ownedItemIds, snapshot.transactions, totals]);
+  }), [awardAssignment, awardDailyPlan, awardMilestone, awardPersonalBest, awardStudySession, awardTask, equipItem, equippedItem, featureFlags, isEquipped, isOwned, lastReward, loading, progress, purchaseItem, refreshRewards, snapshot.equipped, snapshot.ownedItemIds, snapshot.transactions, storeOn, totals]);
 
   return <RewardsContext.Provider value={value}>{children}</RewardsContext.Provider>;
 }
