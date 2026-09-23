@@ -4,13 +4,18 @@ import { useRouter } from "expo-router";
 import React,{useMemo,useState} from "react";
 import { Pressable,ScrollView,StyleSheet,Text,useWindowDimensions,View } from "react-native";
 import RewardArtwork from "../components/RewardArtwork";
+import FeatureDisabledScreen from "../components/FeatureDisabledScreen";
 import { useRewards } from "../context/RewardsContext";
+import { useAppConfig } from "../context/AppConfigContext";
+import { rewardFlagEnabled, rewardStoreEnabled } from "../lib/rewardFeatureFlags";
 import { REWARD_CATEGORY_META,type RewardCategory } from "../lib/rewardsCatalog";
 
 const categories:RewardCategory[]=["themes","clock-faces","stopwatch-layouts","page-themes","completion-effects","focus-effects","timer-animations","focus-sounds","loading-screens","milestone-effects"];
 
 export default function MyCollectionScreen(){
  const router=useRouter(),{width}=useWindowDimensions();
+ const{settings}=useAppConfig();
+ const storeEnabled=rewardFlagEnabled(settings.featureFlags,"rewardsSystem")&&rewardFlagEnabled(settings.featureFlags,"arcStore");
  const{catalog,ownedItemIds,isEquipped,equipItem}=useRewards();
  const[category,setCategory]=useState<RewardCategory|"all">("all"),[busy,setBusy]=useState("");
  const[motionEnabled,setMotionEnabled]=useState(true);
@@ -18,6 +23,7 @@ export default function MyCollectionScreen(){
  const ownedSet=useMemo(()=>new Set(ownedItemIds),[ownedItemIds]);
  const items=catalog.filter(x=>ownedSet.has(x.id)&&(category==="all"||x.category===category));
  const equip=async(id:string)=>{setBusy(id);try{await equipItem(id)}finally{setBusy("")}};
+ if(!storeEnabled)return <FeatureDisabledScreen title="My Collection is off" message="The StudyArc administrator has temporarily disabled Arc Store customizations. Everything you already own remains saved."/>;
  return <View style={s.root}><LinearGradient colors={["#0C1716","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.header}><Pressable onPress={()=>router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF"/></Pressable><View style={{flex:1}}><Text style={s.kicker}>OWNED CUSTOMIZATIONS</Text><Text style={s.title}>My Collection</Text></View><Pressable onPress={()=>router.push("/arc-store")} style={s.store}><Ionicons name="bag-handle-outline" size={17} color="#DCC8F4"/><Text style={s.storeText}>Store</Text></Pressable></View>
  <ScrollView contentContainerStyle={s.content}><View style={s.summary}><View><Text style={s.summaryNo}>{ownedItemIds.length}</Text><Text style={s.summaryLabel}>OWNED ITEMS</Text></View><Text style={s.summaryText}>Everything you buy stays here permanently. Switching between owned items costs 0 AC.</Text></View>
  <View style={s.previewControl}><View><Text style={s.previewControlTitle}>Animated previews</Text><Text style={s.previewControlSub}>Every owned customization can be previewed live.</Text></View><Pressable onPress={()=>setMotionEnabled(v=>!v)} style={[s.motionToggle,motionEnabled&&s.motionToggleOn]}><Ionicons name={motionEnabled?"play":"pause"} size={13} color={motionEnabled?"#0C1B15":"#A990C5"}/><Text style={[s.motionText,motionEnabled&&s.motionTextOn]}>{motionEnabled?"On":"Off"}</Text></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}><Pressable onPress={()=>setCategory("all")} style={[s.chip,category==="all"&&s.chipOn]}><Text style={[s.chipText,category==="all"&&s.chipTextOn]}>All</Text></Pressable>{categories.map(cat=><Pressable key={cat} onPress={()=>setCategory(cat)} style={[s.chip,category===cat&&s.chipOn]}><Text style={[s.chipText,category===cat&&s.chipTextOn]}>{REWARD_CATEGORY_META[cat].shortLabel}</Text></Pressable>)}</ScrollView>
