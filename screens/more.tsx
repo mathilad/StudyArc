@@ -19,6 +19,7 @@ import { useStudy } from "../context/StudyContext";
 import { useRewards } from "../context/RewardsContext";
 import { expandSubjectChoices } from "../data/subjects";
 import { format12Hour } from "../lib/time";
+import { rewardFlagEnabled, rewardProgressEnabled, rewardStoreEnabled } from "../lib/rewardFeatureFlags";
 
 const fmt=(sec:number)=>{const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h?`${h}h ${m}m`:`${m}m`};
 const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -28,6 +29,10 @@ export default function MoreScreen(){
  const router=useRouter();
  const{user,signOut}=useAuth();
  const{settings,isAdmin}=useAppConfig();
+ const rewardProgressOn=rewardProgressEnabled(settings.featureFlags);
+ const rewardXpOn=rewardFlagEnabled(settings.featureFlags,"rewardsSystem")&&rewardFlagEnabled(settings.featureFlags,"xpLevels");
+ const rewardCoinsOn=rewardFlagEnabled(settings.featureFlags,"rewardsSystem")&&rewardFlagEnabled(settings.featureFlags,"arcCoins");
+ const rewardStoreOn=rewardStoreEnabled(settings.featureFlags);
  const{access}=useMonetization();
  const{performanceMode,isSmallPhone}=usePerformance();
  const{settings:phaseSettings}=usePhase();
@@ -50,7 +55,7 @@ export default function MoreScreen(){
   <Text style={s.title}>More</Text><Text style={s.subtitle}>Profile, study tools, routine, settings and support.</Text>
   <Pressable onPress={()=>router.push("/profile")} style={s.profilePress}><LinearGradient colors={["#2B1B40","#131B26"]} style={s.profileCard}><Pressable onPress={handleAvatar} style={s.avatar}>{profile.avatarUrl?<Image source={{uri:profile.avatarUrl}} style={s.avatarImage}/>:<Ionicons name="person" size={30} color="#E4D2FA"/>}<View style={s.camera}><Ionicons name="camera" size={11} color="#FFF"/></View></Pressable><View style={{flex:1}}><Text style={s.profileName}>{profile.fullName||"Add your name"}</Text><Text style={s.profileMail} numberOfLines={1}>{user?.email}</Text><Text style={s.profileMeta}>{profile.district || (profile.examYear ? `G.C.E. A/L ${profile.examYear}` : "Study Arc student")}</Text></View><Ionicons name="chevron-forward" size={20} color="#9278B3"/></LinearGradient></Pressable>
   <View style={s.metrics}><View style={s.metric}><Text style={s.metricLabel}>TOTAL STUDY</Text><Text style={s.metricValue}>{fmt(totalSeconds)}</Text></View><View style={s.vline}/><View style={s.metric}><Text style={s.metricLabel}>TODAY RANK</Text><Text style={s.metricValue}>{myRank?`#${myRank.rank}`:"—"}</Text></View><View style={s.vline}/><View style={s.metric}><Text style={s.metricLabel}>SESSIONS</Text><Text style={s.metricValue}>{sessions.length}</Text></View></View>
-  <Pressable onPress={()=>router.push("/rewards")} style={s.rewardPress}><LinearGradient colors={["#302043","#151B27"]} style={s.rewardCard}><View style={s.rewardTop}><View style={s.levelBadge}><Text style={s.levelNo}>{level}</Text><Text style={s.levelTiny}>LEVEL</Text></View><View style={{flex:1}}><Text style={s.rewardTitle}>StudyArc Progress</Text><Text style={s.rewardSub}>{levelCurrentXp} / {levelRequiredXp} XP to next level · {ownedItemIds.length} customizations owned</Text></View><View style={s.coinBadge}><Ionicons name="diamond" size={15} color="#F2D179"/><Text style={s.coinText}>{coinBalance} AC</Text></View></View><View style={s.rewardTrack}><View style={[s.rewardFill,{width:`${Math.max(2,Math.round(levelRatio*100))}%`}]}/></View><View style={s.rewardLinks}><Text style={s.rewardLink}>Rewards & level</Text><Pressable onPress={(e)=>{e.stopPropagation?.();router.push("/arc-store")}} style={s.storeLink}><Ionicons name="bag-handle-outline" size={14} color="#DCC4F5"/><Text style={s.storeLinkText}>Arc Store</Text></Pressable></View></LinearGradient></Pressable>
+  {rewardProgressOn?<Pressable onPress={()=>router.push("/rewards")} style={s.rewardPress}><LinearGradient colors={["#302043","#151B27"]} style={s.rewardCard}><View style={s.rewardTop}>{rewardXpOn?<View style={s.levelBadge}><Text style={s.levelNo}>{level}</Text><Text style={s.levelTiny}>LEVEL</Text></View>:null}<View style={{flex:1}}><Text style={s.rewardTitle}>{rewardXpOn?"StudyArc Progress":"Arc Coin Rewards"}</Text><Text style={s.rewardSub}>{rewardXpOn?`${levelCurrentXp} / ${levelRequiredXp} XP to next level`:"Earn Arc Coins from meaningful study work"}{rewardStoreOn?` · ${ownedItemIds.length} customizations owned`:""}</Text></View>{rewardCoinsOn?<View style={s.coinBadge}><Ionicons name="diamond" size={15} color="#F2D179"/><Text style={s.coinText}>{coinBalance} AC</Text></View>:null}</View>{rewardXpOn?<View style={s.rewardTrack}><View style={[s.rewardFill,{width:`${Math.max(2,Math.round(levelRatio*100))}%`}]}/></View>:null}<View style={s.rewardLinks}><Text style={s.rewardLink}>{rewardXpOn?"Rewards & level":"Reward center"}</Text>{rewardStoreOn?<Pressable onPress={(e)=>{e.stopPropagation?.();router.push("/arc-store")}} style={s.storeLink}><Ionicons name="bag-handle-outline" size={14} color="#DCC4F5"/><Text style={s.storeLinkText}>Arc Store</Text></Pressable>:null}</View></LinearGradient></Pressable>:null}
   {access&&access.state!=="ACTIVE_FREE"&&<View style={s.accessStrip}><Ionicons name={access.state==="PREMIUM"?"diamond-outline":"key-outline"} size={18} color="#D8BEF7"/><View style={{flex:1}}><Text style={s.accessTitle}>{access.state.replaceAll("_"," ")}</Text><Text style={s.accessSub}>Study Arc account access</Text></View></View>}
 
   <Text style={s.section}>QUICK ACTIONS</Text>
