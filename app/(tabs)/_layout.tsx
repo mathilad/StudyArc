@@ -8,6 +8,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useMonetization } from "../../context/MonetizationContext";
 import { useStudent } from "../../context/StudentContext";
 import { useRewards } from "../../context/RewardsContext";
+import { rewardFlagEnabled, rewardProgressEnabled } from "../../lib/rewardFeatureFlags";
 
 export default function TabsLayout() {
   const router = useRouter();
@@ -16,7 +17,10 @@ export default function TabsLayout() {
   const { session, loading: authLoading } = useAuth();
   const { profile, loading: studentLoading } = useStudent();
   const { access, loading: accessLoading } = useMonetization();
-  const { isAdmin, refreshing: adminLoading } = useAppConfig();
+  const { isAdmin, refreshing: adminLoading, settings } = useAppConfig();
+  const rewardProgressOn = rewardProgressEnabled(settings.featureFlags);
+  const rewardXpOn = rewardFlagEnabled(settings.featureFlags,"rewardsSystem") && rewardFlagEnabled(settings.featureFlags,"xpLevels");
+  const rewardCoinsOn = rewardFlagEnabled(settings.featureFlags,"rewardsSystem") && rewardFlagEnabled(settings.featureFlags,"arcCoins");
   const { equippedItem, coinBalance, level } = useRewards();
   const activeTheme = equippedItem("themes");
 
@@ -61,7 +65,7 @@ export default function TabsLayout() {
           </View>
         ),
         headerRight: () => (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}><Pressable onPress={() => router.push("/rewards")} hitSlop={8} style={{ height: 34, paddingHorizontal: 9, borderRadius: 11, backgroundColor: "#21182B", borderWidth: 1, borderColor: "#3E2F4D", flexDirection: "row", alignItems: "center", gap: 4 }}><Ionicons name="diamond" size={13} color="#EBCF79" /><Text style={{ color: "#EBCF79", fontSize: 8, fontWeight: "900" }}>{coinBalance} · L{level}</Text></Pressable><Pressable
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>{rewardProgressOn?<Pressable onPress={() => router.push("/rewards")} hitSlop={8} style={{ height: 34, paddingHorizontal: 9, borderRadius: 11, backgroundColor: "#21182B", borderWidth: 1, borderColor: "#3E2F4D", flexDirection: "row", alignItems: "center", gap: 4 }}><Ionicons name={rewardCoinsOn?"diamond":"sparkles"} size={13} color="#EBCF79" /><Text style={{ color: "#EBCF79", fontSize: 8, fontWeight: "900" }}>{rewardCoinsOn&&rewardXpOn?`${coinBalance} · L${level}`:rewardCoinsOn?`${coinBalance} AC`:`L${level}`}</Text></Pressable>:null}<Pressable
             onPress={() => router.push("/notifications")}
             hitSlop={10}
             style={({ pressed }) => ({
