@@ -185,6 +185,8 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     void syncQueue().then(refreshRewards);
   }, [isOnline, refreshRewards, syncQueue, syncTick, user]);
 
+  useEffect(() => { if (!popupsOn && lastReward) setLastReward(null); }, [lastReward, popupsOn]);
+
   const totals = useMemo(() => {
     const coins = snapshot.transactions.reduce((sum, row) => sum + row.coins, 0);
     const lifetime = snapshot.transactions.reduce((sum, row) => sum + Math.max(0, row.coins), 0);
@@ -257,7 +259,7 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     const balance = Math.max(0, current.transactions.reduce((sum, row) => sum + row.coins, 0));
     const currentXp = current.transactions.reduce((sum, row) => sum + Math.max(0, row.xp), 0);
     const level = levelFromXp(currentXp);
-    if (level < item.levelRequired) throw new Error(`Reach Level ${item.levelRequired} before unlocking this item.`);
+    if (xpOn && level < item.levelRequired) throw new Error(`Reach Level ${item.levelRequired} before unlocking this item.`);
     if (balance < item.price) throw new Error(`You need ${item.price - balance} more Arc Coins.`);
     const transaction: RewardTransaction = {
       id: makeUuid(), eventKey: `purchase:${itemId}`, kind: "purchase", coins: -item.price, xp: 0,
@@ -266,7 +268,7 @@ export function RewardsProvider({ children }: { children: React.ReactNode }) {
     await applySnapshot({ ...current, transactions: [transaction, ...current.transactions], ownedItemIds: [...current.ownedItemIds, itemId] });
     await enqueueMutation({ userId: user.id, kind: "reward_purchase", payload: { itemId } });
     if (isOnline) void syncQueue().then(refreshRewards);
-  }, [applySnapshot, featureFlags, isOnline, refreshRewards, storeOn, syncQueue, user]);
+  }, [applySnapshot, featureFlags, isOnline, refreshRewards, storeOn, syncQueue, user, xpOn]);
 
   const equipItem = useCallback(async (itemId: string) => {
     if (!user) return;
