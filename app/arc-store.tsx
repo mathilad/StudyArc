@@ -4,14 +4,19 @@ import { useRouter } from "expo-router";
 import React,{useMemo,useState} from "react";
 import { Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,useWindowDimensions,View } from "react-native";
 import RewardArtwork from "../components/RewardArtwork";
+import FeatureDisabledScreen from "../components/FeatureDisabledScreen";
 import FocusSoundPlayer from "../components/FocusSoundPlayer";
 import { useRewards } from "../context/RewardsContext";
+import { useAppConfig } from "../context/AppConfigContext";
+import { rewardFlagEnabled, rewardStoreEnabled } from "../lib/rewardFeatureFlags";
 import { REWARD_CATEGORY_META,type RewardCategory,type RewardItem } from "../lib/rewardsCatalog";
 
 const categories:RewardCategory[]=["themes","clock-faces","stopwatch-layouts","page-themes","completion-effects","focus-effects","timer-animations","focus-sounds","loading-screens","milestone-effects"];
 
 export default function ArcStoreScreen(){
  const router=useRouter(),{width}=useWindowDimensions();
+ const{settings}=useAppConfig();
+ const storeEnabled=rewardStoreEnabled(settings.featureFlags);
  const{catalog,coinBalance,level,isOwned,isEquipped,purchaseItem,equipItem}=useRewards();
  const[category,setCategory]=useState<RewardCategory|"featured">("featured");
  const[query,setQuery]=useState("");
@@ -27,6 +32,7 @@ export default function ArcStoreScreen(){
  const buy=async()=>{if(!selected||busy)return;setBusy(true);setMessage("");try{await purchaseItem(selected.id);setMessage("Purchased. It is now in My Collection.")}catch(e){setMessage(e instanceof Error?e.message:"Purchase could not be completed.")}finally{setBusy(false)}};
  const equip=async()=>{if(!selected||busy)return;setBusy(true);setMessage("");try{await equipItem(selected.id);setMessage("Equipped across supported StudyArc views.")}catch(e){setMessage(e instanceof Error?e.message:"Could not equip this item.")}finally{setBusy(false)}};
  const after=selected?coinBalance-selected.price:coinBalance;
+ if(!storeEnabled)return <FeatureDisabledScreen title="Arc Store is off" message="The StudyArc administrator has temporarily disabled Arc Coins or the Arc Store. Your existing purchases and balances are preserved."/>;
  return <View style={s.root}><LinearGradient colors={["#160D22","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/>
   <View style={s.header}><Pressable style={s.back} onPress={()=>router.back()}><Ionicons name="arrow-back" size={21} color="#FFF"/></Pressable><View style={{flex:1}}><Text style={s.kicker}>STUDYARC CUSTOMIZATION</Text><Text style={s.title}>Arc Store</Text></View><Pressable onPress={()=>router.push("/my-collection")} style={s.collection}><Ionicons name="albums-outline" size={18} color="#E7D4FA"/><Text style={s.collectionText}>My Collection</Text></Pressable></View>
   <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
