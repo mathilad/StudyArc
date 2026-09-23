@@ -4,12 +4,16 @@ import { useRouter } from "expo-router";
 import React,{useMemo,useState} from "react";
 import { Pressable,ScrollView,StyleSheet,Text,View } from "react-native";
 import { useRewards } from "../context/RewardsContext";
+import { useAppConfig } from "../context/AppConfigContext";
 
 type Filter="all"|"earned"|"spent";
 export default function RewardHistoryScreen(){
  const router=useRouter();
+ const{settings}=useAppConfig();
+ const historyEnabled=rewardFlagEnabled(settings.featureFlags,"rewardsSystem")&&rewardFlagEnabled(settings.featureFlags,"arcCoins")&&rewardFlagEnabled(settings.featureFlags,"rewardHistory");
  const{transactions,coinBalance,lifetimeCoins,xp}=useRewards();
  const[filter,setFilter]=useState<Filter>("all");
+ if(!historyEnabled)return <FeatureDisabledScreen title="Arc Coin history is off" message="The StudyArc administrator has temporarily disabled Arc Coin history. Existing reward and purchase records are preserved."/>;
  const rows=useMemo(()=>transactions.filter(x=>filter==="all"||(filter==="earned"?x.coins>=0:x.coins<0)),[filter,transactions]);
  return <View style={s.root}><LinearGradient colors={["#15101F","#080D14","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.header}><Pressable onPress={()=>router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF"/></Pressable><View style={{flex:1}}><Text style={s.kicker}>TRANSPARENT REWARD LEDGER</Text><Text style={s.title}>Arc Coin History</Text></View></View><ScrollView contentContainerStyle={s.content}>
   <View style={s.summary}><Mini label="CURRENT BALANCE" value={`${coinBalance} AC`} icon="diamond-outline"/><Mini label="LIFETIME EARNED" value={`${lifetimeCoins} AC`} icon="trending-up-outline"/><Mini label="LIFETIME XP" value={xp.toLocaleString()} icon="sparkles-outline"/></View>
