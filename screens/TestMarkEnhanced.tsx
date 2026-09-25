@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React,{useEffect,useMemo,useRef,useState}from"react";
 import{Pressable,ScrollView,StyleSheet,Text,TextInput,View}from"react-native";
 import CalendarDatePicker from "../components/CalendarDatePicker";
