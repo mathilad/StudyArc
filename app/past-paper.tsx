@@ -50,6 +50,7 @@ export default function PastPaperScreen() {
         {availableSubjects.map(item => <Pressable key={item} onPress={() => setSubject(item)} style={[s.subjectChip, subject === item && s.subjectChipOn]}><Text style={[s.subjectText, subject === item && s.subjectTextOn]}>{item}</Text></Pressable>)}
       </ScrollView>
 
+      <Pressable onPress={()=>router.push({pathname:"/quick-past-paper",params:{subjectName:subject}})} style={[s.scopeFeatured,{padding:16,marginTop:18,backgroundColor:"#251936",borderWidth:1,borderColor:"#7856A1"}]}><View style={{flexDirection:"row",alignItems:"center",gap:11}}><View style={s.scopeIconFeatured}><Ionicons name="timer-outline" size={22} color="#F0E5FC"/></View><View style={{flex:1}}><Text style={s.scopeKicker}>QUICK START</Text><Text style={s.scopeTitleFeatured}>Do a past paper now</Text><Text style={s.scopeSubFeatured}>Enter the year and target time, start the timer, then add your marks when finished.</Text></View><Ionicons name="play-circle" size={28} color="#D9B8FA"/></View></Pressable>
       <Pressable onPress={()=>router.push({pathname:"/manual-past-paper",params:{subjectName:subject}})} style={[s.scopeFeatured,{padding:16,marginTop:18}]}><Text style={s.scopeTitleFeatured}>Record a completed paper or question</Text><Text style={s.scopeSubFeatured}>Add manual attempts, marks and repeat attempts.</Text></Pressable>
       <Text style={s.label}>PRACTICE SCOPE</Text>
       <Pressable onPress={() => openYears("General")} style={s.scopeFeatured}>
