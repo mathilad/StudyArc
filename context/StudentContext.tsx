@@ -126,6 +126,7 @@ type StudentContextValue = {
   addClass: (value: NewClass) => Promise<void>;
   deleteClass: (id: string) => Promise<void>;
   addTestMark: (value: NewTestMark) => Promise<void>;
+  updateTestMark: (id: string, value: NewTestMark) => Promise<void>;
   deleteTestMark: (id: string) => Promise<void>;
   upsertTopicProgress: (value: TopicProgressInput) => Promise<void>;
   setSubtopicCovered: (subjectName: string, topicName: string, subtopicName: string, covered: boolean, source?: "Manual" | "Class") => Promise<void>;
@@ -540,6 +541,39 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     refreshConnectivity().catch(() => undefined);
   }, [awardPersonalBest, classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
 
+  const updateTestMark = useCallback(async (id: string, v: NewTestMark) => {
+    if (!user) throw new Error("You must be signed in.");
+    const local: TestMark = {
+      ...v,
+      id,
+      mcqPercent: percent(v.mcqScore, v.mcqTotal),
+      essayPercent: percent(v.essayScore, v.essayTotal),
+    };
+    const next = [local, ...testMarks.filter(x => x.id !== id)];
+    setTestMarks(next);
+    await persist(profile, classes, next, topicProgress, subtopicCoverage, dailyReviews);
+    await enqueueMutation({
+      userId: user.id,
+      kind: "test_mark_upsert",
+      payload: {
+        id: local.id,
+        user_id: user.id,
+        subject_name: local.subjectName,
+        test_date: local.testDate,
+        title: local.title,
+        mcq_score: local.mcqScore,
+        mcq_total: local.mcqTotal,
+        essay_score: local.essayScore,
+        essay_total: local.essayTotal,
+        mcq_percent: local.mcqPercent,
+        essay_percent: local.essayPercent,
+        weak_topics: local.weakTopics,
+      },
+    });
+    if (isOnline) await syncQueue().catch(() => undefined);
+    refreshConnectivity().catch(() => undefined);
+  }, [classes, dailyReviews, isOnline, persist, profile, refreshConnectivity, subtopicCoverage, syncQueue, testMarks, topicProgress, user]);
+
   const deleteTestMark = useCallback(async (id: string) => {
     if (!user) return;
     const next = testMarks.filter(x => x.id !== id);
@@ -728,6 +762,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     addClass,
     deleteClass,
     addTestMark,
+    updateTestMark,
     deleteTestMark,
     upsertTopicProgress,
     setSubtopicCovered,
@@ -735,7 +770,7 @@ export function StudentProvider({ children }: { children: React.ReactNode }) {
     setLessonCovered,
     saveDailyReview,
     uploadAvatar,
-  }), [authLoading, checking, loadedUser, user, profile, classes, testMarks, topicProgress, subtopicCoverage, dailyReviews, todayReview, loading, error, refreshStudentData, saveProfile, completeOnboarding, addClass, deleteClass, addTestMark, deleteTestMark, upsertTopicProgress, setSubtopicCovered, setSubtopicsCovered, setLessonCovered, saveDailyReview, uploadAvatar]);
+  }), [authLoading, checking, loadedUser, user, profile, classes, testMarks, topicProgress, subtopicCoverage, dailyReviews, todayReview, loading, error, refreshStudentData, saveProfile, completeOnboarding, addClass, deleteClass, addTestMark, updateTestMark, deleteTestMark, upsertTopicProgress, setSubtopicCovered, setSubtopicsCovered, setLessonCovered, saveDailyReview, uploadAvatar]);
 
   return <StudentContext.Provider value={value}>{children}</StudentContext.Provider>;
 }
