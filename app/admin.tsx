@@ -46,6 +46,7 @@ export default function AdminScreen(){
       <Text style={s.section}>FEATURE CONTROLS</Text><Text style={s.help}>These controls apply at runtime. Image scanning and AI features are OFF by default.</Text>
       <FeatureToggle icon="scan-outline" title="Image scanning / Smart Capture" subtitle="Allow camera, image and document recognition for homework, tutes, tests and papers." enabled={settings.featureFlags.imageScanning===true} busy={saving==="imageScanning"} onChange={v=>setFeature("imageScanning",v)}/>
       <FeatureToggle icon="sparkles-outline" title="AI features" subtitle="Allow StudyArc AI assistant and other AI-driven tools. Core planning remains available when this is off." enabled={settings.featureFlags.aiFeatures===true} busy={saving==="aiFeatures"} onChange={v=>setFeature("aiFeatures",v)}/>
+      <FeatureToggle icon="sync-circle-outline" title="User Sync Manager" subtitle="Allow students to inspect device/database sync, retry individual changes and remove pending processes." enabled={settings.featureFlags.syncManager!==false} busy={saving==="syncManager"} onChange={v=>setFeature("syncManager",v)}/>
 
       <Text style={s.section}>REWARDS, XP & ARC STORE</Text>
       <Text style={s.help}>Every progression and customization feature can be controlled independently. Turning a feature off does not delete XP, coins, purchases, ownership, or equipped choices; it only disables earning, spending, display, or use until you turn it back on.</Text>
