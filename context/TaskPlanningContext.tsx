@@ -7,7 +7,8 @@ import {useOffline} from "./OfflineContext";
 import {useRewards} from "./RewardsContext";
 
 export type PlannedTask={id:string;title:string;plannedDate:string|null;plannedTime:string|null;estimatedMinutes:number;completed:boolean;assignmentId:string|null;sortOrder:number;createdAt:string};
-type Value={tasks:PlannedTask[];addTask:(v:Partial<PlannedTask>&{title:string})=>Promise<string>;toggleTask:(id:string)=>Promise<void>;rescheduleTask:(id:string,date:string|null,time?:string|null)=>Promise<void>;reorderTask:(id:string,beforeId:string|null,date:string)=>Promise<void>;taskForAssignment:(id:string)=>PlannedTask|undefined};
+type TaskDraft=Partial<PlannedTask>&{title:string};
+type Value={tasks:PlannedTask[];addTask:(v:TaskDraft)=>Promise<string>;addTasks:(v:TaskDraft[])=>Promise<string[]>;toggleTask:(id:string)=>Promise<void>;rescheduleTask:(id:string,date:string|null,time?:string|null)=>Promise<void>;reorderTask:(id:string,beforeId:string|null,date:string)=>Promise<void>;taskForAssignment:(id:string)=>PlannedTask|undefined};
 const Ctx=createContext<Value|null>(null);
 const KIND="planned_task_upsert";
 const dk=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -29,11 +30,13 @@ export function TaskPlanningProvider({children}:{children:React.ReactNode}){
 
  const addTask=useCallback(async(v:Partial<PlannedTask>&{title:string})=>{const id=makeUuid();const date=v.plannedDate===undefined?dk(new Date()):v.plannedDate;const same=tasks.filter(x=>x.plannedDate===date);const t:PlannedTask={id,title:v.title.trim(),plannedDate:date,plannedTime:v.plannedTime??null,estimatedMinutes:v.estimatedMinutes??30,completed:false,assignmentId:v.assignmentId??null,sortOrder:same.length*10,createdAt:new Date().toISOString()};const next=[...tasks,t];await save(next);await queue(t);return id},[queue,save,tasks]);
 
+ const addTasks=useCallback(async(items:TaskDraft[])=>{if(!items.length)return[];const createdAt=new Date().toISOString();const nextTasks=[...tasks];const made:PlannedTask[]=[];for(const v of items){const id=makeUuid();const date=v.plannedDate===undefined?dk(new Date()):v.plannedDate;const sameCount=nextTasks.filter(x=>x.plannedDate===date).length;const t:PlannedTask={id,title:v.title.trim(),plannedDate:date,plannedTime:v.plannedTime??null,estimatedMinutes:v.estimatedMinutes??30,completed:false,assignmentId:v.assignmentId??null,sortOrder:sameCount*10,createdAt};nextTasks.push(t);made.push(t)}await save(nextTasks);for(const t of made)await queue(t);return made.map(x=>x.id)},[queue,save,tasks]);
+
  const toggleTask=useCallback(async(id:string)=>{const row=tasks.find(x=>x.id===id);if(!row)return;const t={...row,completed:!row.completed};const next=tasks.map(x=>x.id===id?t:x);await save(next);await queue(t);if(t.completed){if(t.assignmentId)await setAssignmentCompleted(t.assignmentId,true);else await awardTask(t.id,`Completed ${t.title}`);if(t.plannedDate){const day=next.filter(x=>x.plannedDate===t.plannedDate);if(day.length>=2&&day.every(x=>x.completed))await awardDailyPlan(t.plannedDate)}}},[awardDailyPlan,awardTask,queue,save,setAssignmentCompleted,tasks]);
 
  const rescheduleTask=useCallback(async(id:string,date:string|null,time:string|null=null)=>{const row=tasks.find(x=>x.id===id);if(!row)return;const order=tasks.filter(x=>x.plannedDate===date&&x.id!==id).length*10;const t={...row,plannedDate:date,plannedTime:time,sortOrder:order};await save(tasks.map(x=>x.id===id?t:x));await queue(t)},[queue,save,tasks]);
  const reorderTask=useCallback(async(id:string,beforeId:string|null,date:string)=>{const row=tasks.find(x=>x.id===id);if(!row)return;const group=tasks.filter(x=>x.id!==id&&x.plannedDate===date).sort((a,b)=>a.sortOrder-b.sortOrder);const found=beforeId?group.findIndex(x=>x.id===beforeId):-1;const at=beforeId&&found>=0?found:group.length;group.splice(at,0,{...row,plannedDate:date});const orders=new Map(group.map((x,i)=>[x.id,i*10]));const next=tasks.map(x=>orders.has(x.id)?{...x,plannedDate:date,sortOrder:orders.get(x.id)!}:x);await save(next);for(const changed of next.filter(x=>orders.has(x.id)))await queue(changed)},[queue,save,tasks]);
- const value=useMemo(()=>({tasks,addTask,toggleTask,rescheduleTask,reorderTask,taskForAssignment:(id:string)=>tasks.find(x=>x.assignmentId===id&&!x.completed)}),[addTask,reorderTask,rescheduleTask,tasks,toggleTask]);
+ const value=useMemo(()=>({tasks,addTask,addTasks,toggleTask,rescheduleTask,reorderTask,taskForAssignment:(id:string)=>tasks.find(x=>x.assignmentId===id&&!x.completed)}),[addTask,addTasks,reorderTask,rescheduleTask,tasks,toggleTask]);
  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 export function useTaskPlanning(){const v=useContext(Ctx);if(!v)throw new Error("useTaskPlanning must be inside TaskPlanningProvider");return v}
