@@ -4,7 +4,7 @@ export function validateManualPaper(date: string, year: string, duration: string
   const day = new Date(`${date}T12:00:00`);
   const today = new Date();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(day.getTime()) || day.getFullYear() !== Number(date.slice(0,4)) || day.getMonth()+1 !== Number(date.slice(5,7)) || day.getDate() !== Number(date.slice(8,10)) || date > localPaperDate(today)) return "Enter a valid completion date, today or earlier (YYYY-MM-DD).";
-  if (!/^\d{4}$/.test(year) || Number(year)<1900 || Number(year)>today.getFullYear()) return "Enter a valid past-paper year.";
+  if (!/^\d{4}$/.test(year) || Number(year)<1950 || Number(year)>today.getFullYear()) return "Enter a valid past-paper year.";
   if (duration.trim() && (!Number.isFinite(Number(duration)) || Number(duration)<=0 || Number(duration)>1440)) return "Time spent must be between 0 and 1440 minutes, or leave it blank.";
   if (isQuestion && (!question.trim() || !lesson || lesson==="General")) return "Choose a lesson and enter the question number.";
   if (awarded.trim() || total.trim()) {
