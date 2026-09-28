@@ -3,7 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useAcademic } from "../context/AcademicContext";
+import { useAcademic } from "../context/AcademicContext";\nimport { useAppConfig } from "../context/AppConfigContext";
 import { useIntelligence } from "../context/IntelligenceContext";
 import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
@@ -19,7 +19,7 @@ import {
 } from "../lib/intelligence";
 
 export default function IntelligenceScreen() {
-  const router = useRouter();
+  const router = useRouter();\n  const { settings } = useAppConfig();
   const { profile, topicProgress, subtopicCoverage } = useStudent();
   const { sessions } = useStudy();
   const { assignments } = useAcademic();
@@ -70,7 +70,7 @@ export default function IntelligenceScreen() {
         <Action icon="flask-outline" title="Personalized Mini Mock" sub="Diagnostic topics selected from risk and mistakes." onPress={() => router.push("/mini-mock")} />
         <Action icon="alert-circle-outline" title="Mistake Bank" sub="Keep errors active until you repeatedly correct them." onPress={() => router.push("/mistake-bank")} />
         <Action icon="analytics-outline" title="Paper Lab" sub="Question timing, confidence, accuracy and marking analysis." onPress={() => router.push("/paper-lab")} />
-        <Action icon="camera-outline" title="Smart Capture" sub="Turn homework, tutes, tests and markings into confirmed StudyArc data." onPress={() => router.push("/smart-capture")} />
+        {settings.featureFlags.imageScanning===true?<Action icon="camera-outline" title="Smart Capture" sub="Turn homework, tutes, tests and markings into confirmed StudyArc data." onPress={() => router.push("/smart-capture")} />:null}
         <Action icon="trail-sign-outline" title="Recovery Planner" sub="Rebuild when you fall behind without stacking impossible work." onPress={() => router.push("/recovery")} />
         <Action icon="sparkles-outline" title="StudyArc AI" sub="Tell StudyArc what changed by text, image, PDF or voice, then review the proposed updates." onPress={() => router.push("/ai-assistant")} />
 
