@@ -5,6 +5,8 @@ export const currentPastPaperYear = () => new Date().getFullYear();
 
 export type PastPaperRange = { from: number; to: number };
 const RANGE_KEY = "studyarc.pastPaperPreferredRange.v2";
+const SUBJECT_RANGE_PREFIX = "studyarc.pastPaperPreferredRange.v3::";
+const rangeKey=(subject?:string|null)=>subject?SUBJECT_RANGE_PREFIX+subject:RANGE_KEY;
 
 export const clampPastPaperYear = (value: number) =>
   Math.max(PAST_PAPER_MIN_YEAR, Math.min(currentPastPaperYear(), Math.round(value)));
@@ -20,20 +22,26 @@ export const defaultPastPaperRange = (): PastPaperRange => ({
   to: currentPastPaperYear(),
 });
 
-export async function readPastPaperRange(): Promise<PastPaperRange> {
+export async function readPastPaperRange(subject?:string|null): Promise<PastPaperRange> {
   try {
-    const raw = await AsyncStorage.getItem(RANGE_KEY);
-    if (!raw) return defaultPastPaperRange();
-    const parsed = JSON.parse(raw);
-    return normalizePastPaperRange(Number(parsed.from), Number(parsed.to));
+    const raw = await AsyncStorage.getItem(rangeKey(subject));
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return normalizePastPaperRange(Number(parsed.from), Number(parsed.to));
+    }
+    if(subject){
+      const legacy=await AsyncStorage.getItem(RANGE_KEY);
+      if(legacy){const parsed=JSON.parse(legacy);return normalizePastPaperRange(Number(parsed.from),Number(parsed.to))}
+    }
+    return defaultPastPaperRange();
   } catch {
     return defaultPastPaperRange();
   }
 }
 
-export async function savePastPaperRange(range: PastPaperRange) {
+export async function savePastPaperRange(range: PastPaperRange,subject?:string|null) {
   const normalized = normalizePastPaperRange(range.from, range.to);
-  await AsyncStorage.setItem(RANGE_KEY, JSON.stringify(normalized));
+  await AsyncStorage.setItem(rangeKey(subject), JSON.stringify(normalized));
   return normalized;
 }
 
