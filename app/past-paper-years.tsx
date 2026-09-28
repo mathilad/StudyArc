@@ -23,7 +23,7 @@ export default function PastPaperYearsScreen(){
  const subjectName=first(params.subjectName)||"Physics",topicName=first(params.topicName)||"General",isLesson=topicName!=="General";
  const displayTopic=isLesson?topicDisplayName(subjectName as any,topicName,profile.medium):"Whole subject";
  const[range,setRange]=useState<PastPaperRange>(defaultPastPaperRange());const[expanded,setExpanded]=useState<number|null>(null);const[selected,setSelected]=useState<string[]>([]);const[filter,setFilter]=useState<Filter>("all");const[jump,setJump]=useState("");const[recordMode,setRecordMode]=useState(false);const[busy,setBusy]=useState(false);
- useEffect(()=>{loadPreferredPastPaperRange().then(setRange)},[]);
+ useEffect(()=>{loadPreferredPastPaperRange(subjectName).then(setRange)},[subjectName]);
  const years=useMemo(()=>yearsForRange(range),[range]);
  const groupsFor=(year:number):Group[]=>{
    if(subjectName==="Pure Mathematics"||subjectName==="Applied Mathematics"){
