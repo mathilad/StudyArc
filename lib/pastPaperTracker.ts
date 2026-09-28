@@ -90,3 +90,26 @@ export const trackerSectionsForSubject = (subject: string) => {
 };
 
 export const trackerSubjects = ["Physics", "Chemistry", "Pure Mathematics", "Applied Mathematics"] as const;
+
+
+export function normalizePastPaperQuestionKey(value: string | number | null | undefined) {
+  const match=String(value??"").match(/\d+/);
+  return match?String(Number(match[0])):null;
+}
+
+export function trackerSectionForRecordedQuestion(subject:string,paperSection:string,questionNo:string|number|null|undefined){
+  const q=Number(normalizePastPaperQuestionKey(questionNo));
+  if(!Number.isFinite(q)||q<=0)return null;
+  if(subject==="Physics"||subject==="Chemistry"){
+    if(paperSection==="MCQ"||paperSection==="Full MCQ Paper")return "MCQ";
+    if(paperSection==="Structured")return "Structured";
+    if(paperSection==="Essay")return "Essay";
+    if(paperSection==="Full Essay Paper"||paperSection==="Full Paper")return q<=4?"Structured":"Essay";
+  }
+  if(subject==="Pure Mathematics"||subject==="Applied Mathematics"){
+    if(paperSection==="Part A")return "Part A";
+    if(paperSection==="Part B")return "Part B";
+    if(paperSection==="Full Paper")return q<=10?"Part A":"Part B";
+  }
+  return null;
+}
