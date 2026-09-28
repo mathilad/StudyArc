@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Screen from "../components/Screen";
-import { useAcademic } from "../context/AcademicContext";
+import { useAcademic } from "../context/AcademicContext";\nimport { useAppConfig } from "../context/AppConfigContext";
 import { useIntelligence } from "../context/IntelligenceContext";
 import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
@@ -19,7 +19,7 @@ import { mergeSessionIntent } from "../lib/sessionIntent";
 const formatStudy=(seconds:number)=>{const h=Math.floor(seconds/3600),m=Math.floor((seconds%3600)/60);return h?`${h}h ${m}m`:`${m}m`};
 
 export default function HomeScreen({footer}:{footer?:React.ReactNode}={}){
- const router=useRouter();
+ const router=useRouter();\n const{settings}=useAppConfig();
  const { excluded } = useRevisePreferences();
  const{profile,topicProgress,subtopicCoverage,testMarks}=useStudent();
  const{assignments}=useAcademic();
@@ -59,7 +59,7 @@ export default function HomeScreen({footer}:{footer?:React.ReactNode}={}){
    <ActionRow icon="repeat-outline" title={`${activeMistakes.length} mistake${activeMistakes.length===1?"":"s"} to review`} sub={activeMistakes[0]?`${activeMistakes[0].subjectName} · ${activeMistakes[0].topicName}`:"Mistake Book is clear"} onPress={()=>open("/mistake-bank")}/>
 
    <Section title="Quick study actions" sub="The six actions most useful while studying."/>
-   <View style={s.quickGrid}><Quick icon="refresh-outline" title="Revise" sub={`${revisionDue.length} due now`} onPress={()=>open("/revision")}/><Quick icon="documents-outline" title="Past papers" sub="Lesson or full paper" onPress={()=>open("/past-paper")}/><Quick icon="repeat-outline" title="Mistake Book" sub={`${activeMistakes.length} active`} onPress={()=>open("/mistake-bank")}/><Quick icon="clipboard-outline" title="Assignments" sub={`${openAssignments.length} open`} onPress={()=>open("/assignment")}/><Quick icon="camera-outline" title="Analyze answers" sub="Scan written papers" onPress={()=>open("/answer-sheet-analysis")}/><Quick icon="school-outline" title="Test results" sub="Marks & weak topics" onPress={()=>open("/test-mark")}/></View>
+   <View style={s.quickGrid}><Quick icon="refresh-outline" title="Revise" sub={`${revisionDue.length} due now`} onPress={()=>open("/revision")}/><Quick icon="documents-outline" title="Past papers" sub="Lesson or full paper" onPress={()=>open("/past-paper")}/><Quick icon="repeat-outline" title="Mistake Book" sub={`${activeMistakes.length} active`} onPress={()=>open("/mistake-bank")}/><Quick icon="clipboard-outline" title="Assignments" sub={`${openAssignments.length} open`} onPress={()=>open("/assignment")}/>{settings.featureFlags.imageScanning===true?<Quick icon="camera-outline" title="Analyze answers" sub="Scan written papers" onPress={()=>open("/answer-sheet-analysis")}/>:null}<Quick icon="school-outline" title="Test results" sub="Marks & weak topics" onPress={()=>open("/test-mark")}/></View>
 
    <Section title="Subjects" sub="Coverage, lessons and Physics practical progress." action="OPEN" onAction={()=>openFromHome("/(tabs)/subjects")}/>
    <View style={s.subjectList}>{subjects.slice(0,4).map(subject=>{const rows=topicProgress.filter(x=>x.subjectName===subject),covered=subtopicCoverage.filter(x=>x.subjectName===subject&&x.covered),tracked=subtopicCoverage.filter(x=>x.subjectName===subject).length,coverage=rows.length?Math.round(rows.reduce((a,x)=>a+x.coverage,0)/rows.length):tracked?Math.round(covered.length/tracked*100):0;return <Pressable key={subject} style={s.subject} onPress={()=>router.push({pathname:"/subject",params:{subjectName:subject,fromHome:"1"}} as never)}><View style={s.subjectIcon}><Ionicons name="book-outline" size={19} color="#D6BCF6"/></View><View style={{flex:1}}><Text style={s.subjectName}>{subject}</Text><Text style={s.subjectMeta}>{covered.length} covered subtopics{subject==="Physics"?" · practical tracker":""}</Text></View><Text style={s.subjectPercent}>{Math.max(0,Math.min(100,coverage))}%</Text><Ionicons name="chevron-forward" size={17} color="#6D7887"/></Pressable>})}</View>
