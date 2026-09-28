@@ -3,7 +3,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useAcademic } from "../context/AcademicContext";\nimport { useAppConfig } from "../context/AppConfigContext";
+import { useAcademic } from "../context/AcademicContext";
+import { useAppConfig } from "../context/AppConfigContext";
 import { useIntelligence } from "../context/IntelligenceContext";
 import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
@@ -19,7 +20,8 @@ import {
 } from "../lib/intelligence";
 
 export default function IntelligenceScreen() {
-  const router = useRouter();\n  const { settings } = useAppConfig();
+  const router = useRouter();
+  const { settings } = useAppConfig();
   const { profile, topicProgress, subtopicCoverage } = useStudent();
   const { sessions } = useStudy();
   const { assignments } = useAcademic();
