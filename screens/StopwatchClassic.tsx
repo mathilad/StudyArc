@@ -21,7 +21,7 @@ export default function StopwatchClassic(){
  const{width,height}=useWindowDimensions();
  const desktop=width>=900;
  const compact=height<720||width<390;
- const params=useLocalSearchParams<{subjectName?:string|string[];topicName?:string|string[];studyType?:string|string[];paperYear?:string|string[];paperSection?:string|string[];attemptNo?:string|string[];assignmentId?:string|string[];assignmentTitle?:string|string[];lessonPractice?:string|string[];questionCount?:string|string[];targetMinutes?:string|string[];markAfter?:string|string[];selectedQuestions?:string|string[];lessonPractice?:string|string[]}>();
+ const params=useLocalSearchParams<{subjectName?:string|string[];topicName?:string|string[];studyType?:string|string[];paperYear?:string|string[];paperSection?:string|string[];attemptNo?:string|string[];assignmentId?:string|string[];assignmentTitle?:string|string[];lessonPractice?:string|string[];questionCount?:string|string[];targetMinutes?:string|string[];markAfter?:string|string[];selectedQuestions?:string|string[]}>();
  const incoming=one(params.studyType) as StudyType|undefined;
  const initialType=TYPES.includes(incoming as StudyType)?incoming as StudyType:"Study Session";
  const rawSection=one(params.paperSection);
