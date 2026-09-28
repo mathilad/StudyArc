@@ -8,7 +8,7 @@ import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
 import { topicDisplayName } from "../data/subjects";
 import { paperSectionDescription, paperSectionsForSubject, type FlexiblePaperSection } from "../lib/paperFormats";
-import PastPaperYearRange,{loadPreferredPastPaperRange} from "../components/PastPaperYearRange";
+import {loadPreferredPastPaperRange} from "../components/PastPaperYearRange";
 import {defaultPastPaperRange,type PastPaperRange,yearsForRange} from "../lib/pastPaperTracker";
 
 const first = (value?: string | string[]) => Array.isArray(value) ? value[0] : value;
@@ -109,8 +109,6 @@ export default function PastPaperYearsScreen() {
           <Text style={s.contextSub}>{isLessonPractice ? "Lesson practice is question-based. There is no Part A / Part B / Full Paper selector here." : "Full-paper practice keeps the normal paper-section selector."}</Text>
         </View>
       </View>
-
-      <PastPaperYearRange value={range} onChange={setRange}/>
 
       {!isLessonPractice ? <>
         <Text style={s.label}>PAPER SECTION</Text>
