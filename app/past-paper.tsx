@@ -1,96 +1,35 @@
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useStudent } from "../context/StudentContext";
-import { SUBJECTS, expandSubjectChoices, topicDisplayName } from "../data/subjects";
-import { trackerSectionsForSubject } from "../lib/pastPaperTracker";
+import {Ionicons} from "@expo/vector-icons";
+import {LinearGradient} from "expo-linear-gradient";
+import {useLocalSearchParams,useRouter} from "expo-router";
+import React,{useEffect,useMemo,useState} from "react";
+import {Modal,Pressable,ScrollView,StyleSheet,Text,View} from "react-native";
+import {useStudent} from "../context/StudentContext";
+import {SUBJECTS,expandSubjectChoices,topicDisplayName} from "../data/subjects";
+import {trackerSectionsForSubject} from "../lib/pastPaperTracker";
+const first=(value?:string|string[])=>Array.isArray(value)?value[0]:value;
 
-const first = (value?: string | string[]) => Array.isArray(value) ? value[0] : value;
-
-export default function PastPaperScreen() {
-  const router = useRouter();
-  const params = useLocalSearchParams<{ subjectName?: string | string[]; topicName?: string | string[] }>();
-  const { profile } = useStudent();
-  const routeSubject = first(params.subjectName);
-  const routeTopic = first(params.topicName);
-  const availableSubjects = useMemo(() => {
-    const expanded = expandSubjectChoices(profile.subjectChoices);
-    return expanded.length ? expanded : [routeSubject || "Physics"];
-  }, [profile.subjectChoices, routeSubject]);
-  const [subject, setSubject] = useState(routeSubject || availableSubjects[0] || "Physics");
-  const configuredTopics = ((SUBJECTS as unknown as Record<string, any>)[subject]?.topics ?? []) as Array<{ id: string; title: string }>;
-
-  const openYears = (topicName: string) => router.push({
-    pathname: "/past-paper-years",
-    params: { subjectName: subject, topicName },
-  });
-
-  useEffect(() => {
-    if (!routeTopic || routeTopic === "Past Papers") return;
-    router.replace({ pathname: "/past-paper-years", params: { subjectName: routeSubject || subject, topicName: routeTopic } });
-  }, [routeSubject, routeTopic, router, subject]);
-
-  return <View style={s.root}>
-    <LinearGradient colors={["#21142F", "#0A0D13", "#080D14"]} style={StyleSheet.absoluteFill} />
-    <View style={s.header}>
-      <Pressable style={s.back} onPress={() => router.back()}><Ionicons name="arrow-back" size={21} color="#F7F4FA" /></Pressable>
-      <View style={{ flex: 1 }}><Text style={s.kicker}>PAPER PRACTICE</Text><Text style={s.title}>Past papers</Text><Text style={s.sub}>Choose a subject, then a lesson. Years open on their own page.</Text></View>
-      <Pressable onPress={() => router.push("/paper-analysis")} style={s.analysis}><Ionicons name="analytics-outline" size={18} color="#DCC5F8" /></Pressable>
-    </View>
-
-    <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-      <View style={s.hero}>
-        <View style={s.heroIcon}><Ionicons name="documents" size={29} color="#E4D1F8" /></View>
-        <View style={{ flex: 1 }}><Text style={s.heroTitle}>Pick the practice scope first</Text><Text style={s.heroSub}>Lesson practice and full-paper practice now have a separate year browser, so finishing a question can return you to the exact list of years you were using.</Text></View>
-      </View>
-
-      <Text style={s.label}>SUBJECT</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.subjectRow}>
-        {availableSubjects.map(item => <Pressable key={item} onPress={() => setSubject(item)} style={[s.subjectChip, subject === item && s.subjectChipOn]}><Text style={[s.subjectText, subject === item && s.subjectTextOn]}>{item}</Text></Pressable>)}
-      </ScrollView>
-
-      <Pressable onPress={()=>router.push("/past-paper-tracker")} style={s.trackerHero}><View style={s.trackerIcon}><Ionicons name="grid-outline" size={24} color="#E7D5FA"/></View><View style={{flex:1}}><Text style={s.scopeKicker}>COMPLETION TRACKER</Text><Text style={s.trackerTitle}>See everything you've done</Text><Text style={s.trackerSub}>Physics & Chemistry MCQs, Structured/Essay, and Pure/Applied Part A & Part B · 1950 to current year.</Text></View><Ionicons name="arrow-forward-circle" size={28} color="#D9B8FA"/></Pressable>
-      {trackerSectionsForSubject(subject).length?<View style={s.trackerShortcuts}>{trackerSectionsForSubject(subject).map(section=><Pressable key={section} onPress={()=>router.push({pathname:"/past-paper-section-tracker",params:{subjectName:subject,section}})} style={s.trackerShortcut}><Ionicons name={section==="MCQ"?"checkbox-outline":"document-text-outline"} size={18} color="#C9A9EA"/><Text style={s.trackerShortcutText}>{section}</Text></Pressable>)}</View>:null}
-
-      <Pressable onPress={()=>router.push({pathname:"/quick-past-paper",params:{subjectName:subject}})} style={[s.scopeFeatured,{padding:16,marginTop:18,backgroundColor:"#251936",borderWidth:1,borderColor:"#7856A1"}]}><View style={{flexDirection:"row",alignItems:"center",gap:11}}><View style={s.scopeIconFeatured}><Ionicons name="timer-outline" size={22} color="#F0E5FC"/></View><View style={{flex:1}}><Text style={s.scopeKicker}>QUICK START</Text><Text style={s.scopeTitleFeatured}>Do a past paper now</Text><Text style={s.scopeSubFeatured}>Enter the year and target time, start the timer, then add your marks when finished.</Text></View><Ionicons name="play-circle" size={28} color="#D9B8FA"/></View></Pressable>
-      <Pressable onPress={()=>router.push({pathname:"/manual-past-paper",params:{subjectName:subject}})} style={[s.scopeFeatured,{padding:16,marginTop:18}]}><Text style={s.scopeTitleFeatured}>Record a completed paper or question</Text><Text style={s.scopeSubFeatured}>Add manual attempts, marks and repeat attempts.</Text></Pressable>
-      <Text style={s.label}>PRACTICE SCOPE</Text>
-      <Pressable onPress={() => openYears("General")} style={s.scopeFeatured}>
-        <LinearGradient colors={["#382452", "#241833"]} style={s.scopeGradient}>
-          <View style={s.scopeIconFeatured}><Ionicons name="layers" size={22} color="#F0E5FC" /></View>
-          <View style={{ flex: 1 }}><Text style={s.scopeKicker}>FULL PAPER</Text><Text style={s.scopeTitleFeatured}>Whole subject</Text><Text style={s.scopeSubFeatured}>Browse every available year, then choose MCQ / Essay / paper section.</Text></View>
-          <Ionicons name="arrow-forward-circle" size={27} color="#D9B8FA" />
-        </LinearGradient>
-      </Pressable>
-
-      <View style={s.lessonHead}><Text style={s.lessonHeadTitle}>Lesson past papers</Text><Text style={s.lessonCount}>{configuredTopics.length} LESSONS</Text></View>
-      {configuredTopics.map((topic, index) => <Pressable key={topic.id} onPress={() => openYears(topic.title)} style={s.lesson}>
-        <View style={s.lessonNo}><Text style={s.lessonNoText}>{String(index + 1).padStart(2, "0")}</Text></View>
-        <View style={{ flex: 1, minWidth: 0 }}><Text style={s.lessonTitle}>{topicDisplayName(subject as any, topic.title, profile.medium)}</Text><Text style={s.lessonSub}>Open all years for this lesson</Text></View>
-        <View style={s.go}><Ionicons name="chevron-forward" size={18} color="#D6B9F5" /></View>
-      </Pressable>)}
-    </ScrollView>
-  </View>;
+export default function PastPaperScreen(){
+ const router=useRouter();const params=useLocalSearchParams<{subjectName?:string|string[];topicName?:string|string[]}>();const{profile}=useStudent();const routeSubject=first(params.subjectName),routeTopic=first(params.topicName);const availableSubjects=useMemo(()=>{const x=expandSubjectChoices(profile.subjectChoices);return x.length?x:[routeSubject||"Physics"]},[profile.subjectChoices,routeSubject]);const[subject,setSubject]=useState(routeSubject||availableSubjects[0]||"Physics");const[toolsOpen,setToolsOpen]=useState(false);const configuredTopics=((SUBJECTS as unknown as Record<string,any>)[subject]?.topics??[]) as Array<{id:string;title:string}>;
+ const openYears=(topicName:string)=>router.push({pathname:"/past-paper-years",params:{subjectName:subject,topicName}});
+ const go=(path:any,params?:any)=>{setToolsOpen(false);setTimeout(()=>router.push(params?{pathname:path,params}:path),40)};
+ useEffect(()=>{if(!routeTopic||routeTopic==="Past Papers")return;router.replace({pathname:"/past-paper-years",params:{subjectName:routeSubject||subject,topicName:routeTopic}})},[routeSubject,routeTopic,router,subject]);
+ return <View style={s.root}><LinearGradient colors={["#21142F","#0A0D13","#080D14"]} style={StyleSheet.absoluteFill}/><View style={s.header}><Pressable style={s.back} onPress={()=>router.back()}><Ionicons name="arrow-back" size={21} color="#F7F4FA"/></Pressable><View style={{flex:1}}><Text style={s.kicker}>PAPER PRACTICE</Text><Text style={s.title}>Past papers by lesson</Text><Text style={s.sub}>Pick a subject and go straight to the lesson you want to practise.</Text></View><Pressable onPress={()=>setToolsOpen(true)} style={s.toolsBtn}><Ionicons name="ellipsis-horizontal" size={20} color="#E5D4F8"/></Pressable></View>
+ <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+  <Text style={s.label}>SUBJECT</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.subjectRow}>{availableSubjects.map(item=><Pressable key={item} onPress={()=>setSubject(item)} style={[s.subjectChip,subject===item&&s.subjectChipOn]}><Text style={[s.subjectText,subject===item&&s.subjectTextOn]}>{item}</Text></Pressable>)}</ScrollView>
+  <Pressable onPress={()=>setToolsOpen(true)} style={s.toolsCard}><View style={s.toolsIcon}><Ionicons name="apps-outline" size={22} color="#E7D6F8"/></View><View style={{flex:1}}><Text style={s.toolsTitle}>Past paper tools</Text><Text style={s.toolsSub}>Full papers, completion trackers, history, quick timer, manual entry and analysis are kept here.</Text></View><Ionicons name="chevron-forward" size={20} color="#A98BC8"/></Pressable>
+  <View style={s.lessonHead}><Text style={s.lessonHeadTitle}>Past papers selected by lesson</Text><Text style={s.lessonCount}>{configuredTopics.length} LESSONS</Text></View>
+  {configuredTopics.map((topic,index)=><Pressable key={topic.id} onPress={()=>openYears(topic.title)} style={s.lesson}><View style={s.lessonNo}><Text style={s.lessonNoText}>{String(index+1).padStart(2,"0")}</Text></View><View style={{flex:1,minWidth:0}}><Text style={s.lessonTitle}>{topicDisplayName(subject as any,topic.title,profile.medium)}</Text><Text style={s.lessonSub}>Open years and paper questions for this lesson</Text></View><View style={s.go}><Ionicons name="chevron-forward" size={18} color="#D6B9F5"/></View></Pressable>)}
+ </ScrollView>
+ <Modal visible={toolsOpen} transparent animationType="fade" onRequestClose={()=>setToolsOpen(false)}><Pressable style={s.overlay} onPress={()=>setToolsOpen(false)}><Pressable style={s.sheet} onPress={e=>e.stopPropagation()}><View style={s.sheetHead}><View><Text style={s.sheetKicker}>{subject.toUpperCase()}</Text><Text style={s.sheetTitle}>Past paper tools</Text></View><Pressable onPress={()=>setToolsOpen(false)} style={s.close}><Ionicons name="close" size={20} color="#D8DEE6"/></Pressable></View><ScrollView contentContainerStyle={s.sheetContent}>
+   <Tool icon="grid-outline" title="Everything you've done" sub="All subjects, all tracker progress and repeat attempts." onPress={()=>go("/past-paper-tracker")}/>
+   <Tool icon="time-outline" title="Ticked attempt history" sub="See every saved attempt and remove individual attempts." onPress={()=>go("/past-paper-history")}/>
+   {trackerSectionsForSubject(subject).map(section=><Tool key={section} icon={section==="MCQ"?"checkbox-outline":"document-text-outline"} title={section+" tracker"} sub="Open the question-by-question completion tracker." onPress={()=>go("/past-paper-section-tracker",{subjectName:subject,section})}/>)}
+   <Tool icon="layers-outline" title="Whole subject papers" sub="Browse full-paper years instead of selecting a lesson." onPress={()=>{setToolsOpen(false);setTimeout(()=>openYears("General"),40)}}/>
+   <Tool icon="timer-outline" title="Quick timed past paper" sub="Enter a year and target time, then start immediately." onPress={()=>go("/quick-past-paper",{subjectName:subject})}/>
+   <Tool icon="create-outline" title="Record completed paper" sub="Manually save a paper/question you already completed." onPress={()=>go("/manual-past-paper",{subjectName:subject})}/>
+   <Tool icon="analytics-outline" title="Paper analysis" sub="Open paper performance and analysis." onPress={()=>go("/paper-analysis")}/>
+  </ScrollView></Pressable></Pressable></Modal>
+ </View>
 }
-
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#080D14" },
-  header: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 11, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: "#241D2D" },
-  back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#121821", borderWidth: 1, borderColor: "#283240", alignItems: "center", justifyContent: "center" },
-  kicker: { color: "#A987D0", fontSize: 8, fontWeight: "900", letterSpacing: 1.4 },
-  title: { color: "#F7F5F9", fontSize: 23, fontWeight: "900", marginTop: 2 },
-  sub: { color: "#748194", fontSize: 9, marginTop: 2 },
-  analysis: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#21182D", borderWidth: 1, borderColor: "#513B6B", alignItems: "center", justifyContent: "center" },
-  content: { padding: 20, paddingBottom: 54, maxWidth: 820, width: "100%", alignSelf: "center" },
-  hero: { borderRadius: 23, backgroundColor: "#12151E", borderWidth: 1, borderColor: "#3A2D48", padding: 16, flexDirection: "row", alignItems: "center", gap: 13 },
-  heroIcon: { width: 53, height: 53, borderRadius: 17, backgroundColor: "#B784FF18", alignItems: "center", justifyContent: "center" },
-  heroTitle: { color: "#F0EBF5", fontSize: 14, fontWeight: "900" }, heroSub: { color: "#8B8294", fontSize: 9.5, lineHeight: 15, marginTop: 4 },
-  label: { color: "#7D899A", fontSize: 8.5, fontWeight: "900", letterSpacing: 1.3, marginTop: 22, marginBottom: 9 },
-  subjectRow: { gap: 7, paddingRight: 8 }, subjectChip: { minHeight: 40, paddingHorizontal: 13, borderRadius: 13, backgroundColor: "#111923", borderWidth: 1, borderColor: "#293646", alignItems: "center", justifyContent: "center" }, subjectChipOn: { backgroundColor: "#35244D", borderColor: "#7856A1" }, subjectText: { color: "#8491A2", fontSize: 9.5, fontWeight: "900" }, subjectTextOn: { color: "#F2E9FB" },
-  trackerHero:{minHeight:92,borderRadius:20,backgroundColor:"#181321",borderWidth:1,borderColor:"#65498A",padding:14,marginTop:16,flexDirection:"row",alignItems:"center",gap:11},trackerIcon:{width:48,height:48,borderRadius:15,backgroundColor:"#B784FF1C",alignItems:"center",justifyContent:"center"},trackerTitle:{color:"#F6F0FB",fontSize:14,fontWeight:"900",marginTop:3},trackerSub:{color:"#9A8DA6",fontSize:8.5,lineHeight:13,marginTop:3},trackerShortcuts:{flexDirection:"row",gap:7,flexWrap:"wrap",marginTop:8},trackerShortcut:{minHeight:42,flex:1,minWidth:150,borderRadius:13,backgroundColor:"#121923",borderWidth:1,borderColor:"#344253",paddingHorizontal:11,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:6},trackerShortcutText:{color:"#D5C3E9",fontSize:9,fontWeight:"900"},
-  scopeFeatured: { borderRadius: 20, overflow: "hidden" }, scopeGradient: { minHeight: 94, padding: 15, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 20, borderWidth: 1, borderColor: "#74549A" }, scopeIconFeatured: { width: 49, height: 49, borderRadius: 15, backgroundColor: "#FFFFFF10", alignItems: "center", justifyContent: "center" }, scopeKicker: { color: "#BDA3D8", fontSize: 7.5, fontWeight: "900", letterSpacing: 1.2 }, scopeTitleFeatured: { color: "#F8F3FD", fontSize: 15, fontWeight: "900", marginTop: 3 }, scopeSubFeatured: { color: "#A798B6", fontSize: 8.5, marginTop: 4, lineHeight: 13 },
-  lessonHead: { marginTop: 24, marginBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, lessonHeadTitle: { color: "#E8EBEF", fontSize: 14, fontWeight: "900" }, lessonCount: { color: "#687689", fontSize: 8, fontWeight: "900", letterSpacing: 1 },
-  lesson: { minHeight: 67, borderRadius: 17, backgroundColor: "#101720", borderWidth: 1, borderColor: "#273443", padding: 10, flexDirection: "row", alignItems: "center", gap: 11, marginBottom: 8 }, lessonNo: { width: 42, height: 42, borderRadius: 13, backgroundColor: "#B784FF12", alignItems: "center", justifyContent: "center" }, lessonNoText: { color: "#C4A5E8", fontSize: 9.5, fontWeight: "900" }, lessonTitle: { color: "#E8ECF1", fontSize: 11.5, fontWeight: "900" }, lessonSub: { color: "#6F7D8F", fontSize: 8.5, marginTop: 4 }, go: { width: 34, height: 34, borderRadius: 11, backgroundColor: "#1B1723", alignItems: "center", justifyContent: "center" },
-});
+function Tool({icon,title,sub,onPress}:{icon:any;title:string;sub:string;onPress:()=>void}){return <Pressable onPress={onPress} style={s.tool}><View style={s.toolIcon}><Ionicons name={icon} size={19} color="#DCC6F4"/></View><View style={{flex:1}}><Text style={s.toolTitle}>{title}</Text><Text style={s.toolSub}>{sub}</Text></View><Ionicons name="chevron-forward" size={18} color="#79678B"/></Pressable>}
+const s=StyleSheet.create({root:{flex:1,backgroundColor:"#080D14"},header:{paddingHorizontal:18,paddingTop:20,paddingBottom:11,flexDirection:"row",alignItems:"center",gap:12,borderBottomWidth:1,borderBottomColor:"#241D2D"},back:{width:43,height:43,borderRadius:14,backgroundColor:"#121821",borderWidth:1,borderColor:"#283240",alignItems:"center",justifyContent:"center"},toolsBtn:{width:43,height:43,borderRadius:14,backgroundColor:"#21182D",borderWidth:1,borderColor:"#513B6B",alignItems:"center",justifyContent:"center"},kicker:{color:"#A987D0",fontSize:8,fontWeight:"900",letterSpacing:1.4},title:{color:"#F7F5F9",fontSize:22,fontWeight:"900",marginTop:2},sub:{color:"#748194",fontSize:8.7,marginTop:2},content:{padding:20,paddingBottom:54,maxWidth:820,width:"100%",alignSelf:"center"},label:{color:"#7D899A",fontSize:8.5,fontWeight:"900",letterSpacing:1.3,marginBottom:9},subjectRow:{gap:7,paddingRight:8},subjectChip:{minHeight:40,paddingHorizontal:13,borderRadius:13,backgroundColor:"#111923",borderWidth:1,borderColor:"#293646",alignItems:"center",justifyContent:"center"},subjectChipOn:{backgroundColor:"#35244D",borderColor:"#7856A1"},subjectText:{color:"#8491A2",fontSize:9.5,fontWeight:"900"},subjectTextOn:{color:"#F2E9FB"},toolsCard:{minHeight:76,borderRadius:18,backgroundColor:"#17131F",borderWidth:1,borderColor:"#49375D",padding:12,marginTop:15,flexDirection:"row",alignItems:"center",gap:10},toolsIcon:{width:45,height:45,borderRadius:14,backgroundColor:"#2A1E38",alignItems:"center",justifyContent:"center"},toolsTitle:{color:"#F0E9F6",fontSize:12,fontWeight:"900"},toolsSub:{color:"#8E8298",fontSize:8.3,lineHeight:13,marginTop:3},lessonHead:{marginTop:24,marginBottom:10,flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:10},lessonHeadTitle:{color:"#E8EBEF",fontSize:14,fontWeight:"900"},lessonCount:{color:"#687689",fontSize:8,fontWeight:"900",letterSpacing:1},lesson:{minHeight:67,borderRadius:17,backgroundColor:"#101720",borderWidth:1,borderColor:"#273443",padding:10,flexDirection:"row",alignItems:"center",gap:11,marginBottom:8},lessonNo:{width:42,height:42,borderRadius:13,backgroundColor:"#B784FF12",alignItems:"center",justifyContent:"center"},lessonNoText:{color:"#C4A5E8",fontSize:9.5,fontWeight:"900"},lessonTitle:{color:"#E8ECF1",fontSize:11.5,fontWeight:"900"},lessonSub:{color:"#6F7D8F",fontSize:8.5,marginTop:4},go:{width:34,height:34,borderRadius:11,backgroundColor:"#1B1723",alignItems:"center",justifyContent:"center"},overlay:{flex:1,backgroundColor:"#000000B8",justifyContent:"flex-end",padding:12},sheet:{maxHeight:"86%",width:"100%",maxWidth:720,alignSelf:"center",borderRadius:24,backgroundColor:"#0E141D",borderWidth:1,borderColor:"#3A2D48",overflow:"hidden"},sheetHead:{padding:16,flexDirection:"row",alignItems:"center",justifyContent:"space-between",borderBottomWidth:1,borderBottomColor:"#25313E"},sheetKicker:{color:"#A987D0",fontSize:7.5,fontWeight:"900",letterSpacing:1.2},sheetTitle:{color:"#F5F1F8",fontSize:18,fontWeight:"900",marginTop:2},close:{width:39,height:39,borderRadius:12,backgroundColor:"#17202A",alignItems:"center",justifyContent:"center"},sheetContent:{padding:12,paddingBottom:24,gap:7},tool:{minHeight:67,borderRadius:15,backgroundColor:"#121A23",borderWidth:1,borderColor:"#293746",padding:10,flexDirection:"row",alignItems:"center",gap:10},toolIcon:{width:42,height:42,borderRadius:13,backgroundColor:"#261C32",alignItems:"center",justifyContent:"center"},toolTitle:{color:"#E9EDF2",fontSize:10.5,fontWeight:"900"},toolSub:{color:"#758395",fontSize:8,lineHeight:12,marginTop:3}});
