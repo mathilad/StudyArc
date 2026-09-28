@@ -47,7 +47,8 @@ export default function ManualPastPaper() {
     if(problem){setError(problem);return;}
     busy.current=true;setSaving(true);setError(null);
     try {
-      await addSession({subjectName:subject,topicName:isQuestion?lesson:"General",studyType:"Past Papers",startedAt:new Date(`${date}T12:00:00`).toISOString(),durationSeconds:duration.trim()?Math.round(Number(duration)*60):0,paperYear:Number(year),paperSection:section,attemptNo:attempt,manualPaper:{questionNo:isQuestion?question.trim():null,marksAwarded:marks.trim()?Number(marks):null,marksTotal:total.trim()?Number(total):null}});\n      if(isQuestion){const itemKey=normalizePastPaperQuestionKey(question),trackerSection=trackerSectionForRecordedQuestion(subject,section,question);if(itemKey&&trackerSection)await addAttempt(subject,Number(year),trackerSection,itemKey,lesson);}
+      await addSession({subjectName:subject,topicName:isQuestion?lesson:"General",studyType:"Past Papers",startedAt:new Date(`${date}T12:00:00`).toISOString(),durationSeconds:duration.trim()?Math.round(Number(duration)*60):0,paperYear:Number(year),paperSection:section,attemptNo:attempt,manualPaper:{questionNo:isQuestion?question.trim():null,marksAwarded:marks.trim()?Number(marks):null,marksTotal:total.trim()?Number(total):null}});
+      if(isQuestion){const itemKey=normalizePastPaperQuestionKey(question),trackerSection=trackerSectionForRecordedQuestion(subject,section,question);if(itemKey&&trackerSection)await addAttempt(subject,Number(year),trackerSection,itemKey,lesson);}
       setSaved(true);scroll.current?.scrollTo({y:0,animated:true});
     }catch(e){setError(e instanceof Error?e.message:"Could not save. Please try again.");}
     finally{busy.current=false;setSaving(false);}
