@@ -216,6 +216,7 @@ create table if not exists public.past_paper_item_ticks (
   paper_year integer not null check (paper_year between 1950 and 2100),
   paper_section text not null,
   item_key text not null,
+  topic_name text,
   attempt_no integer not null default 1 check (attempt_no >= 1),
   created_at timestamptz not null default now()
 );
