@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Screen from "../components/Screen";
-import { useAcademic } from "../context/AcademicContext";\nimport { useAppConfig } from "../context/AppConfigContext";
+import { useAcademic } from "../context/AcademicContext";
+import { useAppConfig } from "../context/AppConfigContext";
 import { useIntelligence } from "../context/IntelligenceContext";
 import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
@@ -19,7 +20,8 @@ import { mergeSessionIntent } from "../lib/sessionIntent";
 const formatStudy=(seconds:number)=>{const h=Math.floor(seconds/3600),m=Math.floor((seconds%3600)/60);return h?`${h}h ${m}m`:`${m}m`};
 
 export default function HomeScreen({footer}:{footer?:React.ReactNode}={}){
- const router=useRouter();\n const{settings}=useAppConfig();
+ const router=useRouter();
+ const{settings}=useAppConfig();
  const { excluded } = useRevisePreferences();
  const{profile,topicProgress,subtopicCoverage,testMarks}=useStudent();
  const{assignments}=useAcademic();
