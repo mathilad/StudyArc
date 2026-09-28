@@ -44,9 +44,48 @@ export function yearsForRange(range: PastPaperRange) {
 
 export const mcqCountForYear = (year: number) => year <= 2010 ? 60 : 50;
 
+export type TrackerQuestion = { itemKey: string; number: number; kind: "MCQ" | "Structured" | "Essay" | "Part A" | "Part B" | "Legacy" };
+
+const numbered = (from: number, to: number, kind: TrackerQuestion["kind"]): TrackerQuestion[] =>
+  Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => ({ itemKey: String(from + i), number: from + i, kind }));
+
+export function trackerQuestions(subject: string, year: number, section: string): TrackerQuestion[] {
+  if (section === "MCQ") return numbered(1, mcqCountForYear(year), "MCQ");
+
+  if (subject === "Physics" || subject === "Chemistry") {
+    if (section === "Structured + Essay") {
+      if (subject === "Physics" && year < 2000) return [...numbered(1, 4, "Structured"), ...numbered(5, 12, "Essay")];
+      return [...numbered(1, 4, "Structured"), ...numbered(5, 10, "Essay")];
+    }
+  }
+
+  if (subject === "Pure Mathematics" || subject === "Applied Mathematics") {
+    if (year < 2000) {
+      if (section !== "Legacy paper") return [];
+      return numbered(1, subject === "Pure Mathematics" ? 10 : 12, "Legacy");
+    }
+    if (section === "Part A") return numbered(1, 10, "Part A");
+    if (section === "Part B") return numbered(11, 17, "Part B");
+    return [];
+  }
+  return [];
+}
+
+export function trackerFormatNote(subject: string, year: number) {
+  if (subject === "Pure Mathematics" || subject === "Applied Mathematics") {
+    if (year < 2000) return subject === "Pure Mathematics"
+      ? "Legacy format: 10 questions. This paper was not split into the current Part A / Part B format."
+      : "Legacy format: 12 questions. This paper was not split into the current Part A / Part B format.";
+    return "Current Combined Mathematics format: Part A has 10 questions and Part B has 7 questions (17 total).";
+  }
+  if (subject === "Physics" && year < 2000) return "Legacy Physics format: 4 structured questions followed by 8 essay questions (12 Paper II questions).";
+  if (subject === "Chemistry" && year < 2000) return "Legacy Chemistry Paper II is tracked as questions 1–10: 4 structured questions followed by 6 essay questions.";
+  return "Paper II tracker: questions 1–4 structured, questions 5–10 essay.";
+}
+
 export const trackerSectionsForSubject = (subject: string) => {
   if (subject === "Physics" || subject === "Chemistry") return ["MCQ", "Structured + Essay"] as const;
-  if (subject === "Pure Mathematics" || subject === "Applied Mathematics") return ["Part A", "Part B"] as const;
+  if (subject === "Pure Mathematics" || subject === "Applied Mathematics") return ["Part A", "Part B", "Legacy paper"] as const;
   return [] as const;
 };
 
