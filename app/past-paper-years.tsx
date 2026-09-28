@@ -1,188 +1,73 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useStudent } from "../context/StudentContext";
-import { useStudy } from "../context/StudyContext";
-import { topicDisplayName } from "../data/subjects";
-import { paperSectionDescription, paperSectionsForSubject, type FlexiblePaperSection } from "../lib/paperFormats";
+import {Ionicons} from "@expo/vector-icons";
+import {LinearGradient} from "expo-linear-gradient";
+import {useLocalSearchParams,useRouter} from "expo-router";
+import React,{useEffect,useMemo,useState} from "react";
+import {Pressable,ScrollView,StyleSheet,Text,TextInput,View} from "react-native";
 import {loadPreferredPastPaperRange} from "../components/PastPaperYearRange";
-import {defaultPastPaperRange,type PastPaperRange,yearsForRange} from "../lib/pastPaperTracker";
+import {usePastPaperTracker,type PastPaperQuestionStatus} from "../context/PastPaperTrackerContext";
+import {useStudent} from "../context/StudentContext";
+import {useStudy} from "../context/StudyContext";
+import {topicDisplayName} from "../data/subjects";
+import {defaultPastPaperRange,trackerQuestions,type PastPaperRange,type TrackerQuestion,yearsForRange} from "../lib/pastPaperTracker";
 
-const first = (value?: string | string[]) => Array.isArray(value) ? value[0] : value;
-const COUNT_KEY = "studyarc.lessonPastPaperQuestionCounts.v1";
-type CountMap = Record<string, number>;
+const first=(value?:string|string[])=>Array.isArray(value)?value[0]:value;
+type Filter="all"|"unfinished"|"review"|"completed";
+type QRef={section:string;itemKey:string;number:number;kind:TrackerQuestion["kind"]};
+type Group={title:string;questions:QRef[]};
+const qid=(q:Pick<QRef,"section"|"itemKey">)=>q.section+"::"+q.itemKey;
 
-export default function PastPaperYearsScreen() {
-  const router = useRouter();
-  const params = useLocalSearchParams<{ subjectName?: string | string[]; topicName?: string | string[]; paperSection?: string | string[] }>();
-  const { profile } = useStudent();
-  const { sessions, getPaperAttemptCount } = useStudy();
-  const subjectName = first(params.subjectName) || "Physics";
-  const topicName = first(params.topicName) || "General";
-  const isLessonPractice = topicName !== "General";
-  const sections = paperSectionsForSubject(subjectName);
-  const requestedSection = first(params.paperSection);
-  const [section, setSection] = useState<FlexiblePaperSection>(sections.includes(requestedSection as FlexiblePaperSection) ? requestedSection as FlexiblePaperSection : sections[0]);
-  const [questionCounts, setQuestionCounts] = useState<CountMap>({});
-  const [range,setRange]=useState<PastPaperRange>(defaultPastPaperRange());
-  useEffect(()=>{loadPreferredPastPaperRange().then(setRange)},[]);
-  const years = useMemo(() => yearsForRange(range), [range]);
-  const displayTopic = isLessonPractice ? topicDisplayName(subjectName as any, topicName, profile.medium) : "Whole subject";
-
-  const storageId = `${subjectName}::${topicName}`;
-  useEffect(() => {
-    if (!isLessonPractice) return;
-    AsyncStorage.getItem(COUNT_KEY).then(raw => {
-      if (!raw) return;
-      try {
-        const all = JSON.parse(raw) as Record<string, CountMap>;
-        setQuestionCounts(all[storageId] ?? {});
-      } catch {
-        setQuestionCounts({});
-      }
-    }).catch(() => undefined);
-  }, [isLessonPractice, storageId]);
-
-  const saveCounts = async (next: CountMap) => {
-    setQuestionCounts(next);
-    try {
-      const raw = await AsyncStorage.getItem(COUNT_KEY);
-      const all = raw ? JSON.parse(raw) as Record<string, CountMap> : {};
-      all[storageId] = next;
-      await AsyncStorage.setItem(COUNT_KEY, JSON.stringify(all));
-    } catch {
-      // The selector still works for this session even if local persistence fails.
-    }
-  };
-
-  const changeQuestionCount = (year: number, delta: number) => {
-    const key = String(year);
-    const current = questionCounts[key] ?? 1;
-    const nextValue = Math.max(1, Math.min(20, current + delta));
-    void saveCounts({ ...questionCounts, [key]: nextValue });
-  };
-
-  const attemptCount = (year: number) => {
-    if (!isLessonPractice) return getPaperAttemptCount(subjectName, year, section as any);
-    return sessions.filter(item => item.studyType === "Past Papers" && item.subjectName === subjectName && item.topicName === topicName && item.paperYear === year).length;
-  };
-
-  const start = (year: number) => {
-    const attempts = attemptCount(year);
-    const questionCount = isLessonPractice ? (questionCounts[String(year)] ?? 1) : 0;
-    router.push({
-      pathname: "/paper-stopwatch",
-      params: {
-        subjectName,
-        topicName,
-        paperYear: String(year),
-        paperSection: section,
-        attemptNo: String(attempts + 1),
-        lessonPractice: isLessonPractice ? "1" : "0",
-        questionCount: String(questionCount),
-      },
-    });
-  };
-
-  return <View style={s.root}>
-    <LinearGradient colors={["#211432", "#090D14", "#080D14"]} style={StyleSheet.absoluteFill} />
-    <View style={s.header}>
-      <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#F7F4FA" /></Pressable>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={s.kicker}>{subjectName.toUpperCase()}</Text>
-        <Text style={s.title} numberOfLines={1}>{displayTopic}</Text>
-        <Text style={s.sub}>{isLessonPractice ? "Choose a year and set how many questions belong to this lesson" : "Choose a paper section and year"}</Text>
-      </View>
-      <Pressable onPress={() => router.push("/paper-analysis")} style={s.analysis}><Ionicons name="analytics-outline" size={18} color="#DBC4F6" /></Pressable>
-    </View>
-
-    <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-      <Pressable onPress={()=>router.push({pathname:"/manual-past-paper",params:{subjectName,topicName,paperSection:section}})} style={s.contextCard}><Text style={s.title}>Record completed work</Text><Text style={s.sub}>Already done a paper or question? Add it without starting the timer.</Text></Pressable>
-      <View style={s.contextCard}>
-        <View style={s.contextIcon}><Ionicons name={isLessonPractice ? "book" : "layers"} size={22} color="#E1CCF8" /></View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.contextLabel}>{isLessonPractice ? "LESSON PAST PAPERS" : "FULL PAPER PRACTICE"}</Text>
-          <Text style={s.contextTitle}>{displayTopic}</Text>
-          <Text style={s.contextSub}>{isLessonPractice ? "Lesson practice is question-based. There is no Part A / Part B / Full Paper selector here." : "Full-paper practice keeps the normal paper-section selector."}</Text>
-        </View>
-      </View>
-
-      {!isLessonPractice ? <>
-        <Text style={s.label}>PAPER SECTION</Text>
-        <View style={s.sections}>{sections.map(item => <Pressable key={item} onPress={() => setSection(item)} style={[s.section, section === item && s.sectionOn]}><Text style={[s.sectionTitle, section === item && s.sectionTitleOn]}>{item}</Text><Text style={s.sectionSub}>{paperSectionDescription(subjectName, item)}</Text></Pressable>)}</View>
-      </> : null}
-
-      <View style={s.yearHead}>
-        <View><Text style={s.yearHeadTitle}>{isLessonPractice ? "Questions by year" : "Past paper years"}</Text><Text style={s.yearHeadSub}>{isLessonPractice ? "Set the number of questions, then start" : `${section} · newest first`}</Text></View>
-        <View style={s.yearCount}><Text style={s.yearCountText}>{years.length} YEARS</Text></View>
-      </View>
-
-      <View style={s.yearGrid}>{years.map(year => {
-        const attempts = attemptCount(year);
-        const count = questionCounts[String(year)] ?? 1;
-        return <View key={year} style={s.yearCard}>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={s.year}>{year}</Text>
-            <Text style={s.yearStatus}>{attempts ? `${attempts} attempt${attempts === 1 ? "" : "s"} saved` : "Not attempted yet"}</Text>
-          </View>
-
-          {isLessonPractice ? <View style={s.questionSelector}>
-            <Text style={s.questionLabel}>QUESTIONS</Text>
-            <View style={s.stepper}>
-              <Pressable onPress={() => changeQuestionCount(year, -1)} style={s.stepButton}><Ionicons name="remove" size={16} color="#DCCBF0" /></Pressable>
-              <Text style={s.questionCount}>{count}</Text>
-              <Pressable onPress={() => changeQuestionCount(year, 1)} style={s.stepButton}><Ionicons name="add" size={16} color="#DCCBF0" /></Pressable>
-            </View>
-          </View> : <View style={[s.attemptBadge, attempts > 0 && s.attemptBadgeDone]}><Text style={[s.attemptText, attempts > 0 && s.attemptTextDone]}>{attempts ? `#${attempts + 1}` : "START"}</Text></View>}
-
-          <Pressable onPress={() => start(year)} style={s.play}><Ionicons name="play" size={16} color="#160B20" /></Pressable>
-        </View>;
-      })}</View>
-    </ScrollView>
-  </View>;
+export default function PastPaperYearsScreen(){
+ const router=useRouter();
+ const params=useLocalSearchParams<{subjectName?:string|string[];topicName?:string|string[]}>();
+ const{profile}=useStudent();const{sessions}=useStudy();const{ticks,setQuestionStatus}=usePastPaperTracker();
+ const subjectName=first(params.subjectName)||"Physics",topicName=first(params.topicName)||"General",isLesson=topicName!=="General";
+ const displayTopic=isLesson?topicDisplayName(subjectName as any,topicName,profile.medium):"Whole subject";
+ const[range,setRange]=useState<PastPaperRange>(defaultPastPaperRange());const[expanded,setExpanded]=useState<number|null>(null);const[selected,setSelected]=useState<string[]>([]);const[filter,setFilter]=useState<Filter>("all");const[jump,setJump]=useState("");const[recordMode,setRecordMode]=useState(false);const[busy,setBusy]=useState(false);
+ useEffect(()=>{loadPreferredPastPaperRange().then(setRange)},[]);
+ const years=useMemo(()=>yearsForRange(range),[range]);
+ const groupsFor=(year:number):Group[]=>{
+   if(subjectName==="Pure Mathematics"||subjectName==="Applied Mathematics"){
+     if(year<2000)return[{title:"Legacy paper",questions:trackerQuestions(subjectName,year,"Legacy paper").map(q=>({...q,section:q.kind}))}];
+     return[
+       {title:"Part A",questions:trackerQuestions(subjectName,year,"Part A").map(q=>({...q,section:"Part A"}))},
+       {title:"Part B",questions:trackerQuestions(subjectName,year,"Part B").map(q=>({...q,section:"Part B"}))}
+     ];
+   }
+   if(subjectName==="Physics"||subjectName==="Chemistry"){
+     const long=trackerQuestions(subjectName,year,"Structured + Essay");
+     return[
+       {title:"MCQ",questions:trackerQuestions(subjectName,year,"MCQ").map(q=>({...q,section:"MCQ"}))},
+       {title:"Structured",questions:long.filter(q=>q.kind==="Structured").map(q=>({...q,section:"Structured"}))},
+       {title:"Essay",questions:long.filter(q=>q.kind==="Essay").map(q=>({...q,section:"Essay"}))}
+     ];
+   }
+   return[];
+ };
+ const topicTick=(year:number,q:QRef)=>ticks.find(t=>t.subjectName===subjectName&&t.paperYear===year&&t.paperSection===q.section&&t.itemKey===q.itemKey&&t.topicName===topicName);
+ const progress=(year:number)=>{const all=groupsFor(year).flatMap(g=>g.questions),tagged=all.map(q=>({q,t:topicTick(year,q)})).filter(x=>Boolean(x.t)),completed=tagged.filter(x=>x.t?.status==="completed").length,review=tagged.filter(x=>x.t?.status==="review"||x.t?.status==="incorrect").length;return{tagged:tagged.length,completed,review}};
+ const visibleYears=years.filter(year=>{const p=progress(year);if(filter==="completed")return p.tagged>0&&p.completed===p.tagged;if(filter==="review")return p.review>0;if(filter==="unfinished")return p.tagged===0||p.completed<p.tagged;return true});
+ const toggle=(q:QRef)=>{const id=qid(q);setSelected(v=>v.includes(id)?v.filter(x=>x!==id):[...v,id])};
+ const selectedRefs=(year:number)=>groupsFor(year).flatMap(g=>g.questions).filter(q=>selected.includes(qid(q)));
+ const applyStatus=async(year:number,status:PastPaperQuestionStatus)=>{const refs=selectedRefs(year);if(!refs.length||busy)return;setBusy(true);try{for(const q of refs)await setQuestionStatus(subjectName,year,q.section,q.itemKey,status,topicName);setSelected([]);setRecordMode(false)}finally{setBusy(false)}};
+ const openYear=(year:number)=>{setExpanded(v=>v===year?null:year);setSelected([])};
+ const jumpTo=()=>{const y=Number(jump);if(!Number.isFinite(y)||!years.includes(y))return;setExpanded(y);setSelected([]);setFilter("all")};
+ const start=(year:number)=>{const refs=selectedRefs(year);if(!refs.length)return;const uniqueSections=[...new Set(refs.map(q=>q.section))];const paperSection=uniqueSections.length===1?uniqueSections[0]:"Full Paper";const attempts=sessions.filter(x=>x.studyType==="Past Papers"&&x.subjectName===subjectName&&x.topicName===topicName&&x.paperYear===year).length;router.push({pathname:"/paper-stopwatch",params:{subjectName,topicName,paperYear:String(year),paperSection,attemptNo:String(attempts+1),lessonPractice:"1",questionCount:String(refs.length),selectedQuestions:JSON.stringify(refs.map(q=>({section:q.section,itemKey:q.itemKey})))}})};
+ const beginRecord=()=>{setRecordMode(true);if(expanded==null&&visibleYears.length)setExpanded(visibleYears[0])};
+ return <View style={s.root}><LinearGradient colors={["#211432","#090D14","#080D14"]} style={StyleSheet.absoluteFill}/>
+  <View style={s.header}><Pressable onPress={()=>router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#F7F4FA"/></Pressable><View style={{flex:1,minWidth:0}}><Text style={s.kicker}>{subjectName.toUpperCase()}</Text><Text style={s.title} numberOfLines={1}>{displayTopic}</Text><Text style={s.sub}>Choose questions from a year.</Text></View><Pressable onPress={()=>router.push("/paper-analysis")} style={s.analysis}><Ionicons name="analytics-outline" size={18} color="#DBC4F6"/></Pressable></View>
+  <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+   <View style={s.actions}><Pressable onPress={beginRecord} style={[s.record,recordMode&&s.recordOn]}><Ionicons name="checkmark-done-outline" size={18} color={recordMode?"#142019":"#DCC8F4"}/><View><Text style={[s.recordTitle,recordMode&&s.recordTitleOn]}>Record completed work</Text><Text style={[s.recordSub,recordMode&&s.recordSubOn]}>Use the same exact question tracker</Text></View></Pressable><Pressable onPress={()=>router.push("/past-paper-settings")} style={s.settings}><Ionicons name="options-outline" size={18} color="#9AA7B8"/></Pressable></View>
+   {recordMode?<View style={s.recordHelp}><Ionicons name="information-circle-outline" size={18} color="#9ED6B1"/><Text style={s.recordHelpText}>Select the exact questions you already did, then mark them Done, Incorrect or Needs review.</Text></View>:null}
+   <View style={s.toolbar}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters}>{([["all","All"],["unfinished","Unfinished"],["review","Needs review"],["completed","Completed"]] as [Filter,string][]).map(([id,label])=><Pressable key={id} onPress={()=>setFilter(id)} style={[s.filter,filter===id&&s.filterOn]}><Text style={[s.filterText,filter===id&&s.filterTextOn]}>{label}</Text></Pressable>)}</ScrollView><View style={s.jump}><TextInput value={jump} onChangeText={setJump} keyboardType="number-pad" placeholder="Year" placeholderTextColor="#647285" style={s.jumpInput}/><Pressable onPress={jumpTo} style={s.jumpBtn}><Ionicons name="arrow-forward" size={15} color="#E7D9F7"/></Pressable></View></View>
+   <View style={s.rangeNote}><Text style={s.rangeText}>{range.from}–{range.to} · preferred range from Settings</Text><Text style={s.rangeCount}>{visibleYears.length} years</Text></View>
+   <View style={s.yearList}>{visibleYears.map(year=>{const p=progress(year),isOpen=expanded===year,groups=groupsFor(year),refs=isOpen?selectedRefs(year):[];return <View key={year} style={[s.yearCard,isOpen&&s.yearCardOpen]}>
+    <Pressable onPress={()=>openYear(year)} style={s.yearRow}><View style={{flex:1}}><Text style={s.year}>{year}</Text><Text style={s.yearStatus}>{p.tagged?(p.completed+" of "+p.tagged+" "+displayTopic+" question"+(p.tagged===1?"":"s")+" done"):("No "+displayTopic+" questions tagged yet")}{p.review?(" · "+p.review+" need review"):""}</Text></View>{p.tagged?<View style={[s.progressBadge,p.completed===p.tagged&&s.progressBadgeDone]}><Text style={[s.progressText,p.completed===p.tagged&&s.progressTextDone]}>{p.completed}/{p.tagged}</Text></View>:null}<Ionicons name={isOpen?"chevron-up":"chevron-down"} size={19} color="#9A88AA"/></Pressable>
+    {isOpen?<View style={s.expanded}>{groups.map(group=><View key={group.title} style={s.group}><View style={s.groupHead}><Text style={s.groupTitle}>{group.title}</Text><Text style={s.groupMeta}>{group.questions.length} questions</Text></View><View style={s.questionGrid}>{group.questions.map(q=>{const tick=topicTick(year,q),id=qid(q),on=selected.includes(id),status=tick?.status??null;return <Pressable key={id} onPress={()=>toggle(q)} style={[s.question,on&&s.questionSelected,status==="completed"&&s.questionDone,(status==="incorrect"||status==="review")&&s.questionReview]}><Text style={[s.qNo,on&&s.qNoSelected]}>Q{q.number}</Text>{tick?<Text style={s.tag} numberOfLines={1}>{displayTopic}</Text>:<Text style={s.untagged}>Select</Text>}{status?<Ionicons name={status==="completed"?"checkmark-circle":status==="incorrect"?"close-circle":"bookmark"} size={14} color={status==="completed"?"#83D39E":status==="incorrect"?"#F0A0A0":"#E5BC79"}/>:null}</Pressable>})}</View></View>)}
+      {refs.length?<View style={s.selection}><Text style={s.selectionTitle}>{refs.length} question{refs.length===1?"":"s"} selected</Text><Text style={s.selectionSub}>These questions are tagged {displayTopic} when you save a result.</Text><View style={s.statusRow}><Pressable disabled={busy} onPress={()=>applyStatus(year,"completed")} style={[s.statusBtn,s.doneBtn]}><Ionicons name="checkmark" size={15} color="#14301E"/><Text style={s.doneText}>Done</Text></Pressable><Pressable disabled={busy} onPress={()=>applyStatus(year,"incorrect")} style={[s.statusBtn,s.wrongBtn]}><Ionicons name="close" size={15} color="#3A1515"/><Text style={s.wrongText}>Incorrect</Text></Pressable><Pressable disabled={busy} onPress={()=>applyStatus(year,"review")} style={[s.statusBtn,s.reviewBtn]}><Ionicons name="bookmark-outline" size={15} color="#33250F"/><Text style={s.reviewText}>Needs review</Text></Pressable></View>{!recordMode?<Pressable onPress={()=>start(year)} style={s.start}><Ionicons name="play" size={16} color="#170C20"/><Text style={s.startText}>Start practice</Text></Pressable>:null}</View>:<Text style={s.selectHint}>Select the actual question numbers you want to practise or record.</Text>}
+    </View>:null}
+   </View>})}</View>
+   {!visibleYears.length?<View style={s.empty}><Text style={s.emptyText}>No years match this filter.</Text><Pressable onPress={()=>setFilter("all")}><Text style={s.emptyLink}>Show all years</Text></Pressable></View>:null}
+  </ScrollView>
+ </View>
 }
-
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#080D14" },
-  header: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: "#2B2037" },
-  back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#111821", borderWidth: 1, borderColor: "#334050", alignItems: "center", justifyContent: "center" },
-  kicker: { color: "#BD90F0", fontSize: 8, fontWeight: "900", letterSpacing: 1.3 },
-  title: { color: "#FAF7FC", fontSize: 20, fontWeight: "900", marginTop: 2 },
-  sub: { color: "#8693A5", fontSize: 8.5, marginTop: 2 },
-  analysis: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#251A32", borderWidth: 1, borderColor: "#684B85", alignItems: "center", justifyContent: "center" },
-  content: { padding: 20, paddingBottom: 55, maxWidth: 820, width: "100%", alignSelf: "center" },
-  contextCard: { minHeight: 92, borderRadius: 21, backgroundColor: "#14131D", borderWidth: 1, borderColor: "#503B62", padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
-  contextIcon: { width: 48, height: 48, borderRadius: 15, backgroundColor: "#B784FF20", borderWidth: 1, borderColor: "#674B83", alignItems: "center", justifyContent: "center" },
-  contextLabel: { color: "#B28BD9", fontSize: 7.5, fontWeight: "900", letterSpacing: 1.2 },
-  contextTitle: { color: "#F6F0FA", fontSize: 13, fontWeight: "900", marginTop: 3 },
-  contextSub: { color: "#A095AA", fontSize: 8.5, lineHeight: 13, marginTop: 4 },
-  label: { color: "#94A0B0", fontSize: 8.5, fontWeight: "900", letterSpacing: 1.3, marginTop: 22, marginBottom: 9 },
-  sections: { gap: 8 },
-  section: { minHeight: 64, borderRadius: 16, backgroundColor: "#111923", borderWidth: 1, borderColor: "#344253", padding: 11 },
-  sectionOn: { backgroundColor: "#342247", borderColor: "#8B62B8" },
-  sectionTitle: { color: "#BBC4CF", fontSize: 11, fontWeight: "900" },
-  sectionTitleOn: { color: "#F5EAFE" },
-  sectionSub: { color: "#8290A2", fontSize: 8.2, lineHeight: 12, marginTop: 4 },
-  yearHead: { marginTop: 25, marginBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  yearHeadTitle: { color: "#F3F5F7", fontSize: 15, fontWeight: "900" },
-  yearHeadSub: { color: "#8492A4", fontSize: 8.5, marginTop: 3 },
-  yearCount: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 9, backgroundColor: "#18222D", borderWidth: 1, borderColor: "#29394A" },
-  yearCountText: { color: "#8998AA", fontSize: 7.5, fontWeight: "900" },
-  yearGrid: { gap: 8 },
-  yearCard: { minHeight: 78, borderRadius: 18, backgroundColor: "#111923", borderWidth: 1, borderColor: "#344253", paddingHorizontal: 13, paddingVertical: 11, flexDirection: "row", alignItems: "center", gap: 10 },
-  year: { color: "#F5F6F8", fontSize: 19, fontWeight: "900" },
-  yearStatus: { color: "#8290A2", fontSize: 8.5, marginTop: 3 },
-  attemptBadge: { paddingHorizontal: 8, height: 27, borderRadius: 9, backgroundColor: "#251A32", alignItems: "center", justifyContent: "center" },
-  attemptBadgeDone: { backgroundColor: "#17291E" },
-  attemptText: { color: "#D0B1F0", fontSize: 7.5, fontWeight: "900" },
-  attemptTextDone: { color: "#8ED1A5" },
-  questionSelector: { alignItems: "center", gap: 4 },
-  questionLabel: { color: "#8B97A7", fontSize: 6.5, fontWeight: "900", letterSpacing: .8 },
-  stepper: { flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#20172B", borderRadius: 12, borderWidth: 1, borderColor: "#5E4278", padding: 3 },
-  stepButton: { width: 28, height: 28, borderRadius: 9, backgroundColor: "#30203F", alignItems: "center", justifyContent: "center" },
-  questionCount: { minWidth: 18, textAlign: "center", color: "#F1E7FC", fontSize: 12, fontWeight: "900" },
-  play: { width: 40, height: 40, borderRadius: 13, backgroundColor: "#C094FA", alignItems: "center", justifyContent: "center" },
-});
+const s=StyleSheet.create({root:{flex:1,backgroundColor:"#080D14"},header:{paddingHorizontal:18,paddingTop:20,paddingBottom:12,flexDirection:"row",alignItems:"center",gap:12,borderBottomWidth:1,borderBottomColor:"#2B2037"},back:{width:43,height:43,borderRadius:14,backgroundColor:"#111821",borderWidth:1,borderColor:"#334050",alignItems:"center",justifyContent:"center"},kicker:{color:"#BD90F0",fontSize:8,fontWeight:"900",letterSpacing:1.3},title:{color:"#FAF7FC",fontSize:20,fontWeight:"900",marginTop:2},sub:{color:"#8693A5",fontSize:8.5,marginTop:2},analysis:{width:43,height:43,borderRadius:14,backgroundColor:"#251A32",borderWidth:1,borderColor:"#684B85",alignItems:"center",justifyContent:"center"},content:{padding:18,paddingBottom:60,maxWidth:900,width:"100%",alignSelf:"center"},actions:{flexDirection:"row",gap:8},record:{flex:1,minHeight:58,borderRadius:16,backgroundColor:"#171321",borderWidth:1,borderColor:"#443253",padding:10,flexDirection:"row",alignItems:"center",gap:9},recordOn:{backgroundColor:"#B9E6C7",borderColor:"#B9E6C7"},recordTitle:{color:"#E9DFF2",fontSize:10,fontWeight:"900"},recordTitleOn:{color:"#142019"},recordSub:{color:"#807489",fontSize:7.7,marginTop:2},recordSubOn:{color:"#45604D"},settings:{width:58,borderRadius:16,backgroundColor:"#121A23",borderWidth:1,borderColor:"#2B3948",alignItems:"center",justifyContent:"center"},recordHelp:{marginTop:8,borderRadius:13,backgroundColor:"#10231A",borderWidth:1,borderColor:"#28523A",padding:9,flexDirection:"row",alignItems:"center",gap:7},recordHelpText:{flex:1,color:"#9ED6B1",fontSize:8.3,lineHeight:12},toolbar:{marginTop:14,flexDirection:"row",alignItems:"center",gap:8},filters:{gap:6,paddingRight:4},filter:{height:35,borderRadius:11,backgroundColor:"#121A23",borderWidth:1,borderColor:"#2D3A49",paddingHorizontal:10,alignItems:"center",justifyContent:"center"},filterOn:{backgroundColor:"#3B2852",borderColor:"#805AA9"},filterText:{color:"#8290A1",fontSize:8,fontWeight:"900"},filterTextOn:{color:"#F2E9FB"},jump:{flexDirection:"row",alignItems:"center",gap:4,marginLeft:"auto"},jumpInput:{width:61,height:35,borderRadius:10,backgroundColor:"#0B121A",borderWidth:1,borderColor:"#2C3948",color:"#E9EDF2",fontSize:9,textAlign:"center"},jumpBtn:{width:35,height:35,borderRadius:10,backgroundColor:"#251A32",alignItems:"center",justifyContent:"center"},rangeNote:{marginTop:9,flexDirection:"row",justifyContent:"space-between",gap:8},rangeText:{color:"#657386",fontSize:7.7},rangeCount:{color:"#657386",fontSize:7.7,fontWeight:"900"},yearList:{gap:7,marginTop:10},yearCard:{borderRadius:17,backgroundColor:"#101720",borderWidth:1,borderColor:"#2A3746",overflow:"hidden"},yearCardOpen:{borderColor:"#5C4274",backgroundColor:"#121720"},yearRow:{minHeight:68,paddingHorizontal:12,paddingVertical:10,flexDirection:"row",alignItems:"center",gap:9},year:{color:"#F2F4F7",fontSize:17,fontWeight:"900"},yearStatus:{color:"#7B899A",fontSize:8.2,marginTop:3},progressBadge:{minWidth:39,height:27,borderRadius:9,backgroundColor:"#30223D",alignItems:"center",justifyContent:"center"},progressBadgeDone:{backgroundColor:"#183022"},progressText:{color:"#CBAAE8",fontSize:8,fontWeight:"900"},progressTextDone:{color:"#8ED2A5"},expanded:{borderTopWidth:1,borderTopColor:"#273342",padding:11},group:{marginBottom:12},groupHead:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginBottom:7},groupTitle:{color:"#DCC9F2",fontSize:9.5,fontWeight:"900"},groupMeta:{color:"#687689",fontSize:7.3},questionGrid:{flexDirection:"row",flexWrap:"wrap",gap:6},question:{width:76,minHeight:57,borderRadius:12,backgroundColor:"#0B121A",borderWidth:1,borderColor:"#2C3948",padding:7,justifyContent:"center"},questionSelected:{borderColor:"#B784FF",backgroundColor:"#291C37"},questionDone:{borderColor:"#2D6741"},questionReview:{borderColor:"#76572A"},qNo:{color:"#DCE2E8",fontSize:9.5,fontWeight:"900"},qNoSelected:{color:"#F3E8FE"},tag:{color:"#9A7DB6",fontSize:6.5,fontWeight:"800",marginTop:3},untagged:{color:"#596777",fontSize:6.5,marginTop:3},selection:{borderRadius:15,backgroundColor:"#17131F",borderWidth:1,borderColor:"#49375C",padding:10,marginTop:2},selectionTitle:{color:"#EFE9F4",fontSize:10,fontWeight:"900"},selectionSub:{color:"#83778C",fontSize:7.7,marginTop:3},statusRow:{flexDirection:"row",flexWrap:"wrap",gap:6,marginTop:9},statusBtn:{minHeight:36,borderRadius:10,paddingHorizontal:9,flexDirection:"row",alignItems:"center",gap:4},doneBtn:{backgroundColor:"#A8DFB8"},wrongBtn:{backgroundColor:"#F0B0B0"},reviewBtn:{backgroundColor:"#E8C98C"},doneText:{color:"#14301E",fontSize:8,fontWeight:"900"},wrongText:{color:"#3A1515",fontSize:8,fontWeight:"900"},reviewText:{color:"#33250F",fontSize:8,fontWeight:"900"},start:{height:42,borderRadius:12,backgroundColor:"#B784FF",marginTop:8,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:5},startText:{color:"#170C20",fontSize:9,fontWeight:"900"},selectHint:{color:"#687789",fontSize:8,textAlign:"center",paddingVertical:6},empty:{minHeight:100,borderRadius:16,backgroundColor:"#0F161F",alignItems:"center",justifyContent:"center",marginTop:10},emptyText:{color:"#718092",fontSize:9},emptyLink:{color:"#C4A5E8",fontSize:8.5,fontWeight:"900",marginTop:7}});
