@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useIntelligence } from "../context/IntelligenceContext";
+import { useAppConfig } from "../context/AppConfigContext";
 import { useStudent } from "../context/StudentContext";
 import { combinedPerformance, levelForScore, questionAccuracy, subjectPerformance, testPercent } from "../lib/performanceAnalysis";
 
@@ -12,6 +13,7 @@ const n=(v:any)=>{const x=Number(v);return v==null||v===""||!Number.isFinite(x)?
 
 export default function OverallAnalysisScreen(){
   const router=useRouter();
+ const{settings}=useAppConfig();
   const{testMarks}=useStudent();
   const{questionResults,captures,mistakes}=useIntelligence();
   const overall=useMemo(()=>combinedPerformance(testMarks,questionResults),[questionResults,testMarks]);
@@ -53,7 +55,7 @@ export default function OverallAnalysisScreen(){
       <View style={s.sectionHead}><Text style={s.section}>RECENT QUESTION RESULTS</Text></View>
       {recentQuestions.length?recentQuestions.map(q=><View key={q.id} style={s.row}><View style={{flex:1}}><Text style={s.rowTitle}>{q.topicName} · Q{q.questionNo}</Text><Text style={s.rowSub}>{q.subjectName}{q.paperLabel?` · ${q.paperLabel}`:""}</Text></View><Text style={s.rowScore}>{q.marksAwarded}/{q.marksTotal}</Text></View>):<Empty text="Reliable scored questions from analyzed papers will appear here."/>}
 
-      <View style={s.actions}><Pressable style={s.primary} onPress={()=>router.push("/answer-sheet-analysis")}><Ionicons name="camera-outline" size={18} color="#160B20"/><Text style={s.primaryText}>Analyze another marked paper</Text></Pressable><Pressable style={s.secondary} onPress={()=>router.push("/recognized-paper-text")}><Ionicons name="document-text-outline" size={18} color="#CDB2EA"/><Text style={s.secondaryText}>Recognized paper text</Text></Pressable><Pressable style={s.secondary} onPress={()=>router.push("/mistake-bank")}><Ionicons name="repeat-outline" size={18} color="#CDB2EA"/><Text style={s.secondaryText}>Open Mistake Book</Text></Pressable></View>
+      <View style={s.actions}>{settings.featureFlags.imageScanning===true?<><Pressable style={s.primary} onPress={()=>router.push("/answer-sheet-analysis")}><Ionicons name="camera-outline" size={18} color="#160B20"/><Text style={s.primaryText}>Analyze another marked paper</Text></Pressable><Pressable style={s.secondary} onPress={()=>router.push("/recognized-paper-text")}><Ionicons name="document-text-outline" size={18} color="#CDB2EA"/><Text style={s.secondaryText}>Recognized paper text</Text></Pressable></>:null}<Pressable style={s.secondary} onPress={()=>router.push("/mistake-bank")}><Ionicons name="repeat-outline" size={18} color="#CDB2EA"/><Text style={s.secondaryText}>Open Mistake Book</Text></Pressable></View>
     </ScrollView>
   </View>;
 }
