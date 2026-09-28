@@ -217,6 +217,7 @@ create table if not exists public.past_paper_item_ticks (
   paper_section text not null,
   item_key text not null,
   topic_name text,
+  status text not null default 'completed' check (status in ('completed','incorrect','review')),
   attempt_no integer not null default 1 check (attempt_no >= 1),
   created_at timestamptz not null default now()
 );
@@ -224,6 +225,7 @@ create index if not exists past_paper_item_ticks_user_lookup_idx on public.past_
 create unique index if not exists past_paper_item_ticks_attempt_unique_idx on public.past_paper_item_ticks(user_id, subject_name, paper_year, paper_section, item_key, attempt_no);
 create index if not exists past_paper_item_ticks_created_idx on public.past_paper_item_ticks(user_id, created_at desc);
 create index if not exists past_paper_item_ticks_topic_idx on public.past_paper_item_ticks(user_id, subject_name, topic_name, paper_year desc);
+create index if not exists past_paper_item_ticks_status_idx on public.past_paper_item_ticks(user_id, subject_name, status, paper_year desc);
 alter table public.past_paper_item_ticks enable row level security;
 revoke all on table public.past_paper_item_ticks from anon, authenticated;
 grant select, insert, delete on table public.past_paper_item_ticks to authenticated;
