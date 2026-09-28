@@ -8,6 +8,8 @@ import { useStudent } from "../context/StudentContext";
 import { useStudy } from "../context/StudyContext";
 import { topicDisplayName } from "../data/subjects";
 import { paperSectionDescription, paperSectionsForSubject, type FlexiblePaperSection } from "../lib/paperFormats";
+import PastPaperYearRange,{loadPreferredPastPaperRange} from "../components/PastPaperYearRange";
+import {defaultPastPaperRange,type PastPaperRange,yearsForRange} from "../lib/pastPaperTracker";
 
 const first = (value?: string | string[]) => Array.isArray(value) ? value[0] : value;
 const COUNT_KEY = "studyarc.lessonPastPaperQuestionCounts.v1";
@@ -25,8 +27,9 @@ export default function PastPaperYearsScreen() {
   const requestedSection = first(params.paperSection);
   const [section, setSection] = useState<FlexiblePaperSection>(sections.includes(requestedSection as FlexiblePaperSection) ? requestedSection as FlexiblePaperSection : sections[0]);
   const [questionCounts, setQuestionCounts] = useState<CountMap>({});
-  const latest = Math.max(2000, (profile.examYear ?? new Date().getFullYear()) - 1);
-  const years = useMemo(() => Array.from({ length: Math.min(35, latest - 1999) }, (_, i) => latest - i), [latest]);
+  const [range,setRange]=useState<PastPaperRange>(defaultPastPaperRange());
+  useEffect(()=>{loadPreferredPastPaperRange().then(setRange)},[]);
+  const years = useMemo(() => yearsForRange(range), [range]);
   const displayTopic = isLessonPractice ? topicDisplayName(subjectName as any, topicName, profile.medium) : "Whole subject";
 
   const storageId = `${subjectName}::${topicName}`;
@@ -106,6 +109,8 @@ export default function PastPaperYearsScreen() {
           <Text style={s.contextSub}>{isLessonPractice ? "Lesson practice is question-based. There is no Part A / Part B / Full Paper selector here." : "Full-paper practice keeps the normal paper-section selector."}</Text>
         </View>
       </View>
+
+      <PastPaperYearRange value={range} onChange={setRange}/>
 
       {!isLessonPractice ? <>
         <Text style={s.label}>PAPER SECTION</Text>
