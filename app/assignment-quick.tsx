@@ -35,6 +35,7 @@ export default function AssignmentQuickScreen(){
   const [subject,setSubject]=useState<string>(subjects[0]??"Physics");
   const [title,setTitle]=useState("");
   const [dueDate,setDueDate]=useState(addDays(1));
+  const [dueTime,setDueTime]=useState("18:00");
   const [hours,setHours]=useState("2");
   const [scheduleMode,setScheduleMode]=useState<ScheduleMode>("single");
   const [calendarOpen,setCalendarOpen]=useState(false);
@@ -51,7 +52,8 @@ export default function AssignmentQuickScreen(){
     if(saving)return;
     if(!title.trim()){setDialog({title:"Choose work",message:"Pick a quick task or enter a short assignment title.",tone:"warning"});return;}
     if(!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)){setDialog({title:"Choose a due date",message:"Tap the date field and choose the deadline from the StudyArc calendar.",tone:"warning"});return;}
-    const due=new Date(`${dueDate}T18:00:00`);
+    if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(dueTime)){setDialog({title:"Check the time",message:"Enter the deadline time in 24-hour format, for example 18:00.",tone:"warning"});return;}
+    const due=new Date(`${dueDate}T${dueTime}:00`);
     if(Number.isNaN(due.getTime())){setDialog({title:"Check the date",message:"That due date is not valid. Choose another date from the calendar.",tone:"warning"});return;}
     const wholeHours=Math.max(1,Math.min(24,Math.round(Number(hours)||1)));
     setHours(String(wholeHours));
@@ -95,7 +97,7 @@ export default function AssignmentQuickScreen(){
         <Text style={s.label}>TASK NAME</Text><TextInput value={title} onChangeText={setTitle} placeholder="e.g. Pure tute 12" placeholderTextColor="#586678" style={s.input}/>
         <Text style={s.label}>SUBJECT</Text><View style={s.wrap}>{subjects.map(x=><Pressable key={x} onPress={()=>setSubject(x)} style={[s.chip,subject===x&&s.chipOn]}><Text style={[s.chipText,subject===x&&s.chipTextOn]}>{subjectDisplayName(x)}</Text></Pressable>)}</View>
         <Text style={s.label}>WHEN SHOULD IT BE DONE?</Text><View style={s.quick}><Pressable onPress={()=>setDueDate(dateKey())} style={s.quickBtn}><Text style={s.quickText}>Today</Text></Pressable><Pressable onPress={()=>setDueDate(addDays(1))} style={s.quickBtn}><Text style={s.quickText}>Tomorrow</Text></Pressable><Pressable onPress={()=>setDueDate(addDays(7))} style={s.quickBtn}><Text style={s.quickText}>Next week</Text></Pressable></View>
-        <Pressable onPress={()=>setCalendarOpen(true)} style={s.dateField}><View style={s.dateIcon}><Ionicons name="calendar-outline" size={19} color="#D9C0F7"/></View><View style={{flex:1}}><Text style={s.dateLabel}>DUE DATE</Text><Text style={s.dateValue}>{new Date(`${dueDate}T12:00:00`).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"long",year:"numeric"})}</Text></View><Ionicons name="chevron-forward" size={18} color="#718094"/></Pressable>
+        <Pressable onPress={()=>setCalendarOpen(true)} style={s.dateField}><View style={s.dateIcon}><Ionicons name="calendar-outline" size={19} color="#D9C0F7"/></View><View style={{flex:1}}><Text style={s.dateLabel}>DUE DATE</Text><Text style={s.dateValue}>{new Date(`${dueDate}T12:00:00`).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"long",year:"numeric"})}</Text></View><Ionicons name="chevron-forward" size={18} color="#718094"/></Pressable><Text style={s.label}>DUE TIME</Text><View style={s.dateField}><View style={s.dateIcon}><Ionicons name="time-outline" size={19} color="#D9C0F7"/></View><View style={{flex:1}}><Text style={s.dateLabel}>TIME · 24 HOUR</Text><TextInput value={dueTime} onChangeText={setDueTime} placeholder="18:00" placeholderTextColor="#718094" maxLength={5} style={[s.input,{marginTop:4}]}/></View></View>
         <Text style={s.label}>HOMEWORK TIME (WHOLE HOURS)</Text><TextInput value={hours} onChangeText={v=>setHours(v.replace(/[^0-9]/g,""))} onBlur={()=>setHours(String(Math.max(1,Math.min(24,Math.round(Number(hours)||1)))))} keyboardType="number-pad" style={s.input}/>
         <Text style={s.label}>HOW SHOULD STUDYARC SCHEDULE IT?</Text>
         <View style={s.modeRow}>
