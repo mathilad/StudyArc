@@ -1,0 +1,2 @@
+alter table public.past_paper_item_ticks add column if not exists topic_name text;
+create index if not exists past_paper_item_ticks_topic_idx on public.past_paper_item_ticks(user_id, subject_name, topic_name, paper_year desc);
