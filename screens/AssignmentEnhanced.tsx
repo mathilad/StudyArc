@@ -22,6 +22,7 @@ const addDays = (days: number) => {
   d.setDate(d.getDate() + days);
   return dateKey(d);
 };
+const addMinutesToTime=(time:string,minutes:number)=>{if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))return time;const[h,m]=time.split(":").map(Number),total=(h*60+m+minutes)%1440;return String(Math.floor(total/60)).padStart(2,"0")+":"+String(total%60).padStart(2,"0")};
 
 type DialogState = {
   title: string;
@@ -109,13 +110,18 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
     }
     setAddingSelectedTasks(true);
     try {
-      await addPlannedTasks(newItems.map((item) => ({
-        title: item.title,
-        plannedDate,
-        plannedTime,
-        assignmentId: item.id,
-        estimatedMinutes: item.estimatedMinutes,
-      })));
+      let offset=0;
+      await addPlannedTasks(newItems.map((item) => {
+        const taskTime=plannedTime?addMinutesToTime(plannedTime,offset):null;
+        offset+=Math.max(5,item.estimatedMinutes);
+        return {
+          title: item.title,
+          plannedDate,
+          plannedTime: taskTime,
+          assignmentId: item.id,
+          estimatedMinutes: item.estimatedMinutes,
+        };
+      }));
       const skipped = chosen.length - newItems.length;
       cancelTaskSelection();
       setDialog({
@@ -362,7 +368,7 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
           <Text style={s.label}>DATE</Text><Pressable onPress={() => setTaskCalendarOpen(true)} style={s.dateField}><Ionicons name="calendar-outline" size={18} color="#D4B9F4"/><Text style={s.dateValue}>{new Date(taskPlanDate+"T12:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"long"})}</Text><Ionicons name="chevron-forward" size={16} color="#738093"/></Pressable>
           <View style={s.quickDates}><Pressable onPress={()=>setTaskPlanDate(dateKey(new Date()))} style={s.dateButton}><Text style={s.dateButtonText}>Today</Text></Pressable><Pressable onPress={()=>setTaskPlanDate(addDays(1))} style={s.dateButton}><Text style={s.dateButtonText}>Tomorrow</Text></Pressable><Pressable onPress={()=>setTaskPlanDate(addDays(7))} style={s.dateButton}><Text style={s.dateButtonText}>Next week</Text></Pressable></View>
           <Text style={s.label}>START TIME</Text><TextInput value={taskPlanTime} onChangeText={setTaskPlanTime} placeholder="18:00" placeholderTextColor="#718094" style={s.input}/>
-          <Text style={s.scheduleHint}>Use 24-hour time, for example 16:30. These assignment tasks will appear in Tasks and the timetable at this date and time.</Text>
+          <Text style={s.scheduleHint}>Use 24-hour time, for example 16:30. These assignments will be placed one after another from this start time, using each assignment’s estimated duration. They will appear in Tasks and the timetable.</Text>
           <Pressable disabled={addingSelectedTasks} onPress={() => addSelectedAssignmentsToTasks(taskPlanDate,taskPlanTime.trim()||null)} style={[s.primary,addingSelectedTasks&&s.disabled]}><Ionicons name="calendar-outline" size={18} color="#160B20"/><Text style={s.primaryText}>{addingSelectedTasks?"Adding…":"Add to Tasks & timetable"}</Text></Pressable>
           {addingSelectedTasks ? <InlineActionLoader label="Adding assignments to Tasks…" /> : null}
         </View></View>
