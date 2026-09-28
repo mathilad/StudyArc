@@ -22,7 +22,7 @@ const todayText = (seconds: number) => {
 
 export default function ModernStopwatch() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ subjectName?: string | string[]; topicName?: string | string[]; studyType?: string | string[]; paperYear?: string | string[]; paperSection?: string | string[]; attemptNo?: string | string[]; assignmentId?: string | string[]; assignmentTitle?: string | string[]; targetMinutes?: string | string[]; markAfter?: string | string[] }>();
+  const params = useLocalSearchParams<{ subjectName?: string | string[]; topicName?: string | string[]; studyType?: string | string[]; paperYear?: string | string[]; paperSection?: string | string[]; attemptNo?: string | string[]; assignmentId?: string | string[]; assignmentTitle?: string | string[]; targetMinutes?: string | string[]; markAfter?: string | string[]; selectedQuestions?: string | string[]; lessonPractice?: string | string[] }>();
   const { addSession, todaySeconds } = useStudy();
   const { setStudying } = useSocial();
   const routeStudyType = first(params.studyType);
@@ -189,7 +189,7 @@ export default function ModernStopwatch() {
         paperYear: meta.paperYear ? String(meta.paperYear) : undefined,
         paperSection: meta.paperSection ?? undefined,
         targetMinutes: first(params.targetMinutes),
-        markAfter: first(params.markAfter),
+        markAfter: first(params.markAfter), selectedQuestions: first(params.selectedQuestions), lessonPractice: first(params.lessonPractice),
       } });
     } catch (error) {
       Alert.alert("Could not save session", error instanceof Error ? error.message : "Please try again.");
