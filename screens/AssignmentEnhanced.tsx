@@ -48,6 +48,7 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
   const [topic, setTopic] = useState("");
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("18:00");
   const [minutes, setMinutes] = useState("60");
   const [repeatPattern, setRepeatPattern] = useState<"None" | "Daily" | "Weekly">("None");
   const [saving, setSaving] = useState(false);
@@ -136,6 +137,7 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
     setSubject(assignment.subjectName);
     setTopic(assignment.topicName ?? "");
     setDueDate(assignment.dueAt ? dateKey(new Date(assignment.dueAt)) : "");
+    setDueTime(assignment.dueAt ? new Date(assignment.dueAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false}) : "18:00");
     setMinutes(String(assignment.estimatedMinutes));
     setRepeatPattern(assignment.repeatPattern);
     setFormOpen(true);
@@ -145,6 +147,7 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
     setEditingId(null);
     setTitle("");
     setDueDate("");
+    setDueTime("18:00");
     setTopic("");
     setMinutes("60");
     setRepeatPattern("None");
@@ -159,7 +162,8 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
     }
     const current = assignments.find((item) => item.id === editingId);
     if (!current) return;
-    const due = dueDate ? new Date(`${dueDate}T18:00:00`) : null;
+    if(dueDate&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(dueTime)){setDialog({title:"Check due time",message:"Use 24-hour time, for example 18:00.",tone:"warning"});return;}
+    const due = dueDate ? new Date(`${dueDate}T${dueTime}:00`) : null;
     if (due && Number.isNaN(due.getTime())) {
       setDialog({ title: "Check the date", message: "Choose a valid due date from the StudyArc calendar.", tone: "warning" });
       return;
@@ -397,6 +401,7 @@ export default function AssignmentEnhanced({ onPrioritize }: Props) {
               <Pressable onPress={() => setDueDate(addDays(7))} style={s.dateButton}><Text style={s.dateButtonText}>Next week</Text></Pressable>
               <Pressable onPress={() => setDueDate("")} style={s.dateButton}><Text style={s.dateButtonText}>No deadline</Text></Pressable>
             </View>
+            <Text style={s.label}>DUE TIME</Text><TextInput value={dueTime} onChangeText={setDueTime} placeholder="18:00" placeholderTextColor="#718094" maxLength={5} style={s.input} />
             <Text style={s.label}>ESTIMATED MINUTES</Text>
             <TextInput value={minutes} onChangeText={setMinutes} keyboardType="number-pad" style={s.input} />
             <Text style={s.label}>REPEAT</Text>
