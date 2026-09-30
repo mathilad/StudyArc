@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -11,6 +14,7 @@ import { useStudy } from "../context/StudyContext";
 import { supabase } from "../lib/supabase";
 
 export default function DataControlsScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { settings } = useAppConfig();
@@ -88,7 +92,7 @@ export default function DataControlsScreen() {
     } }],
   );
 
-  return <View style={s.root}><LinearGradient colors={["#171022", "#080D14"]} style={StyleSheet.absoluteFill} />
+  return <View style={s.root}><LinearGradient colors={[appColor("#171022"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
     <View style={s.head}><Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF" /></Pressable><View style={{ flex: 1 }}><Text style={s.title}>Data & privacy</Text><Text style={s.sub}>Your Study Arc data controls</Text></View></View>
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       {message ? <View style={s.message}><Text style={s.messageText}>{message}</Text></View> : null}
@@ -109,6 +113,7 @@ export default function DataControlsScreen() {
 }
 
 function Action({ icon, title, sub, onPress, danger, disabled }: { icon:keyof typeof Ionicons.glyphMap; title:string; sub:string; onPress:()=>void; danger?:boolean; disabled?:boolean }) {
-  return <Pressable disabled={disabled} onPress={onPress} style={[s.row, danger && s.rowDanger, disabled && { opacity: .6 }]}><View style={[s.icon, danger && s.iconDanger]}><Ionicons name={icon} size={21} color={danger ? "#F0A7B2" : "#C9ABED"} /></View><View style={{ flex:1 }}><Text style={s.rowTitle}>{title}</Text><Text style={s.rowSub}>{sub}</Text></View><Ionicons name="chevron-forward" size={18} color="#647183" /></Pressable>;
+ useThemeRefresh();
+  return <Pressable disabled={disabled} onPress={onPress} style={[s.row, danger && s.rowDanger, disabled && { opacity: .6 }]}><View style={[s.icon, danger && s.iconDanger]}><Ionicons name={icon} size={21} color={danger ? "#F0A7B2" : appColor("#C9ABED")} /></View><View style={{ flex:1 }}><Text style={s.rowTitle}>{title}</Text><Text style={s.rowSub}>{sub}</Text></View><Ionicons name="chevron-forward" size={18} color="#647183" /></Pressable>;
 }
-const s=StyleSheet.create({root:{flex:1,backgroundColor:"#080D14"},head:{padding:18,paddingTop:22,flexDirection:"row",alignItems:"center",gap:11},back:{width:43,height:43,borderRadius:14,backgroundColor:"#151B25",alignItems:"center",justifyContent:"center"},title:{color:"#F5F6F8",fontSize:22,fontWeight:"900"},sub:{color:"#748194",fontSize:10,marginTop:3},content:{padding:20,paddingBottom:50,width:"100%",maxWidth:760,alignSelf:"center"},message:{borderRadius:14,backgroundColor:"#122019",borderWidth:1,borderColor:"#315843",padding:11,marginBottom:10},messageText:{color:"#8BD4A7",fontSize:10.5,fontWeight:"700"},section:{color:"#8190A3",fontSize:9,fontWeight:"900",letterSpacing:1.3,marginTop:19,marginBottom:8},row:{minHeight:72,borderRadius:17,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:12,flexDirection:"row",alignItems:"center",gap:10,marginBottom:7},rowDanger:{borderColor:"#4A3037",backgroundColor:"#151115"},icon:{width:42,height:42,borderRadius:13,backgroundColor:"#21182D",alignItems:"center",justifyContent:"center"},iconDanger:{backgroundColor:"#2B171D"},rowTitle:{color:"#E9EDF1",fontSize:11.5,fontWeight:"900"},rowSub:{color:"#748194",fontSize:9,lineHeight:14,marginTop:3},dangerBox:{minHeight:72,borderRadius:17,backgroundColor:"#211419",borderWidth:1,borderColor:"#5A303B",padding:12,flexDirection:"row",alignItems:"center",gap:10},dangerTitle:{color:"#F0DCE0",fontSize:11.5,fontWeight:"900"},dangerSub:{color:"#9C747C",fontSize:9,lineHeight:14,marginTop:3},deleteButton:{height:48,borderRadius:14,backgroundColor:"#7A3442",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7,marginTop:9},deleteText:{color:"#FFE8EC",fontSize:10.5,fontWeight:"900"}})
+const s=createThemeStyles({root:{flex:1,backgroundColor:"#080D14"},head:{padding:18,paddingTop:22,flexDirection:"row",alignItems:"center",gap:11},back:{width:43,height:43,borderRadius:14,backgroundColor:"#151B25",alignItems:"center",justifyContent:"center"},title:{color:"#F5F6F8",fontSize:22,fontWeight:"900"},sub:{color:"#748194",fontSize:10,marginTop:3},content:{padding:20,paddingBottom:50,width:"100%",maxWidth:760,alignSelf:"center"},message:{borderRadius:14,backgroundColor:"#122019",borderWidth:1,borderColor:"#315843",padding:11,marginBottom:10},messageText:{color:"#8BD4A7",fontSize:10.5,fontWeight:"700"},section:{color:"#8190A3",fontSize:9,fontWeight:"900",letterSpacing:1.3,marginTop:19,marginBottom:8},row:{minHeight:72,borderRadius:17,backgroundColor:"#101720",borderWidth:1,borderColor:"#293646",padding:12,flexDirection:"row",alignItems:"center",gap:10,marginBottom:7},rowDanger:{borderColor:"#4A3037",backgroundColor:"#151115"},icon:{width:42,height:42,borderRadius:13,backgroundColor:"#21182D",alignItems:"center",justifyContent:"center"},iconDanger:{backgroundColor:"#2B171D"},rowTitle:{color:"#E9EDF1",fontSize:11.5,fontWeight:"900"},rowSub:{color:"#748194",fontSize:9,lineHeight:14,marginTop:3},dangerBox:{minHeight:72,borderRadius:17,backgroundColor:"#211419",borderWidth:1,borderColor:"#5A303B",padding:12,flexDirection:"row",alignItems:"center",gap:10},dangerTitle:{color:"#F0DCE0",fontSize:11.5,fontWeight:"900"},dangerSub:{color:"#9C747C",fontSize:9,lineHeight:14,marginTop:3},deleteButton:{height:48,borderRadius:14,backgroundColor:"#7A3442",flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7,marginTop:9},deleteText:{color:"#FFE8EC",fontSize:10.5,fontWeight:"900"}})

@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -50,6 +53,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 export default function SmartCaptureScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const params = useLocalSearchParams<{ kind?: string }>();
   const { profile, addTestMark } = useStudent();
@@ -288,7 +292,7 @@ export default function SmartCaptureScreen() {
       : [`Paper: ${paperLabel || title || "Captured paper"}`, subject, `${questions.length} question results`];
 
   return <View style={s.root}>
-    <LinearGradient colors={["#181022", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <LinearGradient colors={[appColor("#181022"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
 
     <View style={s.header}>
       <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/assignment")} style={s.back}>
@@ -304,7 +308,7 @@ export default function SmartCaptureScreen() {
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={s.kindGrid}>
         {KINDS.map(item => <Pressable key={item.kind} onPress={() => changeKind(item.kind)} style={[s.kind, kind === item.kind && s.kindOn]}>
-          <Ionicons name={item.icon} size={20} color={kind === item.kind ? "#E7D5FC" : "#8491A3"} />
+          <Ionicons name={item.icon} size={20} color={kind === item.kind ? appColor("#E7D5FC") : "#8491A3"} />
           <Text style={[s.kindTitle, kind === item.kind && s.kindTitleOn]}>{item.title}</Text>
           <Text style={s.kindSub}>{item.sub}</Text>
         </Pressable>)}
@@ -321,7 +325,7 @@ export default function SmartCaptureScreen() {
       {notice ? <View style={s.info}><Ionicons name="information-circle-outline" size={19} color="#B9D8FF" /><Text style={s.infoText}>{notice}</Text></View> : null}
       {error ? <View style={s.err}><Ionicons name="warning-outline" size={19} color="#FFB1B1" /><Text style={s.errText}>{error}</Text></View> : null}
 
-      {asset ? <View style={s.file}><Ionicons name={asset.mimeType.includes("pdf") ? "document-text-outline" : "image-outline"} size={20} color="#D5B8F4" /><View style={{ flex: 1 }}><Text style={s.fileName} numberOfLines={1}>{asset.filename}</Text><Text style={s.fileMeta}>{asset.mimeType}</Text></View></View> : null}
+      {asset ? <View style={s.file}><Ionicons name={asset.mimeType.includes("pdf") ? "document-text-outline" : "image-outline"} size={20} color={appColor("#D5B8F4")} /><View style={{ flex: 1 }}><Text style={s.fileName} numberOfLines={1}>{asset.filename}</Text><Text style={s.fileMeta}>{asset.mimeType}</Text></View></View> : null}
       {asset?.previewUri ? <Image source={{ uri: asset.previewUri }} style={s.preview} resizeMode="contain" /> : null}
 
       {analysis ? <>
@@ -340,7 +344,7 @@ export default function SmartCaptureScreen() {
             </View>
             <Text style={s.label}>SUBTASKS</Text>
             {tasks.map((task, index) => <View key={index} style={s.taskRow}><TextInput value={task} onChangeText={value => setTasks(rows => rows.map((row, i) => i === index ? value : row))} placeholder="Subtask" placeholderTextColor="#647184" style={s.taskInput} /><Pressable onPress={() => setTasks(rows => rows.filter((_, i) => i !== index))}><Ionicons name="close-circle-outline" size={21} color="#C58D9B" /></Pressable></View>)}
-            <Pressable onPress={() => setTasks(rows => [...rows, ""])} style={s.secondary}><Ionicons name="add" size={18} color="#D9BDF9" /><Text style={s.secondaryText}>Add subtask</Text></Pressable>
+            <Pressable onPress={() => setTasks(rows => [...rows, ""])} style={s.secondary}><Ionicons name="add" size={18} color={appColor("#D9BDF9")} /><Text style={s.secondaryText}>Add subtask</Text></Pressable>
           </> : kind === "test_result" ? <>
             <View style={s.row}>
               <View style={{ flex: 1 }}><Field label="SCORE" value={score} setValue={setScore} keyboardType="decimal-pad" placeholder="0" /></View>
@@ -361,35 +365,38 @@ export default function SmartCaptureScreen() {
 
     <View style={s.footer}>
       {!analysis ? <Pressable disabled={busy} onPress={() => openReview(asset, "Manual entry selected.")} style={[s.next, busy && s.disabled]}>
-        <View style={{ flex: 1 }}><Text style={s.actionTop}>NEXT STEP</Text><Text style={s.actionText}>Enter details manually</Text></View><Ionicons name="arrow-forward-circle" size={25} color="#180A20" />
+        <View style={{ flex: 1 }}><Text style={s.actionTop}>NEXT STEP</Text><Text style={s.actionText}>Enter details manually</Text></View><Ionicons name="arrow-forward-circle" size={25} color={appColor("#180A20")} />
       </Pressable> : <Pressable disabled={saving} onPress={save} style={[s.save, saving && s.disabled]}>
-        {saving ? <ActivityIndicator color="#180A20" /> : <Ionicons name="checkmark-circle" size={23} color="#180A20" />}
+        {saving ? <ActivityIndicator color={appColor("#180A20")} /> : <Ionicons name="checkmark-circle" size={23} color={appColor("#180A20")} />}
         <View style={{ flex: 1 }}><Text style={s.actionTop}>SAVE TO STUDYARC</Text><Text style={s.actionText}>{isAssignment ? "Save assignment" : kind === "test_result" ? "Save test result" : "Save paper analysis"}</Text></View>
-        <Ionicons name="arrow-forward" size={22} color="#180A20" />
+        <Ionicons name="arrow-forward" size={22} color={appColor("#180A20")} />
       </Pressable>}
     </View>
   </View>;
 }
 
 function Source({ icon, label, onPress, disabled }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; disabled?: boolean }) {
-  return <Pressable disabled={disabled} onPress={onPress} style={[s.source, disabled && s.disabled]}><Ionicons name={icon} size={21} color="#D8BDF7" /><Text style={s.sourceText}>{label}</Text></Pressable>;
+ useThemeRefresh();
+  return <Pressable disabled={disabled} onPress={onPress} style={[s.source, disabled && s.disabled]}><Ionicons name={icon} size={21} color={appColor("#D8BDF7")} /><Text style={s.sourceText}>{label}</Text></Pressable>;
 }
 
 function Field({ label, value, setValue, placeholder, keyboardType, multiline }: { label: string; value: string; setValue: (value: string) => void; placeholder?: string; keyboardType?: any; multiline?: boolean }) {
+ useThemeRefresh();
   return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput value={value} onChangeText={setValue} placeholder={placeholder} placeholderTextColor="#647184" keyboardType={keyboardType} multiline={multiline} style={[s.input, multiline && s.multiline]} /></View>;
 }
 
 function QuestionEditor({ rows, setRows }: { rows: any[]; setRows: React.Dispatch<React.SetStateAction<any[]>> }) {
+ useThemeRefresh();
   return <View><Text style={s.label}>QUESTION RESULTS</Text>{rows.map((row, index) => <View key={index} style={s.questionRow}>
     <TextInput value={String(row.questionNo ?? "")} onChangeText={value => setRows(items => items.map((item, i) => i === index ? { ...item, questionNo: value } : item))} placeholder="Q" placeholderTextColor="#647184" style={s.qSmall} />
     <TextInput value={String(row.topicName ?? "General")} onChangeText={value => setRows(items => items.map((item, i) => i === index ? { ...item, topicName: value } : item))} placeholder="Topic" placeholderTextColor="#647184" style={s.qTopic} />
     <TextInput value={row.marksAwarded == null ? "" : String(row.marksAwarded)} onChangeText={value => setRows(items => items.map((item, i) => i === index ? { ...item, marksAwarded: value } : item))} placeholder="Got" placeholderTextColor="#647184" keyboardType="decimal-pad" style={s.qSmall} />
     <TextInput value={row.marksTotal == null ? "" : String(row.marksTotal)} onChangeText={value => setRows(items => items.map((item, i) => i === index ? { ...item, marksTotal: value } : item))} placeholder="Max" placeholderTextColor="#647184" keyboardType="decimal-pad" style={s.qSmall} />
     <Pressable onPress={() => setRows(items => items.filter((_, i) => i !== index))}><Ionicons name="close" size={18} color="#C58D9B" /></Pressable>
-  </View>)}<Pressable onPress={() => setRows(items => [...items, { questionNo: "", topicName: "General", marksAwarded: "", marksTotal: "" }])} style={s.secondary}><Ionicons name="add" size={18} color="#D9BDF9" /><Text style={s.secondaryText}>Add question</Text></Pressable></View>;
+  </View>)}<Pressable onPress={() => setRows(items => [...items, { questionNo: "", topicName: "General", marksAwarded: "", marksTotal: "" }])} style={s.secondary}><Ionicons name="add" size={18} color={appColor("#D9BDF9")} /><Text style={s.secondaryText}>Add question</Text></Pressable></View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   header: { paddingTop: 18, paddingHorizontal: 18, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12 },
   back: { width: 44, height: 44, borderRadius: 15, backgroundColor: "#111B27", alignItems: "center", justifyContent: "center" },

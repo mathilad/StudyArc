@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, Redirect, useLocalSearchParams, useRouter } from "expo-router";
@@ -16,6 +19,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 export default function LoginScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const { account_created } = useLocalSearchParams<{ account_created?: string }>();
   const { session, loading, signIn } = useAuth();
@@ -45,7 +49,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={s.page} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <LinearGradient colors={["#211331", "#0B1119", "#080D14"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[appColor("#211331"), appColor("#0B1119"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
       <View style={s.card}>
         <View style={s.logo}><Image source={require("../assets/brand/studyarc-logo.png")} style={{ width: 88, height: 88, marginBottom: 12 }} resizeMode="contain" /><Text style={s.logoText}>Study<Text style={s.logoAccent}> Arc</Text></Text><Text style={s.kicker}>YOUR ADAPTIVE STUDY JOURNEY</Text></View>
         {account_created === "1" ? <Text accessibilityRole="alert" style={[s.subtitle, { color: "#8BD4A7" }]}>Account created successfully. Sign in to continue.</Text> : null}
@@ -96,13 +100,13 @@ export default function LoginScreen() {
         </Pressable>
 
         <Text style={s.footer}>New to Study Arc? <Link href="/signup" style={s.link}>Create account</Link></Text>
-        <View style={s.sessionNote}><Ionicons name="phone-portrait-outline" size={15} color="#A98BCB" /><Text style={s.sessionNoteText}>Signing in here makes this the active device for your account.</Text></View>
+        <View style={s.sessionNote}><Ionicons name="phone-portrait-outline" size={15} color={appColor("#A98BCB")} /><Text style={s.sessionNoteText}>Signing in here makes this the active device for your account.</Text></View>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   page: { flex: 1, backgroundColor: "#090D13", alignItems: "center", justifyContent: "center", padding: 22 },
   card: { width: "100%", maxWidth: 430, backgroundColor: "rgba(15,20,28,.96)", borderWidth: 1, borderColor: "#49365F", borderRadius: 28, padding: 28, shadowColor: "#000", shadowOpacity: .32, shadowRadius: 24, shadowOffset: { width: 0, height: 12 } },
   logo: { alignItems: "center", marginBottom: 24 },

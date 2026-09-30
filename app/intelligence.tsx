@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -20,6 +23,7 @@ import {
 } from "../lib/intelligence";
 
 export default function IntelligenceScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const { settings } = useAppConfig();
   const { profile, topicProgress, subtopicCoverage } = useStudent();
@@ -49,7 +53,7 @@ export default function IntelligenceScreen() {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={["#1A1026", "#080D14"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[appColor("#1A1026"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
       <View style={s.head}>
         <Pressable onPress={() => router.back()} style={s.back}>
           <Ionicons name="arrow-back" size={21} color="#FFF" />
@@ -132,6 +136,7 @@ export default function IntelligenceScreen() {
 }
 
 function Metric({ label, value, sub }: { label: string; value: string; sub: string }) {
+ useThemeRefresh();
   return (
     <View style={s.metric}>
       <Text style={s.metricLabel}>{label}</Text>
@@ -142,9 +147,10 @@ function Metric({ label, value, sub }: { label: string; value: string; sub: stri
 }
 
 function Action({ icon, title, sub, onPress }: { icon: keyof typeof Ionicons.glyphMap; title: string; sub: string; onPress: () => void }) {
+ useThemeRefresh();
   return (
     <Pressable onPress={onPress} style={s.action}>
-      <View style={s.actionIcon}><Ionicons name={icon} size={21} color="#D3B6F4" /></View>
+      <View style={s.actionIcon}><Ionicons name={icon} size={21} color={appColor("#D3B6F4")} /></View>
       <View style={{ flex: 1 }}><Text style={s.actionTitle}>{title}</Text><Text style={s.actionSub}>{sub}</Text></View>
       <Ionicons name="chevron-forward" size={17} color="#647286" />
     </Pressable>
@@ -152,10 +158,11 @@ function Action({ icon, title, sub, onPress }: { icon: keyof typeof Ionicons.gly
 }
 
 function Tool({ label, icon, go }: { label: string; icon: keyof typeof Ionicons.glyphMap; go: () => void }) {
-  return <Pressable onPress={go} style={s.tool}><Ionicons name={icon} size={20} color="#C6A8E7" /><Text style={s.toolText}>{label}</Text></Pressable>;
+ useThemeRefresh();
+  return <Pressable onPress={go} style={s.tool}><Ionicons name={icon} size={20} color={appColor("#C6A8E7")} /><Text style={s.toolText}>{label}</Text></Pressable>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   head: { padding: 18, paddingTop: 22, flexDirection: "row", alignItems: "center", gap: 11 },
   back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#151B25", alignItems: "center", justifyContent: "center" },

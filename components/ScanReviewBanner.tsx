@@ -1,11 +1,15 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 export default function ScanReviewBanner({ items = [] }: { items?: string[] }) {
+ useThemeRefresh();
   return <View style={s.card}>
     <View style={s.head}>
-      <View style={s.icon}><Ionicons name="create-outline" size={18} color="#D9C1F6"/></View>
+      <View style={s.icon}><Ionicons name="create-outline" size={18} color={appColor("#D9C1F6")}/></View>
       <View style={{ flex: 1 }}>
         <Text style={s.title}>Review what StudyArc found</Text>
         <Text style={s.sub}>Analysis is only a draft. Check and edit the detected details below before anything is added to your study data.</Text>
@@ -16,7 +20,7 @@ export default function ScanReviewBanner({ items = [] }: { items?: string[] }) {
   </View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   card:{borderRadius:18,backgroundColor:"#171321",borderWidth:1,borderColor:"#443454",padding:13,marginTop:10,marginBottom:4},
   head:{flexDirection:"row",alignItems:"center",gap:9},icon:{width:36,height:36,borderRadius:11,backgroundColor:"#241A31",alignItems:"center",justifyContent:"center"},title:{color:"#EEE7F5",fontSize:11,fontWeight:"900"},sub:{color:"#8A7B96",fontSize:8.5,lineHeight:13,marginTop:3},
   list:{marginTop:10,gap:6},row:{flexDirection:"row",alignItems:"flex-start",gap:7},item:{flex:1,color:"#B7C0CB",fontSize:8.7,lineHeight:13},

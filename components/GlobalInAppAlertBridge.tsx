@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import React,{useEffect,useMemo,useState}from"react";
 import { Alert,Modal,Pressable,ScrollView,StyleSheet,Text,View,type AlertButton,type AlertOptions } from "react-native";
@@ -5,6 +8,7 @@ import { Alert,Modal,Pressable,ScrollView,StyleSheet,Text,View,type AlertButton,
 type AlertPayload={title:string;message?:string;buttons:AlertButton[];options?:AlertOptions}|null;
 
 export default function GlobalInAppAlertBridge(){
+ useThemeRefresh();
  const[payload,setPayload]=useState<AlertPayload>(null);
  useEffect(()=>{
   const original=(Alert as any).alert?.bind(Alert);
@@ -22,7 +26,7 @@ export default function GlobalInAppAlertBridge(){
   if(text.includes("saved")||text.includes("complete")||text.includes("success"))return"success" as const;
   return"info" as const;
  },[payload]);
- const palette=tone==="danger"?{accent:"#EAA7B2",surface:"#2A171D",icon:"warning-outline" as const}:tone==="success"?{accent:"#83D6A3",surface:"#13261B",icon:"checkmark-circle-outline" as const}:{accent:"#C19AEF",surface:"#21182D",icon:"information-circle-outline" as const};
+ const palette=tone==="danger"?{accent:"#EAA7B2",surface:"#2A171D",icon:"warning-outline" as const}:tone==="success"?{accent:"#83D6A3",surface:"#13261B",icon:"checkmark-circle-outline" as const}:{accent:appColor("#C19AEF"),surface:appColor("#21182D"),icon:"information-circle-outline" as const};
  const close=()=>setPayload(null);
  const press=(button:AlertButton)=>{close();requestAnimationFrame(()=>button.onPress?.())};
  return <Modal visible={Boolean(payload)} transparent animationType="fade" onRequestClose={()=>{if(payload?.options?.cancelable!==false)close()}}>
@@ -42,4 +46,4 @@ export default function GlobalInAppAlertBridge(){
  </Modal>
 }
 
-const s=StyleSheet.create({overlay:{flex:1,backgroundColor:"rgba(3,6,10,.82)",alignItems:"center",justifyContent:"center",padding:20},card:{width:"100%",maxWidth:420,borderRadius:25,backgroundColor:"#101720",borderWidth:1,borderColor:"#344154",padding:19,shadowColor:"#000",shadowOpacity:.38,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:16},icon:{width:52,height:52,borderRadius:17,borderWidth:1,alignItems:"center",justifyContent:"center",marginBottom:12},eyebrow:{color:"#756887",fontSize:7.5,fontWeight:"900",letterSpacing:1.3},title:{color:"#F2F4F7",fontSize:19,fontWeight:"900",marginTop:4},messageScroll:{maxHeight:220},message:{color:"#8794A5",fontSize:10,lineHeight:16,marginTop:8},actions:{flexDirection:"row",justifyContent:"flex-end",gap:8,marginTop:18},actionsStack:{flexDirection:"column-reverse"},action:{minHeight:44,borderRadius:13,backgroundColor:"#18212C",borderWidth:1,borderColor:"#2D3948",paddingHorizontal:15,alignItems:"center",justifyContent:"center"},cancel:{backgroundColor:"#141B24"},destructive:{backgroundColor:"#30191F",borderColor:"#60323D"},actionText:{color:"#C3CCD6",fontSize:9.5,fontWeight:"900"},primaryText:{color:"#160B20"},destructiveText:{color:"#EBA8B3"}});
+const s=createThemeStyles({overlay:{flex:1,backgroundColor:"rgba(3,6,10,.82)",alignItems:"center",justifyContent:"center",padding:20},card:{width:"100%",maxWidth:420,borderRadius:25,backgroundColor:"#101720",borderWidth:1,borderColor:"#344154",padding:19,shadowColor:"#000",shadowOpacity:.38,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:16},icon:{width:52,height:52,borderRadius:17,borderWidth:1,alignItems:"center",justifyContent:"center",marginBottom:12},eyebrow:{color:"#756887",fontSize:7.5,fontWeight:"900",letterSpacing:1.3},title:{color:"#F2F4F7",fontSize:19,fontWeight:"900",marginTop:4},messageScroll:{maxHeight:220},message:{color:"#8794A5",fontSize:10,lineHeight:16,marginTop:8},actions:{flexDirection:"row",justifyContent:"flex-end",gap:8,marginTop:18},actionsStack:{flexDirection:"column-reverse"},action:{minHeight:44,borderRadius:13,backgroundColor:"#18212C",borderWidth:1,borderColor:"#2D3948",paddingHorizontal:15,alignItems:"center",justifyContent:"center"},cancel:{backgroundColor:"#141B24"},destructive:{backgroundColor:"#30191F",borderColor:"#60323D"},actionText:{color:"#C3CCD6",fontSize:9.5,fontWeight:"900"},primaryText:{color:"#160B20"},destructiveText:{color:"#EBA8B3"}});

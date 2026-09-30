@@ -1,3 +1,5 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
@@ -12,6 +14,7 @@ import { paperSectionsForSubject, type FlexiblePaperSection } from "../lib/paper
 import { normalizePastPaperQuestionKey, trackerSectionForRecordedQuestion } from "../lib/pastPaperTracker";
 
 export default function ManualPastPaper() {
+ useThemeRefresh();
   const router=useRouter();
   const params=useLocalSearchParams<{subjectName?:string;topicName?:string;paperYear?:string;paperSection?:string}>();
   const {profile}=useStudent();
@@ -73,6 +76,8 @@ export default function ManualPastPaper() {
     </ScrollView>
   </Screen>;
 }
-function Choice({title,selected,onPress}:{title:string;selected:boolean;onPress:()=>void}){return <Pressable accessibilityRole="button" accessibilityState={{selected}} onPress={onPress} style={[s.choice,selected&&s.selected]}><Text style={s.text}>{title}</Text></Pressable>}
-function Field({label,value,set,numeric=false,placeholder}:{label:string;value:string;set:(s:string)=>void;numeric?:boolean;placeholder?:string}){return <View><Text style={s.label}>{label}</Text><TextInput accessibilityLabel={label} value={value} onChangeText={set} keyboardType={numeric?"decimal-pad":"default"} placeholder={placeholder} placeholderTextColor="#778395" style={s.input}/></View>}
-const s=StyleSheet.create({header:{padding:18,flexDirection:"row",alignItems:"center",gap:12},back:{padding:10,backgroundColor:"#18212D",borderRadius:12},title:{color:"#F3EEF9",fontSize:21,fontWeight:"800"},content:{padding:18,paddingBottom:50,gap:14,width:"100%",maxWidth:820,alignSelf:"center"},card:{padding:18,borderRadius:20,backgroundColor:"#111923",borderWidth:1,borderColor:"#2C394A",gap:8},success:{padding:20,gap:12,borderRadius:20,backgroundColor:"#10231E"},label:{color:"#A6B0C0",fontSize:11,fontWeight:"700",marginTop:12,marginBottom:5},help:{color:"#8F9DAF",fontSize:12,lineHeight:19},text:{color:"#E8E0F1",fontSize:13,fontWeight:"600"},wrap:{flexDirection:"row",flexWrap:"wrap",gap:8},row:{flexDirection:"row",gap:12},choice:{padding:12,minHeight:44,borderRadius:12,borderWidth:1,borderColor:"#374252",backgroundColor:"#151D29"},selected:{backgroundColor:"#3B2852",borderColor:"#B784FF"},input:{backgroundColor:"#0A111B",borderWidth:1,borderColor:"#334156",borderRadius:12,minHeight:48,padding:12,color:"#F4F0F8",fontSize:14},primary:{minHeight:50,marginTop:12,padding:12,alignItems:"center",justifyContent:"center",backgroundColor:"#B784FF",borderRadius:14},primaryText:{color:"#190E25",fontWeight:"800",fontSize:14},button:{padding:12,minHeight:44,borderRadius:12,backgroundColor:"#242033",alignItems:"center"},error:{color:"#FFB7B7",fontSize:13},result:{color:"#CDB1EC",fontSize:14,fontWeight:"700",marginVertical:6}});
+function Choice({title,selected,onPress}:{title:string;selected:boolean;onPress:()=>void}){
+ useThemeRefresh();return <Pressable accessibilityRole="button" accessibilityState={{selected}} onPress={onPress} style={[s.choice,selected&&s.selected]}><Text style={s.text}>{title}</Text></Pressable>}
+function Field({label,value,set,numeric=false,placeholder}:{label:string;value:string;set:(s:string)=>void;numeric?:boolean;placeholder?:string}){
+ useThemeRefresh();return <View><Text style={s.label}>{label}</Text><TextInput accessibilityLabel={label} value={value} onChangeText={set} keyboardType={numeric?"decimal-pad":"default"} placeholder={placeholder} placeholderTextColor="#778395" style={s.input}/></View>}
+const s=createThemeStyles({header:{padding:18,flexDirection:"row",alignItems:"center",gap:12},back:{padding:10,backgroundColor:"#18212D",borderRadius:12},title:{color:"#F3EEF9",fontSize:21,fontWeight:"800"},content:{padding:18,paddingBottom:50,gap:14,width:"100%",maxWidth:820,alignSelf:"center"},card:{padding:18,borderRadius:20,backgroundColor:"#111923",borderWidth:1,borderColor:"#2C394A",gap:8},success:{padding:20,gap:12,borderRadius:20,backgroundColor:"#10231E"},label:{color:"#A6B0C0",fontSize:11,fontWeight:"700",marginTop:12,marginBottom:5},help:{color:"#8F9DAF",fontSize:12,lineHeight:19},text:{color:"#E8E0F1",fontSize:13,fontWeight:"600"},wrap:{flexDirection:"row",flexWrap:"wrap",gap:8},row:{flexDirection:"row",gap:12},choice:{padding:12,minHeight:44,borderRadius:12,borderWidth:1,borderColor:"#374252",backgroundColor:"#151D29"},selected:{backgroundColor:"#3B2852",borderColor:"#B784FF"},input:{backgroundColor:"#0A111B",borderWidth:1,borderColor:"#334156",borderRadius:12,minHeight:48,padding:12,color:"#F4F0F8",fontSize:14},primary:{minHeight:50,marginTop:12,padding:12,alignItems:"center",justifyContent:"center",backgroundColor:"#B784FF",borderRadius:14},primaryText:{color:"#190E25",fontWeight:"800",fontSize:14},button:{padding:12,minHeight:44,borderRadius:12,backgroundColor:"#242033",alignItems:"center"},error:{color:"#FFB7B7",fontSize:13},result:{color:"#CDB1EC",fontSize:14,fontWeight:"700",marginVertical:6}});

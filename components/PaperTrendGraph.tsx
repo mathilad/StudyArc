@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
@@ -9,6 +12,7 @@ const dateLabel = (date: string) => {
 };
 
 export default function PaperTrendGraph({ points }: { points: PaperTrendPoint[] }) {
+ useThemeRefresh();
   const shown = points.slice(-16);
   const [selected, setSelected] = useState<number | null>(null);
   const activeIndex = selected !== null && selected < shown.length ? selected : shown.length - 1;
@@ -26,8 +30,8 @@ export default function PaperTrendGraph({ points }: { points: PaperTrendPoint[] 
         <Line x1={left} y1={y(value)} x2={w - right} y2={y(value)} stroke="#273342" strokeDasharray="3 5" />
         <SvgText x={left - 8} y={y(value) + 4} textAnchor="end" fill="#8D9AAA" fontSize={10}>{value}%</SvgText>
       </React.Fragment>)}
-      {coords.length > 1 && <Polyline points={coords.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke="#B784FF" strokeWidth={3} strokeLinejoin="round" />}
-      {coords.map((p, index) => <Circle key={index} cx={p.x} cy={p.y} r={index === activeIndex ? 6 : 4} fill={index === activeIndex ? "#E2CCFF" : "#B784FF"} />)}
+      {coords.length > 1 && <Polyline points={coords.map(p => `${p.x},${p.y}`).join(" ")} fill="none" stroke={appColor("#B784FF")} strokeWidth={3} strokeLinejoin="round" />}
+      {coords.map((p, index) => <Circle key={index} cx={p.x} cy={p.y} r={index === activeIndex ? 6 : 4} fill={index === activeIndex ? appColor("#E2CCFF") : appColor("#B784FF")} />)}
       {shown.length > 0 && <SvgText x={coords[0].x} y={h - 10} textAnchor={shown.length === 1 ? "middle" : "start"} fill="#8D9AAA" fontSize={10}>{dateLabel(shown[0].date)}</SvgText>}
       {shown.length > 1 && <SvgText x={w - right} y={h - 10} textAnchor="end" fill="#8D9AAA" fontSize={10}>{dateLabel(shown[shown.length - 1].date)}</SvgText>}
     </Svg>
@@ -40,7 +44,7 @@ export default function PaperTrendGraph({ points }: { points: PaperTrendPoint[] 
     </> : <Text style={s.empty}>No marks yet. Save a test mark or scored paper result to start this subject’s graph.</Text>}
   </View>;
 }
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { marginTop: 10, borderRadius: 16, backgroundColor: "#0B1119", padding: 10 },
   summary: { flexDirection: "row", alignItems: "center", gap: 12 },
   result: { color: "#E0D7EC", fontSize: 12, fontWeight: "700" },

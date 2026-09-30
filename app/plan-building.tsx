@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
@@ -23,6 +26,7 @@ const BUILD_STEPS = [
 ];
 
 export default function PlanBuildingScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -103,10 +107,10 @@ export default function PlanBuildingScreen() {
   const hours = (snapshot.studyMinutes + snapshot.revisionMinutes) / 60;
 
   return <View style={s.root}>
-    <LinearGradient colors={["#251538", "#0D111A", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <LinearGradient colors={[appColor("#251538"), appColor("#0D111A"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
       <View style={s.brandRow}><Text style={s.brand}>Study<Text style={s.brandAccent}> Arc</Text></Text><Text style={s.version}>v1.1.6</Text></View>
-      <Animated.View style={[s.heroIcon, { transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) }] }]}><Ionicons name={ready ? "checkmark" : "sparkles"} size={34} color={ready ? "#160B20" : "#E9D8FF"} /></Animated.View>
+      <Animated.View style={[s.heroIcon, { transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) }] }]}><Ionicons name={ready ? "checkmark" : "sparkles"} size={34} color={ready ? appColor("#160B20") : appColor("#E9D8FF")} /></Animated.View>
       <Text style={s.kicker}>{ready ? "YOUR FIRST WEEK IS READY" : "BUILDING YOUR STUDY ARC"}</Text>
       <Text style={s.title}>{ready ? "Your plan is ready." : "Your plan is being generated…"}</Text>
       <Text style={s.subtitle}>{ready ? "Study Arc will keep adjusting this plan as your classes, results, assignments and revision needs change." : active.detail}</Text>
@@ -121,7 +125,7 @@ export default function PlanBuildingScreen() {
           const current = !ready && index === step;
           return <View key={item.title} style={[s.step, current && s.stepCurrent]}>
             <View style={[s.stepIcon, done && s.stepIconDone, current && s.stepIconCurrent]}>
-              <Ionicons name={done ? "checkmark" : item.icon} size={18} color={done ? "#160B20" : current ? "#E6D2FF" : "#677487"} />
+              <Ionicons name={done ? "checkmark" : item.icon} size={18} color={done ? appColor("#160B20") : current ? appColor("#E6D2FF") : "#677487"} />
             </View>
             <View style={{ flex: 1 }}><Text style={[s.stepTitle, (done || current) && s.stepTitleOn]}>{item.title}</Text><Text style={s.stepDetail}>{item.detail}</Text></View>
           </View>;
@@ -137,12 +141,12 @@ export default function PlanBuildingScreen() {
           <Metric label="SUBJECT TRACKS" value={String(subjects.length)} />
         </View>
 
-        <View style={s.priorityCard}><View style={s.priorityHead}><Ionicons name="navigate-outline" size={20} color="#D9C2F5" /><Text style={s.priorityTitle}>Initial priorities</Text></View>
+        <View style={s.priorityCard}><View style={s.priorityHead}><Ionicons name="navigate-outline" size={20} color={appColor("#D9C2F5")} /><Text style={s.priorityTitle}>Initial priorities</Text></View>
           {snapshot.priorities.length ? snapshot.priorities.slice(0, 3).map((item, index) => <View key={item} style={s.priorityRow}><Text style={s.priorityNo}>{index + 1}</Text><Text style={s.priorityText}>{item}</Text></View>) : <Text style={s.priorityEmpty}>Mark lessons you have covered and Study Arc will progressively unlock focused recommendations.</Text>}
         </View>
 
         <View style={s.explain}><Ionicons name="information-circle-outline" size={20} color="#9DB1C9" /><Text style={s.explainText}>Your timetable is not fixed forever. Study Arc recalculates priorities when your class schedule, assignments, test performance, sleep times, revision due dates or exam phase changes.</Text></View>
-        <Pressable onPress={() => router.replace("/(tabs)/plan")} style={s.primary}><Text style={s.primaryText}>View my plan</Text><Ionicons name="arrow-forward" size={19} color="#160B20" /></Pressable>
+        <Pressable onPress={() => router.replace("/(tabs)/plan")} style={s.primary}><Text style={s.primaryText}>View my plan</Text><Ionicons name="arrow-forward" size={19} color={appColor("#160B20")} /></Pressable>
         <Pressable onPress={() => router.replace("/(tabs)")} style={s.secondary}><Text style={s.secondaryText}>Go to Today</Text></Pressable>
         {!stored ? <Text style={s.storageNote}>Your plan is ready. The local plan snapshot will be saved again when the app can write to device storage.</Text> : null}
       </>}
@@ -151,10 +155,11 @@ export default function PlanBuildingScreen() {
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
+ useThemeRefresh();
   return <View style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{value}</Text></View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   content: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 24, paddingBottom: 44, maxWidth: 720, width: "100%", alignSelf: "center" },
   brandRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 42 },

@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
@@ -34,6 +37,7 @@ type AdminUser = {
 const stateLabel = (value: string) => value.replaceAll("_", " ");
 
 export default function AdminUsersScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const { session } = useAuth();
   const { isAdmin } = useAppConfig();
@@ -181,7 +185,7 @@ export default function AdminUsersScreen() {
   return (
     <View style={s.root}>
       <LinearGradient
-        colors={["#1A1227", "#080D14", "#080D14"]}
+        colors={[appColor("#1A1227"), appColor("#080D14"), appColor("#080D14")]}
         style={StyleSheet.absoluteFill}
       />
       <View style={s.head}>
@@ -217,7 +221,7 @@ export default function AdminUsersScreen() {
             style={s.search}
           />
           <Pressable onPress={load} style={s.searchButton}>
-            <Ionicons name="search" size={18} color="#170C1F" />
+            <Ionicons name="search" size={18} color={appColor("#170C1F")} />
           </Pressable>
         </View>
 
@@ -239,7 +243,7 @@ export default function AdminUsersScreen() {
                   user.is_blocked ? "lock-closed-outline" : "person-outline"
                 }
                 size={19}
-                color={user.is_blocked ? "#EAA3AF" : "#CDB3EE"}
+                color={user.is_blocked ? "#EAA3AF" : appColor("#CDB3EE")}
               />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
@@ -339,7 +343,7 @@ export default function AdminUsersScreen() {
                 onPress={grantPremium}
                 style={s.actionPrimary}
               >
-                <Ionicons name="diamond-outline" size={17} color="#160B20" />
+                <Ionicons name="diamond-outline" size={17} color={appColor("#160B20")} />
                 <Text style={s.actionPrimaryText}>Extend Premium</Text>
               </Pressable>
               <Pressable
@@ -347,7 +351,7 @@ export default function AdminUsersScreen() {
                 onPress={generateCode}
                 style={s.actionSecondary}
               >
-                <Ionicons name="key-outline" size={17} color="#D8C3F3" />
+                <Ionicons name="key-outline" size={17} color={appColor("#D8C3F3")} />
                 <Text style={s.actionSecondaryText}>
                   {selected.activation_code
                     ? "Regenerate code"
@@ -399,6 +403,7 @@ export default function AdminUsersScreen() {
 }
 
 function Info({ label, value }: { label: string; value: string }) {
+ useThemeRefresh();
   return (
     <View style={s.infoItem}>
       <Text style={s.infoLabel}>{label}</Text>
@@ -407,7 +412,7 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   head: {
     padding: 18,

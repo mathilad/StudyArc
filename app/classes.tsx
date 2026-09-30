@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -24,6 +27,7 @@ const labelDate = (iso: string | null) => iso
   : "";
 
 export default function Classes() {
+ useThemeRefresh();
   const router = useRouter();
   const {
     profile,
@@ -156,12 +160,12 @@ export default function Classes() {
         </View>
         <Text style={s.meta}>{DAYS[c.dayOfWeek]} · {format12Hour(c.startTime)}–{format12Hour(c.endTime)}</Text>
         <Text style={s.meta}>{paperPrep} min {c.classType === "Paper" ? "paper preparation" : "pre-class review"}{c.deliveryMode === "Physical" ? " · 90 min travel each way" : ""}</Text>
-        {topic && <View style={s.focusBox}><Ionicons name="book-outline" size={15} color="#CCAFF2" /><View style={{ flex: 1 }}><Text style={s.focusLabel}>THIS WEEK'S LESSON</Text><Text style={s.focusText}>{topic}</Text></View></View>}
+        {topic && <View style={s.focusBox}><Ionicons name="book-outline" size={15} color={appColor("#CCAFF2")} /><View style={{ flex: 1 }}><Text style={s.focusLabel}>THIS WEEK'S LESSON</Text><Text style={s.focusText}>{topic}</Text></View></View>}
         {override?.status === "Missed" && <Text style={s.overrideMissed}>Removed from this week's plan. Open “This week” to arrange a make-up.</Text>}
         {override?.status === "Rescheduled" && <Text style={s.overrideMoved}>Make-up: {labelDate(override.rescheduledDate)} · {format12Hour(override.startTime || c.startTime)}–{format12Hour(override.endTime || c.endTime)}</Text>}
         <View style={s.actions}>
           <Pressable onPress={() => openEditClass(c)} style={s.editAction}><Ionicons name="create-outline" size={15} color="#AFC2DB" /><Text style={s.editActionText}>Edit</Text></Pressable>
-          <Pressable onPress={() => setOverrideClass(c)} style={s.weekAction}><Ionicons name="calendar-number-outline" size={15} color="#CEB0F2" /><Text style={s.weekActionText}>This week</Text></Pressable>
+          <Pressable onPress={() => setOverrideClass(c)} style={s.weekAction}><Ionicons name="calendar-number-outline" size={15} color={appColor("#CEB0F2")} /><Text style={s.weekActionText}>This week</Text></Pressable>
         </View>
       </View>
       <Pressable hitSlop={8} onPress={() => setPendingDelete({ kind: "class", id: c.id, title: c.title || `${c.classType} class`, subject: c.subjectName })} style={s.delete}><Ionicons name="trash-outline" size={18} color="#A27680" /></Pressable>
@@ -169,17 +173,17 @@ export default function Classes() {
   };
 
   return <View style={s.root}>
-    <LinearGradient colors={["#151022", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <LinearGradient colors={[appColor("#151022"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
     <View style={s.head}>
       <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={22} color="#FFF" /></Pressable>
       <View style={{ flex: 1 }}><Text style={s.title}>Classes & weekly commitments</Text><Text style={s.sub}>Recurring classes, repetitive tasks, this week's changes and unavailable time</Text></View>
-      <Pressable onPress={() => setAddPickerOpen(true)} style={s.add}><Ionicons name="add" size={20} color="#150B1E" /></Pressable>
+      <Pressable onPress={() => setAddPickerOpen(true)} style={s.add}><Ionicons name="add" size={20} color={appColor("#150B1E")} /></Pressable>
     </View>
 
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-      <View style={s.weekBanner}><Ionicons name="calendar-outline" size={20} color="#C9A8F3" /><View style={{ flex: 1 }}><Text style={s.weekTitle}>This week · {week[0].toLocaleDateString(undefined, { day: "numeric", month: "short" })} – {week[6].toLocaleDateString(undefined, { day: "numeric", month: "short" })}</Text><Text style={s.weekText}>Set what each class is covering, mark a class missed, or move only this week's occurrence. Repetitive tasks keep the same reserved time every week.</Text></View></View>
+      <View style={s.weekBanner}><Ionicons name="calendar-outline" size={20} color={appColor("#C9A8F3")} /><View style={{ flex: 1 }}><Text style={s.weekTitle}>This week · {week[0].toLocaleDateString(undefined, { day: "numeric", month: "short" })} – {week[6].toLocaleDateString(undefined, { day: "numeric", month: "short" })}</Text><Text style={s.weekText}>Set what each class is covering, mark a class missed, or move only this week's occurrence. Repetitive tasks keep the same reserved time every week.</Text></View></View>
 
-      <View style={s.sectionHead}><View style={{ flex: 1 }}><Text style={s.sectionTitle}>Weekly classes</Text><Text style={s.sectionSub}>Organized by subject. Filter by class type, then edit any class without deleting it.</Text></View><Pressable onPress={openAddClass} style={s.smallAdd}><Ionicons name="add" size={16} color="#190E21" /><Text style={s.smallAddText}>Class</Text></Pressable></View>
+      <View style={s.sectionHead}><View style={{ flex: 1 }}><Text style={s.sectionTitle}>Weekly classes</Text><Text style={s.sectionSub}>Organized by subject. Filter by class type, then edit any class without deleting it.</Text></View><Pressable onPress={openAddClass} style={s.smallAdd}><Ionicons name="add" size={16} color={appColor("#190E21")} /><Text style={s.smallAddText}>Class</Text></Pressable></View>
 
       {classes.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
         {FILTERS.map(filter => {
@@ -198,24 +202,24 @@ export default function Classes() {
               const counts = FILTERS.slice(1).map(type => ({ type, count: subjectClasses.filter(c => c.classType === type).length })).filter(x => x.count > 0);
               return <View key={subject} style={s.subjectGroup}>
                 <View style={s.subjectHead}>
-                  <View style={s.subjectIcon}><Ionicons name="book-outline" size={18} color="#D7C2F3" /></View>
+                  <View style={s.subjectIcon}><Ionicons name="book-outline" size={18} color={appColor("#D7C2F3")} /></View>
                   <View style={{ flex: 1 }}><Text style={s.subjectTitle}>{subject}</Text><Text style={s.subjectMeta}>{subjectClasses.length} class{subjectClasses.length === 1 ? "" : "es"} · {counts.map(x => `${x.type} ${x.count}`).join(" · ")}</Text></View>
                 </View>
                 {subjectClasses.map(renderClassCard)}
               </View>;
             })}
 
-      <View style={s.sectionHead}><View style={{ flex: 1 }}><Text style={s.sectionTitle}>Repetitive tasks</Text><Text style={s.sectionSub}>Give recurring chores, planning, practice or other weekly responsibilities their own fixed time every week.</Text></View><Pressable onPress={() => setRepetitiveOpen(true)} style={s.smallAdd}><Ionicons name="add" size={16} color="#190E21" /><Text style={s.smallAddText}>Task</Text></Pressable></View>
+      <View style={s.sectionHead}><View style={{ flex: 1 }}><Text style={s.sectionTitle}>Repetitive tasks</Text><Text style={s.sectionSub}>Give recurring chores, planning, practice or other weekly responsibilities their own fixed time every week.</Text></View><Pressable onPress={() => setRepetitiveOpen(true)} style={s.smallAdd}><Ionicons name="add" size={16} color={appColor("#190E21")} /><Text style={s.smallAddText}>Task</Text></Pressable></View>
       <View style={s.taskInfo}><Ionicons name="repeat-outline" size={20} color="#9FC4FF" /><Text style={s.taskInfoText}>These blocks repeat every week and stay separate from automatic study planning, so Study Arc will not schedule study over them.</Text></View>
       {repetitiveTasks.length===0
         ? <Pressable onPress={()=>setRepetitiveOpen(true)} style={s.protectedEmpty}><Ionicons name="repeat-outline" size={27} color="#677587" /><Text style={s.protectedEmptyTitle}>No repetitive tasks yet</Text><Text style={s.protectedEmptyText}>Add a task once, choose its weekly day and time, and Study Arc reserves that slot every week.</Text></Pressable>
         : repetitiveTasks.sort((a,b)=>a.dayOfWeek-b.dayOfWeek||a.startTime.localeCompare(b.startTime)).map(item=><View key={item.id} style={s.taskCard}><View style={s.taskIcon}><Ionicons name="repeat-outline" size={20} color="#AFCFFF" /></View><View style={{flex:1}}><Text style={s.protectedTitle}>{taskName(item.title)}</Text><Text style={s.meta}>Every {DAYS[item.dayOfWeek]} · {format12Hour(item.startTime)}–{format12Hour(item.endTime)}</Text><Text style={s.taskTag}>RESERVED EVERY WEEK</Text></View><Pressable onPress={()=>setPendingDelete({kind:"task",id:item.id,title:taskName(item.title)})} style={s.delete}><Ionicons name="trash-outline" size={18} color="#A27680" /></Pressable></View>)}
 
-      <View style={s.sectionHead}><View style={{ flex: 1 }}><Text style={s.sectionTitle}>Protected time</Text><Text style={s.sectionSub}>Reserve anything you must attend or any short interval that should not become study.</Text></View><Pressable onPress={() => setProtectedOpen(true)} style={s.smallAdd}><Ionicons name="add" size={16} color="#190E21" /><Text style={s.smallAddText}>Time</Text></Pressable></View>
-      <View style={s.protectedInfo}><Ionicons name="shield-checkmark-outline" size={20} color="#C5A2F1" /><Text style={s.protectedInfoText}>Add appointments, clubs, family events, meals, extra commitments or even a 20-minute unavailable interval. Study Arc keeps it clear.</Text></View>
+      <View style={s.sectionHead}><View style={{ flex: 1 }}><Text style={s.sectionTitle}>Protected time</Text><Text style={s.sectionSub}>Reserve anything you must attend or any short interval that should not become study.</Text></View><Pressable onPress={() => setProtectedOpen(true)} style={s.smallAdd}><Ionicons name="add" size={16} color={appColor("#190E21")} /><Text style={s.smallAddText}>Time</Text></Pressable></View>
+      <View style={s.protectedInfo}><Ionicons name="shield-checkmark-outline" size={20} color={appColor("#C5A2F1")} /><Text style={s.protectedInfoText}>Add appointments, clubs, family events, meals, extra commitments or even a 20-minute unavailable interval. Study Arc keeps it clear.</Text></View>
       {visibleProtected.length === 0
         ? <Pressable onPress={() => setProtectedOpen(true)} style={s.protectedEmpty}><Ionicons name="time-outline" size={27} color="#677587" /><Text style={s.protectedEmptyTitle}>No protected time yet</Text><Text style={s.protectedEmptyText}>Use this when you are free from studying but not actually available.</Text></Pressable>
-        : visibleProtected.map(item => <View key={item.id} style={s.protectedCard}><View style={s.protectedIcon}><Ionicons name="shield-outline" size={20} color="#C7A6EF" /></View><View style={{ flex: 1 }}><Text style={s.protectedTitle}>{item.title}</Text><Text style={s.meta}>{item.recurrence === "Weekly" ? `Every ${DAYS[item.dayOfWeek]}` : labelDate(item.date)} · {format12Hour(item.startTime)}–{format12Hour(item.endTime)}</Text><Text style={s.protectedTag}>NOT AVAILABLE FOR STUDY</Text></View><Pressable onPress={() => setPendingDelete({ kind: "protected", id: item.id, title: item.title })} style={s.delete}><Ionicons name="trash-outline" size={18} color="#A27680" /></Pressable></View>)}
+        : visibleProtected.map(item => <View key={item.id} style={s.protectedCard}><View style={s.protectedIcon}><Ionicons name="shield-outline" size={20} color={appColor("#C7A6EF")} /></View><View style={{ flex: 1 }}><Text style={s.protectedTitle}>{item.title}</Text><Text style={s.meta}>{item.recurrence === "Weekly" ? `Every ${DAYS[item.dayOfWeek]}` : labelDate(item.date)} · {format12Hour(item.startTime)}–{format12Hour(item.endTime)}</Text><Text style={s.protectedTag}>NOT AVAILABLE FOR STUDY</Text></View><Pressable onPress={() => setPendingDelete({ kind: "protected", id: item.id, title: item.title })} style={s.delete}><Ionicons name="trash-outline" size={18} color="#A27680" /></Pressable></View>)}
     </ScrollView>
 
     <ClassFormModal visible={classModalOpen} subjects={subjects} initialValue={editingClass} onClose={closeClassModal} onSave={saveClassDetails} />
@@ -227,23 +231,23 @@ export default function Classes() {
       <View style={s.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => setAddPickerOpen(false)} />
         <View style={s.addPickerModal}>
-          <View style={s.addPickerIcon}><Ionicons name="add" size={25} color="#EAD8FF" /></View>
+          <View style={s.addPickerIcon}><Ionicons name="add" size={25} color={appColor("#EAD8FF")} /></View>
           <Text style={s.addPickerTitle}>What are you adding?</Text>
           <Text style={s.addPickerSub}>Choose the kind of weekly commitment first. StudyArc will open the correct form.</Text>
           <Pressable onPress={openAddClass} style={s.addChoice}>
-            <View style={s.addChoiceIcon}><Ionicons name="school-outline" size={21} color="#DCC2FA" /></View>
+            <View style={s.addChoiceIcon}><Ionicons name="school-outline" size={21} color={appColor("#DCC2FA")} /></View>
             <View style={{ flex: 1 }}><Text style={s.addChoiceTitle}>Class</Text><Text style={s.addChoiceSub}>Theory, revision, paper, extra class or paper discussion.</Text></View>
-            <Ionicons name="chevron-forward" size={18} color="#8C7A9F" />
+            <Ionicons name="chevron-forward" size={18} color={appColor("#8C7A9F")} />
           </Pressable>
           <Pressable onPress={openAddTask} style={s.addChoice}>
             <View style={[s.addChoiceIcon, s.addChoiceTask]}><Ionicons name="repeat-outline" size={21} color="#BED7FF" /></View>
             <View style={{ flex: 1 }}><Text style={s.addChoiceTitle}>Repetitive task</Text><Text style={s.addChoiceSub}>A weekly responsibility that reserves the same time every week.</Text></View>
-            <Ionicons name="chevron-forward" size={18} color="#8C7A9F" />
+            <Ionicons name="chevron-forward" size={18} color={appColor("#8C7A9F")} />
           </Pressable>
           <Pressable onPress={openAddProtectedTime} style={s.addChoice}>
-            <View style={s.addChoiceIcon}><Ionicons name="shield-checkmark-outline" size={21} color="#DCC2FA" /></View>
+            <View style={s.addChoiceIcon}><Ionicons name="shield-checkmark-outline" size={21} color={appColor("#DCC2FA")} /></View>
             <View style={{ flex: 1 }}><Text style={s.addChoiceTitle}>Protected time</Text><Text style={s.addChoiceSub}>Appointments, events or any interval unavailable for study.</Text></View>
-            <Ionicons name="chevron-forward" size={18} color="#8C7A9F" />
+            <Ionicons name="chevron-forward" size={18} color={appColor("#8C7A9F")} />
           </Pressable>
           <Pressable onPress={() => setAddPickerOpen(false)} style={s.addPickerCancel}><Text style={s.addPickerCancelText}>Cancel</Text></Pressable>
         </View>
@@ -257,10 +261,11 @@ export default function Classes() {
 }
 
 function Pill({ text, type }: { text: string; type: "missed" | "moved" | "focus" }) {
+ useThemeRefresh();
   return <View style={[s.status, type === "missed" ? s.statusMissed : type === "moved" ? s.statusMoved : s.statusFocus]}><Text style={[s.statusText, type === "missed" ? s.statusTextMissed : type === "moved" ? s.statusTextMoved : s.statusTextFocus]}>{text}</Text></View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   head: { padding: 18, paddingTop: 22, flexDirection: "row", alignItems: "center", gap: 12 },
   back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#151C27", alignItems: "center", justifyContent: "center" },

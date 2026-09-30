@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -37,6 +40,7 @@ const time = (seconds: number) => {
 };
 
 export default function AudioRecall() {
+ useThemeRefresh();
   const router = useRouter();
   const { profile } = useStudent();
   const subjects = useMemo(() => expandSubjectChoices(profile.subjectChoices), [profile.subjectChoices]);
@@ -191,7 +195,7 @@ export default function AudioRecall() {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={["#181020", "#080D14"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[appColor("#181020"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
       <View style={s.head}>
         <Pressable onPress={() => router.back()} style={s.back}>
           <Ionicons name="arrow-back" size={21} color="#FFF" />
@@ -244,23 +248,23 @@ export default function AudioRecall() {
 
         <View style={s.recorder}>
           <View style={[s.mic, state.isRecording && s.micOn]}>
-            <Ionicons name={state.isRecording ? "mic" : "mic-outline"} size={33} color={state.isRecording ? "#160B20" : "#E0CCF6"} />
+            <Ionicons name={state.isRecording ? "mic" : "mic-outline"} size={33} color={state.isRecording ? appColor("#160B20") : appColor("#E0CCF6")} />
           </View>
           <Text style={s.recordTitle}>{state.isRecording ? "Recording your explanation…" : "Ready for active recall"}</Text>
           <Text style={s.recordSub}>{state.isRecording ? `${Math.floor((state.durationMillis ?? 0) / 1000)} seconds · speak without notes if you can` : permissionAsked ? "Microphone access is only used for Audio Recall." : "No microphone permission has been requested yet."}</Text>
           <Pressable onPress={state.isRecording ? stop : start} style={[s.recordButton, state.isRecording && s.stopButton]}>
-            <Ionicons name={state.isRecording ? "stop" : "mic"} size={18} color="#160B20" />
+            <Ionicons name={state.isRecording ? "stop" : "mic"} size={18} color={appColor("#160B20")} />
             <Text style={s.recordButtonText}>{state.isRecording ? "Stop & keep locally" : "Record recall"}</Text>
           </Pressable>
         </View>
 
         <Pressable onPress={() => router.push({ pathname: "/feynman", params: { subjectName: subject, topicName: topic } })} style={s.feynman}>
-          <Ionicons name="chatbubble-ellipses-outline" size={22} color="#D5B9F5" />
+          <Ionicons name="chatbubble-ellipses-outline" size={22} color={appColor("#D5B9F5")} />
           <View style={{ flex: 1 }}>
             <Text style={s.feynmanTitle}>Use Feynman Mode next</Text>
             <Text style={s.feynmanText}>{FEYNMAN_HANDOFF}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#806E94" />
+          <Ionicons name="chevron-forward" size={18} color={appColor("#806E94")} />
         </Pressable>
 
         <View style={s.sectionHead}>
@@ -275,7 +279,7 @@ export default function AudioRecall() {
           return (
             <View key={item.id} style={[s.saved, active && s.savedActive]}>
               <Pressable onPress={() => playRecall(item)} style={[s.play, active && s.playActive]} accessibilityRole="button" accessibilityLabel={playing ? "Pause recording" : "Play recording"}>
-                <Ionicons name={playing ? "pause" : "play"} size={18} color={active ? "#160B20" : "#D9C2F3"} />
+                <Ionicons name={playing ? "pause" : "play"} size={18} color={active ? appColor("#160B20") : appColor("#D9C2F3")} />
               </Pressable>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text numberOfLines={1} style={s.savedTitle}>{item.subjectName} · {item.topicName}</Text>
@@ -317,7 +321,7 @@ export default function AudioRecall() {
   );
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   head: { padding: 18, paddingTop: 22, flexDirection: "row", alignItems: "center", gap: 11 },
   back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#151B25", alignItems: "center", justifyContent: "center" },

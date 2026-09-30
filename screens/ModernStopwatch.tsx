@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -22,6 +25,7 @@ const todayText = (seconds: number) => {
 };
 
 export default function ModernStopwatch() {
+ useThemeRefresh();
   const router = useRouter();
   const params = useLocalSearchParams<{ subjectName?: string | string[]; topicName?: string | string[]; studyType?: string | string[]; paperYear?: string | string[]; paperSection?: string | string[]; attemptNo?: string | string[]; assignmentId?: string | string[]; assignmentTitle?: string | string[]; targetMinutes?: string | string[]; markAfter?: string | string[]; recordQuestions?: string | string[]; selectedQuestions?: string | string[]; lessonPractice?: string | string[] }>();
   const { addSession, todaySeconds } = useStudy();
@@ -201,9 +205,9 @@ export default function ModernStopwatch() {
   };
 
   return <View style={s.root}>
-    <LinearGradient colors={["#20132E", "#0B0E15", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <LinearGradient colors={[appColor("#20132E"), appColor("#0B0E15"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
     <View style={s.header}>
-      <Pressable onPress={() => elapsed > 0 ? setStopOpen(true) : router.replace("/(tabs)")} style={s.back}><Ionicons name="arrow-back" size={21} color="#F7F4FA" /></Pressable>
+      <Pressable onPress={() => elapsed > 0 ? setStopOpen(true) : router.replace("/(tabs)")} style={s.back}><Ionicons name="arrow-back" size={21} color={appColor("#F7F4FA")} /></Pressable>
       <View style={{ flex: 1, minWidth: 0 }}><Text style={s.kicker}>{meta.studyType.toUpperCase()}</Text><Text style={s.title} numberOfLines={1}>{topicName === "General" ? subjectName : topicName}</Text><Text style={s.sub} numberOfLines={1}>{subjectName}{topicName !== "General" ? ` · ${topicName}` : ""}</Text></View>
       <View style={[s.liveBadge, running && s.liveBadgeOn]}><View style={[s.liveDot, running && s.liveDotOn]} /><Text style={[s.liveText, running && s.liveTextOn]}>{running ? "FOCUS" : elapsed ? "PAUSED" : "READY"}</Text></View>
     </View>
@@ -217,14 +221,14 @@ export default function ModernStopwatch() {
         <Text style={s.timerHint}>{running ? "Stay with this task" : elapsed ? "Session paused" : "Start when you are ready"}</Text>
 
         <Pressable onPress={running ? pause : start} style={s.primaryWrap}>
-          <LinearGradient colors={running ? ["#F0C46C", "#DDA344"] : ["#C49AF7", "#A970F0"]} style={s.primary}>
-            <Ionicons name={running ? "pause" : "play"} size={31} color="#160B20" />
+          <LinearGradient colors={running ? ["#F0C46C", "#DDA344"] : [appColor("#C49AF7"), appColor("#A970F0")]} style={s.primary}>
+            <Ionicons name={running ? "pause" : "play"} size={31} color={appColor("#160B20")} />
           </LinearGradient>
         </Pressable>
         <Text style={s.primaryText}>{running ? "Pause" : elapsed ? "Resume" : "Start session"}</Text>
 
         <View style={s.actions}>
-          <Pressable disabled={currentLap <= 0} onPress={addLap} style={[s.action, currentLap <= 0 && s.actionOff]}><Ionicons name="flag-outline" size={20} color={currentLap <= 0 ? "#56606C" : "#DEC6F8"} /><Text style={[s.actionText, currentLap <= 0 && s.actionTextOff]}>Lap</Text></Pressable>
+          <Pressable disabled={currentLap <= 0} onPress={addLap} style={[s.action, currentLap <= 0 && s.actionOff]}><Ionicons name="flag-outline" size={20} color={currentLap <= 0 ? "#56606C" : appColor("#DEC6F8")} /><Text style={[s.actionText, currentLap <= 0 && s.actionTextOff]}>Lap</Text></Pressable>
           <Pressable disabled={currentLap <= 0} onPress={resetLap} style={[s.action, currentLap <= 0 && s.actionOff]}><Ionicons name="refresh-outline" size={20} color={currentLap <= 0 ? "#56606C" : "#BAC5D2"} /><Text style={[s.actionText, currentLap <= 0 && s.actionTextOff]}>Reset lap</Text></Pressable>
           <Pressable onPress={() => setStopOpen(true)} style={[s.action, s.stopAction]}><Ionicons name="stop-outline" size={20} color="#E59A9A" /><Text style={[s.actionText, { color: "#DFA2A2" }]}>Stop</Text></Pressable>
         </View>
@@ -243,16 +247,16 @@ export default function ModernStopwatch() {
 
     <Modal visible={stopOpen} transparent animationType="fade" onRequestClose={() => setStopOpen(false)}>
       <View style={s.modalBack}><View style={s.modal}>
-        <View style={s.modalIcon}><Ionicons name="stop-circle-outline" size={29} color="#D6B8F7" /></View>
+        <View style={s.modalIcon}><Ionicons name="stop-circle-outline" size={29} color={appColor("#D6B8F7")} /></View>
         <Text style={s.modalTitle}>Finish this study session?</Text><Text style={s.modalSub}>Your total time and lap history can be saved before you leave.</Text>
-        <Pressable disabled={saving} onPress={save} style={s.save}><Ionicons name="checkmark" size={18} color="#160B20" /><Text style={s.saveText}>{saving ? "Saving…" : "Save session"}</Text></Pressable>
+        <Pressable disabled={saving} onPress={save} style={s.save}><Ionicons name="checkmark" size={18} color={appColor("#160B20")} /><Text style={s.saveText}>{saving ? "Saving…" : "Save session"}</Text></Pressable>
         <View style={s.modalRow}><Pressable disabled={saving} onPress={() => setStopOpen(false)} style={s.keep}><Text style={s.keepText}>Keep studying</Text></Pressable><Pressable disabled={saving} onPress={discard} style={s.discard}><Text style={s.discardText}>Discard</Text></Pressable></View>
       </View></View>
     </Modal>
   </View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" }, header: { minHeight: 76, paddingHorizontal: 18, paddingTop: 16, paddingBottom: 10, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: 1, borderBottomColor: "#251E2E" }, back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#121821", borderWidth: 1, borderColor: "#293340", alignItems: "center", justifyContent: "center" }, kicker: { color: "#A987D0", fontSize: 7.6, fontWeight: "900", letterSpacing: 1.2 }, title: { color: "#F5F3F7", fontSize: 18, fontWeight: "900", marginTop: 2 }, sub: { color: "#728093", fontSize: 8.3, marginTop: 2 }, liveBadge: { height: 29, borderRadius: 10, paddingHorizontal: 9, backgroundColor: "#171E28", flexDirection: "row", alignItems: "center", gap: 5 }, liveBadgeOn: { backgroundColor: "#17251C" }, liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#667384" }, liveDotOn: { backgroundColor: "#72D394" }, liveText: { color: "#758294", fontSize: 6.8, fontWeight: "900" }, liveTextOn: { color: "#83D9A1" },
   body: { flex: 1, paddingHorizontal: 20, paddingTop: 15, maxWidth: 760, width: "100%", alignSelf: "center" }, todayBar: { minHeight: 61, borderRadius: 17, backgroundColor: "#101720", borderWidth: 1, borderColor: "#293545", paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 16 }, smallLabel: { color: "#667486", fontSize: 7, fontWeight: "900", letterSpacing: 1 }, todayValue: { color: "#E3E8ED", fontSize: 13, fontWeight: "900", marginTop: 4 }, todayDivider: { width: 1, height: 31, backgroundColor: "#293544" }, sessionTotal: { color: "#CDB4EA", fontSize: 13, fontWeight: "900", marginTop: 4, fontVariant: ["tabular-nums"] },
   timerCard: { marginTop: 10, borderRadius: 29, backgroundColor: "#11131B", borderWidth: 1, borderColor: "#49345F", paddingVertical: 24, paddingHorizontal: 18, alignItems: "center" }, timerLabel: { color: "#80718F", fontSize: 8, fontWeight: "900", letterSpacing: 1.5 }, timer: { color: "#FCFAFD", fontSize: 49, fontWeight: "900", letterSpacing: 1.2, marginTop: 9, fontVariant: ["tabular-nums"] }, timerHint: { color: "#80778A", fontSize: 8.8, marginTop: 6 }, primaryWrap: { marginTop: 24, borderRadius: 39, overflow: "hidden" }, primary: { width: 78, height: 78, borderRadius: 39, alignItems: "center", justifyContent: "center" }, primaryText: { color: "#A99EB1", fontSize: 9.5, fontWeight: "900", marginTop: 8 }, actions: { width: "100%", flexDirection: "row", gap: 7, marginTop: 22 }, action: { flex: 1, minHeight: 48, borderRadius: 15, backgroundColor: "#171C25", borderWidth: 1, borderColor: "#303A48", alignItems: "center", justifyContent: "center", gap: 4 }, actionOff: { backgroundColor: "#10151C", borderColor: "#232B35" }, stopAction: { backgroundColor: "#211617", borderColor: "#4B2C30" }, actionText: { color: "#BEC7D2", fontSize: 7.8, fontWeight: "900" }, actionTextOff: { color: "#56606C" },

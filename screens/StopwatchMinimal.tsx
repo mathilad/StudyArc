@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import {isPaperSection} from "../lib/paperFormats";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -14,6 +17,7 @@ const one=(v:string|string[]|undefined)=>Array.isArray(v)?v[0]:v;
 const fmt=(ms:number)=>{const s=Math.max(0,Math.floor(ms/1000)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`};
 
 export default function StopwatchMinimal(){
+ useThemeRefresh();
  const router=useRouter();
  const params=useLocalSearchParams<{subjectName?:string|string[];topicName?:string|string[];studyType?:string|string[];paperYear?:string|string[];paperSection?:string|string[];attemptNo?:string|string[];assignmentId?:string|string[];assignmentTitle?:string|string[];targetMinutes?:string|string[];markAfter?:string|string[];recordQuestions?:string|string[];selectedQuestions?:string|string[];lessonPractice?:string|string[]}>();
  const incomingType=one(params.studyType) as StudyType|undefined;
@@ -53,7 +57,7 @@ export default function StopwatchMinimal(){
  const totalNow=running?nowElapsed():elapsed;
 
  return <Screen><View style={s.root}>
-  <View style={s.top}><Pressable onPress={requestExit} style={s.back} accessibilityLabel="Back"><Ionicons name="arrow-back" size={20} color="#EFF2F5"/></Pressable><View style={s.typeBadge}><Ionicons name="book-outline" size={14} color="#CBB3E8"/><Text style={s.typeBadgeText}>{studyType}</Text></View><Pressable onPress={()=>setDetailsOpen(v=>!v)} style={s.detailsToggle}><Ionicons name={detailsOpen?"chevron-up":"options-outline"} size={17} color="#C9B0E7"/><Text style={s.detailsToggleText}>{detailsOpen?"Less":"Details"}</Text></Pressable></View>
+  <View style={s.top}><Pressable onPress={requestExit} style={s.back} accessibilityLabel="Back"><Ionicons name="arrow-back" size={20} color="#EFF2F5"/></Pressable><View style={s.typeBadge}><Ionicons name="book-outline" size={14} color={appColor("#CBB3E8")}/><Text style={s.typeBadgeText}>{studyType}</Text></View><Pressable onPress={()=>setDetailsOpen(v=>!v)} style={s.detailsToggle}><Ionicons name={detailsOpen?"chevron-up":"options-outline"} size={17} color={appColor("#C9B0E7")}/><Text style={s.detailsToggleText}>{detailsOpen?"Less":"Details"}</Text></Pressable></View>
 
   <ScrollView contentContainerStyle={s.center} showsVerticalScrollIndicator={false}>
    <View style={[s.statusPill,running&&s.statusPillLive]}><View style={[s.statusDot,running&&s.statusDotLive]}/><Text style={[s.statusText,running&&s.statusTextLive]}>{running?"FOCUSING NOW":elapsed>0?"PAUSED":"READY"}</Text></View>
@@ -63,18 +67,18 @@ export default function StopwatchMinimal(){
    <View style={[s.timerCard,running&&s.timerCardLive]}>
     <Text style={s.clock}>{fmt(totalNow)}</Text>
     <Text style={s.clockLabel}>{running?"SESSION TIME":"TOTAL SESSION TIME"}</Text>
-    {laps.length>0?<View style={s.blockLine}><Ionicons name="flag-outline" size={15} color="#A990C6"/><Text style={s.blockLineText}>Current block {fmt(currentBlock)} · {laps.length} saved block{laps.length===1?"":"s"}</Text></View>:null}
+    {laps.length>0?<View style={s.blockLine}><Ionicons name="flag-outline" size={15} color={appColor("#A990C6")}/><Text style={s.blockLineText}>Current block {fmt(currentBlock)} · {laps.length} saved block{laps.length===1?"":"s"}</Text></View>:null}
    </View>
 
    <View style={s.mainActions}>
-    <Pressable onPress={toggleRun} style={[s.primaryAction,running&&s.pauseAction]} accessibilityRole="button"><View style={s.primaryIcon}><Ionicons name={running?"pause":"play"} size={26} color="#160B20"/></View><View style={{flex:1}}><Text style={s.primaryLabel}>{running?"Pause":elapsed>0?"Resume":"Start studying"}</Text><Text style={s.primaryHint}>{running?"Timer stays saved while paused":elapsed>0?"Continue this same session":"Start tracking this study session"}</Text></View></Pressable>
+    <Pressable onPress={toggleRun} style={[s.primaryAction,running&&s.pauseAction]} accessibilityRole="button"><View style={s.primaryIcon}><Ionicons name={running?"pause":"play"} size={26} color={appColor("#160B20")}/></View><View style={{flex:1}}><Text style={s.primaryLabel}>{running?"Pause":elapsed>0?"Resume":"Start studying"}</Text><Text style={s.primaryHint}>{running?"Timer stays saved while paused":elapsed>0?"Continue this same session":"Start tracking this study session"}</Text></View></Pressable>
     <Pressable disabled={elapsed<=0&&!running} onPress={()=>setFinishOpen(true)} style={[s.finishAction,elapsed<=0&&!running&&s.dim]}><Ionicons name="checkmark-circle-outline" size={21} color="#9ADAAF"/><Text style={s.finishLabel}>Finish & save</Text><Ionicons name="chevron-forward" size={18} color="#678073"/></Pressable>
    </View>
 
    {detailsOpen?<View style={s.detailsCard}>
     <View style={s.detailGrid}><View style={s.detailCell}><Text style={s.detailLabel}>TYPE</Text><Text style={s.detailValue}>{studyType}</Text></View><View style={s.detailCell}><Text style={s.detailLabel}>BLOCKS</Text><Text style={s.detailValue}>{laps.length}</Text></View><View style={s.detailCell}><Text style={s.detailLabel}>CURRENT BLOCK</Text><Text style={s.detailValue}>{fmt(currentBlock)}</Text></View></View>
     <Text style={s.advancedTitle}>ADVANCED TIMER TOOLS</Text><Text style={s.advancedHelp}>Use blocks only when you want lap-style timing. Most sessions do not need these controls.</Text>
-    <View style={s.advancedRow}><Pressable onPress={markBlock} disabled={currentBlock<=0} style={[s.advancedButton,currentBlock<=0&&s.dim]}><Ionicons name="flag-outline" size={18} color="#D6BDED"/><Text style={s.advancedButtonText}>Save current block</Text></Pressable><Pressable onPress={freshBlock} disabled={currentBlock<=0} style={[s.advancedButton,currentBlock<=0&&s.dim]}><Ionicons name="refresh-outline" size={18} color="#D6BDED"/><Text style={s.advancedButtonText}>Restart block</Text></Pressable></View>
+    <View style={s.advancedRow}><Pressable onPress={markBlock} disabled={currentBlock<=0} style={[s.advancedButton,currentBlock<=0&&s.dim]}><Ionicons name="flag-outline" size={18} color={appColor("#D6BDED")}/><Text style={s.advancedButtonText}>Save current block</Text></Pressable><Pressable onPress={freshBlock} disabled={currentBlock<=0} style={[s.advancedButton,currentBlock<=0&&s.dim]}><Ionicons name="refresh-outline" size={18} color={appColor("#D6BDED")}/><Text style={s.advancedButtonText}>Restart block</Text></Pressable></View>
     {laps.length?<View style={s.blockList}><Text style={s.blockListTitle}>SAVED BLOCKS</Text>{laps.map(item=><View key={item.id} style={s.blockRow}><View style={s.blockBadge}><Text style={s.blockBadgeText}>{item.number}</Text></View><Text style={s.blockName}>Block {item.number}</Text><Text style={s.blockTime}>{fmt(item.duration)}</Text></View>)}</View>:null}
    </View>:null}
 
@@ -84,8 +88,8 @@ export default function StopwatchMinimal(){
 
   <Modal visible={finishOpen} transparent animationType="fade" onRequestClose={()=>setFinishOpen(false)}><View style={s.overlay}><Pressable style={StyleSheet.absoluteFill} onPress={()=>setFinishOpen(false)}/><View style={s.modal}>
    <View style={s.modalIcon}><Ionicons name="checkmark-done-outline" size={28} color="#AEE1BF"/></View><Text style={s.modalEyebrow}>SESSION COMPLETE</Text><Text style={s.modalTitle}>Save this study session?</Text><Text style={s.modalTime}>{fmt(totalNow)}</Text><Text style={s.modalText}>StudyArc will add this time to your progress and open the session review screen.</Text>
-   <Pressable disabled={saving} onPress={save} style={[s.save,saving&&s.dim]}><Ionicons name="checkmark" size={18} color="#160B20"/><Text style={s.saveText}>{saving?"Saving…":"Save session"}</Text></Pressable>
-   <Pressable disabled={saving} onPress={()=>setFinishOpen(false)} style={s.keep}><Ionicons name="play-outline" size={17} color="#C9B0E7"/><Text style={s.keepText}>Keep studying</Text></Pressable>
+   <Pressable disabled={saving} onPress={save} style={[s.save,saving&&s.dim]}><Ionicons name="checkmark" size={18} color={appColor("#160B20")}/><Text style={s.saveText}>{saving?"Saving…":"Save session"}</Text></Pressable>
+   <Pressable disabled={saving} onPress={()=>setFinishOpen(false)} style={s.keep}><Ionicons name="play-outline" size={17} color={appColor("#C9B0E7")}/><Text style={s.keepText}>Keep studying</Text></Pressable>
    <Pressable disabled={saving} onPress={()=>setDiscardOpen(true)} style={s.discardLink}><Text style={s.discardLinkText}>Discard session</Text></Pressable>
   </View></View></Modal>
 
@@ -93,7 +97,7 @@ export default function StopwatchMinimal(){
  </View></Screen>
 }
 
-const s=StyleSheet.create({
+const s=createThemeStyles({
  root:{flex:1,backgroundColor:"#080D14"},top:{height:68,paddingHorizontal:16,flexDirection:"row",alignItems:"center",gap:9,borderBottomWidth:1,borderBottomColor:"#17212B"},back:{width:42,height:42,borderRadius:14,backgroundColor:"#121A24",borderWidth:1,borderColor:"#24303C",alignItems:"center",justifyContent:"center"},typeBadge:{flex:1,minHeight:38,borderRadius:13,backgroundColor:"#111923",borderWidth:1,borderColor:"#263341",paddingHorizontal:11,flexDirection:"row",alignItems:"center",gap:7},typeBadgeText:{color:"#C5CDD7",fontSize:9,fontWeight:"900"},detailsToggle:{height:38,borderRadius:13,backgroundColor:"#1B1624",borderWidth:1,borderColor:"#3D304A",paddingHorizontal:10,flexDirection:"row",alignItems:"center",gap:5},detailsToggleText:{color:"#C9B0E7",fontSize:8.5,fontWeight:"900"},
  center:{flexGrow:1,alignItems:"center",paddingHorizontal:18,paddingTop:26,paddingBottom:34,maxWidth:620,width:"100%",alignSelf:"center"},statusPill:{height:30,borderRadius:15,backgroundColor:"#171F29",borderWidth:1,borderColor:"#2B3745",paddingHorizontal:12,flexDirection:"row",alignItems:"center",gap:6},statusPillLive:{backgroundColor:"#13231A",borderColor:"#2E6040"},statusDot:{width:6,height:6,borderRadius:3,backgroundColor:"#718092"},statusDotLive:{backgroundColor:"#79D09A"},statusText:{color:"#7D8A9A",fontSize:7.5,fontWeight:"900",letterSpacing:1},statusTextLive:{color:"#8FD4A7"},sessionTitle:{maxWidth:540,color:"#F3F5F7",fontSize:20,fontWeight:"900",textAlign:"center",marginTop:16},context:{maxWidth:520,color:"#788698",fontSize:9.5,fontWeight:"800",marginTop:5,textAlign:"center"},
  timerCard:{width:"100%",borderRadius:28,backgroundColor:"#0E151E",borderWidth:1,borderColor:"#263341",paddingVertical:27,paddingHorizontal:16,alignItems:"center",marginTop:22},timerCardLive:{backgroundColor:"#101B17",borderColor:"#28533A"},clock:{color:"#F7F8FA",fontSize:62,fontWeight:"300",fontVariant:["tabular-nums"],letterSpacing:1.2},clockLabel:{color:"#6F7D8E",fontSize:8,fontWeight:"900",letterSpacing:1.2,marginTop:5},blockLine:{minHeight:34,borderRadius:12,backgroundColor:"#161C26",paddingHorizontal:10,flexDirection:"row",alignItems:"center",gap:6,marginTop:14},blockLineText:{color:"#8F819F",fontSize:8.5,fontWeight:"800"},

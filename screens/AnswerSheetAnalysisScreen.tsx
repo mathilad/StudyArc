@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import ScanReviewBanner from "../components/ScanReviewBanner";
@@ -25,6 +28,7 @@ const validDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Numbe
 const firstParam = (value?: string | string[]) => Array.isArray(value) ? value[0] : value;
 
 export default function AnswerSheetAnalysisScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const params = useLocalSearchParams<{ sourceClassId?: string | string[]; classId?: string | string[]; occurrenceDate?: string | string[]; subjectName?: string | string[] }>();
   const routeClassId = firstParam(params.sourceClassId) ?? firstParam(params.classId) ?? null;
@@ -366,7 +370,7 @@ export default function AnswerSheetAnalysisScreen() {
   };
 
   return <View style={s.root}>
-    <LinearGradient colors={["#181022", "#080D14"]} style={StyleSheet.absoluteFill}/>
+    <LinearGradient colors={[appColor("#181022"), appColor("#080D14")]} style={StyleSheet.absoluteFill}/>
     <View style={s.head}>
       <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF"/></Pressable>
       <View style={{ flex: 1 }}><Text style={s.title}>Analyze marked paper</Text><Text style={s.sub}>Only the subjects in your selected A/L stream are shown. Upload pages in order; offline papers are kept on this device and scanned automatically when internet returns.</Text></View>
@@ -381,10 +385,10 @@ export default function AnswerSheetAnalysisScreen() {
 
       <View style={s.sectionRow}><Text style={s.section}>1 · PAPER PAGES ({pages.length})</Text><Text style={s.optional}>MAX {MAX_PAPER_PAGES}</Text></View>
       <View style={s.sources}><Source icon="camera-outline" label="Take photo" onPress={() => addPages("camera")}/><Source icon="images-outline" label="Choose photos" onPress={() => addPages("library")}/><Source icon="document-outline" label="Choose files" onPress={() => addPages("document")}/></View>
-      {pages.length ? <View style={s.pageList}>{pages.map((page, index) => <View key={`${page.filename}-${index}`} style={s.pageCard}>{page.previewUri ? <Image source={{ uri: page.previewUri }} resizeMode="cover" style={s.thumb}/> : <View style={s.thumbFallback}><Ionicons name="document-text-outline" size={22} color="#A88BC2"/></View>}<View style={{ flex: 1 }}><Text style={s.pageTitle}>Page {index + 1}</Text><Text style={s.pageFile} numberOfLines={1}>{page.filename}</Text></View><View style={s.pageActions}><Pressable disabled={index === 0} onPress={() => movePage(index, -1)} style={[s.smallBtn, index === 0 && s.dim]}><Ionicons name="arrow-up" size={15} color="#CBB0EA"/></Pressable><Pressable disabled={index === pages.length - 1} onPress={() => movePage(index, 1)} style={[s.smallBtn, index === pages.length - 1 && s.dim]}><Ionicons name="arrow-down" size={15} color="#CBB0EA"/></Pressable><Pressable onPress={() => removePage(index)} style={s.smallBtn}><Ionicons name="trash-outline" size={15} color="#D99191"/></Pressable></View></View>)}</View> : <View style={s.empty}><Text style={s.emptyText}>Take photos or choose images/PDF files. Up to {MAX_PAPER_PAGES} pages can be kept in one paper.</Text></View>}
+      {pages.length ? <View style={s.pageList}>{pages.map((page, index) => <View key={`${page.filename}-${index}`} style={s.pageCard}>{page.previewUri ? <Image source={{ uri: page.previewUri }} resizeMode="cover" style={s.thumb}/> : <View style={s.thumbFallback}><Ionicons name="document-text-outline" size={22} color={appColor("#A88BC2")}/></View>}<View style={{ flex: 1 }}><Text style={s.pageTitle}>Page {index + 1}</Text><Text style={s.pageFile} numberOfLines={1}>{page.filename}</Text></View><View style={s.pageActions}><Pressable disabled={index === 0} onPress={() => movePage(index, -1)} style={[s.smallBtn, index === 0 && s.dim]}><Ionicons name="arrow-up" size={15} color={appColor("#CBB0EA")}/></Pressable><Pressable disabled={index === pages.length - 1} onPress={() => movePage(index, 1)} style={[s.smallBtn, index === pages.length - 1 && s.dim]}><Ionicons name="arrow-down" size={15} color={appColor("#CBB0EA")}/></Pressable><Pressable onPress={() => removePage(index)} style={s.smallBtn}><Ionicons name="trash-outline" size={15} color="#D99191"/></Pressable></View></View>)}</View> : <View style={s.empty}><Text style={s.emptyText}>Take photos or choose images/PDF files. Up to {MAX_PAPER_PAGES} pages can be kept in one paper.</Text></View>}
 
       <Text style={s.section}>TEST WRITTEN DATE</Text>
-      <Pressable onPress={() => { setDateDraft(paperDate || today()); setDatePromptOpen(true); }} style={s.dateButton}><Ionicons name="calendar-outline" size={18} color="#CFB1EF"/><View style={{ flex: 1 }}><Text style={s.dateLabel}>{paperDate || "Add test date"}</Text><Text style={s.dateHelp}>Entered immediately on the app, even while offline</Text></View><Ionicons name="chevron-forward" size={17} color="#6E7B8C"/></Pressable>
+      <Pressable onPress={() => { setDateDraft(paperDate || today()); setDatePromptOpen(true); }} style={s.dateButton}><Ionicons name="calendar-outline" size={18} color={appColor("#CFB1EF")}/><View style={{ flex: 1 }}><Text style={s.dateLabel}>{paperDate || "Add test date"}</Text><Text style={s.dateHelp}>Entered immediately on the app, even while offline</Text></View><Ionicons name="chevron-forward" size={17} color="#6E7B8C"/></Pressable>
 
       <Text style={s.section}>SUBJECT</Text>
       <Text style={s.help}>Only subjects selected in your A/L stream are available here. StudyArc can detect the paper among those subjects during analysis.</Text>
@@ -397,18 +401,18 @@ export default function AnswerSheetAnalysisScreen() {
       <Text style={s.section}>3 · MARKING SCHEME / QUESTION PAPER <Text style={s.optional}>OPTIONAL</Text></Text>
       <UploadReference asset={reference} onPick={chooseReference}/>
 
-      <Pressable disabled={!pages.length || busy} onPress={analyse} style={[s.analyse, (!pages.length || busy) && s.disabled]}><Ionicons name={isOnline ? "scan-outline" : "cloud-upload-outline"} size={19} color="#160B20"/><Text style={s.analyseText}>{busy ? (isOnline ? "Reading marks and pages…" : "Saving paper offline…") : isOnline ? "Analyze paper & show my result" : "Save offline & scan when online"}</Text></Pressable>
+      <Pressable disabled={!pages.length || busy} onPress={analyse} style={[s.analyse, (!pages.length || busy) && s.disabled]}><Ionicons name={isOnline ? "scan-outline" : "cloud-upload-outline"} size={19} color={appColor("#160B20")}/><Text style={s.analyseText}>{busy ? (isOnline ? "Reading marks and pages…" : "Saving paper offline…") : isOnline ? "Analyze paper & show my result" : "Save offline & scan when online"}</Text></Pressable>
 
       {analysis ? <>
         <ScanReviewBanner items={[`Paper result: ${obtainedText || "?"}/${maximumText || "?"}`, `Subject: ${subject}`, `${rows.length} detected question${rows.length === 1 ? "" : "s"}`, linkedClass ? `Paper class: ${linkedClass.title || linkedClass.classType}` : "No paper class link"]}/>
         <Text style={s.section}>YOUR RESULT</Text>
-        <LinearGradient colors={["#35204A", "#17141E"]} style={s.resultCard}>
+        <LinearGradient colors={[appColor("#35204A"), appColor("#17141E")]} style={s.resultCard}>
           <View style={{ flex: 1 }}><Text style={s.resultEyebrow}>{scoreConfirmed ? "DETECTED RESULT" : "CHECK DETECTED RESULT"}</Text><Text style={s.resultMarks}>{num(obtainedText) == null || num(maximumText) == null ? "—" : `${obtainedText}/${maximumText}`}</Text><Text style={s.resultPercent}>{paperScore == null ? "No reliable total yet" : `${paperScore}% · ${levelForScore(paperScore)}`}</Text></View>
           <View style={s.resultSignal}><Text style={s.resultSignalValue}>{num(evidence.redMarkEvidenceCount) ?? 0}</Text><Text style={s.resultSignalLabel}>RED MARK SIGNALS</Text></View>
         </LinearGradient>
 
         <View style={s.card}><Text style={s.paper}>{String(analysis.title ?? analysis.paperLabel ?? "Uploaded paper")}</Text><Text style={s.summary}>{String(analysis.summary ?? "Analysis completed.")}</Text><View style={s.metrics}><Metric label="DATE" value={paperDate}/><Metric label="PAGES" value={String(pages.length)}/><Metric label="SCORE" value={paperScore == null ? "—" : `${paperScore}%`}/><Metric label="SUBJECT" value={subject}/></View>
-          <Text style={s.label}>DETECTED / CONFIRMED TOTAL</Text><View style={s.scoreEdit}><TextInput value={obtainedText} onChangeText={v => { setObtainedText(v.replace(/[^0-9.]/g, "")); setScoreConfirmed(false); }} placeholder="Got" placeholderTextColor="#586678" keyboardType="decimal-pad" style={s.scoreInput}/><Text style={s.outOf}>/</Text><TextInput value={maximumText} onChangeText={v => { setMaximumText(v.replace(/[^0-9.]/g, "")); setScoreConfirmed(false); }} placeholder="Out of" placeholderTextColor="#586678" keyboardType="decimal-pad" style={s.scoreInput}/><Pressable onPress={confirmScore} style={[s.confirmBtn, scoreConfirmed && s.confirmed]}><Ionicons name={scoreConfirmed ? "checkmark-circle" : "checkmark"} size={16} color="#E6D8F5"/><Text style={s.confirmText}>{scoreConfirmed ? "Confirmed" : "Confirm"}</Text></Pressable></View>
+          <Text style={s.label}>DETECTED / CONFIRMED TOTAL</Text><View style={s.scoreEdit}><TextInput value={obtainedText} onChangeText={v => { setObtainedText(v.replace(/[^0-9.]/g, "")); setScoreConfirmed(false); }} placeholder="Got" placeholderTextColor="#586678" keyboardType="decimal-pad" style={s.scoreInput}/><Text style={s.outOf}>/</Text><TextInput value={maximumText} onChangeText={v => { setMaximumText(v.replace(/[^0-9.]/g, "")); setScoreConfirmed(false); }} placeholder="Out of" placeholderTextColor="#586678" keyboardType="decimal-pad" style={s.scoreInput}/><Pressable onPress={confirmScore} style={[s.confirmBtn, scoreConfirmed && s.confirmed]}><Ionicons name={scoreConfirmed ? "checkmark-circle" : "checkmark"} size={16} color={appColor("#E6D8F5")}/><Text style={s.confirmText}>{scoreConfirmed ? "Confirmed" : "Confirm"}</Text></Pressable></View>
           <Text style={s.label}>CONFIRM SUBJECT</Text><View style={s.wrap}>{subjects.map(x => <Pressable key={x} onPress={() => chooseSubject(x)} style={[s.chip, subject === x && s.chipOn]}><Text style={[s.chipText, subject === x && s.chipTextOn]}>{x}</Text></Pressable>)}</View>
           <Text style={s.label}>WEAK TOPICS THAT WILL AFFECT REVISION</Text><TextInput value={weakTopicsText} onChangeText={setWeakTopicsText} placeholder="Separate topics with commas" placeholderTextColor="#586678" style={s.reviewInput}/>
         </View>
@@ -435,29 +439,33 @@ export default function AnswerSheetAnalysisScreen() {
           return <View key={`${row.pageIndex}-${row.questionNo}-${i}`} style={s.question}><View style={s.qNo}><Text style={s.qNoText}>P{row.pageIndex ?? 1}</Text><Text style={s.qRef}>{String(row.questionPart ? `${row.questionNo}${row.questionPart}` : row.questionNo ?? "?")}</Text></View><View style={{ flex: 1 }}><Text style={s.qTitle}>{topicFor(row.topicName)}</Text>{row.subtopicName ? <Text style={s.lesson}>{String(row.subtopicName)}</Text> : null}<Text style={s.qSub}>{row.questionNoSource === "inherited" ? "Question continued from previous page · " : ""}{String(row.feedback ?? row.answerSummary ?? "Answer recognised")}</Text><Text style={s.evidence}>{red ? "RED MARK · " : ""}{String(row.markSource ?? "none").replace(/_/g, " ")} · {Math.round((num(row.markConfidence) ?? 0) * 100)}% confidence</Text></View><Text style={s.qScore}>{got != null && total != null ? `${got}/${total}` : "REVIEW"}</Text></View>;
         }) : <View style={s.empty}><Text style={s.emptyText}>No question-level results were recognised confidently.</Text></View>}
 
-        <View style={s.adapt}><Ionicons name="git-compare-outline" size={20} color="#CBB0EA"/><View style={{ flex: 1 }}><Text style={s.adaptTitle}>Connected analysis</Text><Text style={s.adaptText}>Reliable marks update lesson performance, Mistake Book signals, revision timing and the correct subject's study priority.</Text></View></View>
-        <Pressable disabled={saving} onPress={importAnalysis} style={[s.save, saving && s.disabled]}><Ionicons name="checkmark" size={18} color="#160B20"/><Text style={s.saveText}>{saving ? "Saving result…" : "Confirm & save reviewed result"}</Text></Pressable>
+        <View style={s.adapt}><Ionicons name="git-compare-outline" size={20} color={appColor("#CBB0EA")}/><View style={{ flex: 1 }}><Text style={s.adaptTitle}>Connected analysis</Text><Text style={s.adaptText}>Reliable marks update lesson performance, Mistake Book signals, revision timing and the correct subject's study priority.</Text></View></View>
+        <Pressable disabled={saving} onPress={importAnalysis} style={[s.save, saving && s.disabled]}><Ionicons name="checkmark" size={18} color={appColor("#160B20")}/><Text style={s.saveText}>{saving ? "Saving result…" : "Confirm & save reviewed result"}</Text></Pressable>
       </> : null}
     </ScrollView>
 
     <Modal visible={datePromptOpen} transparent animationType="fade" onRequestClose={() => setDatePromptOpen(false)}>
-      <View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalIcon}><Ionicons name="calendar-outline" size={25} color="#D7B9F5"/></View><Text style={s.modalTitle}>When did you write this test?</Text><Text style={s.modalText}>Enter it now. This works offline and keeps the paper connected to the correct history/class after it is scanned.</Text><TextInput value={dateDraft} onChangeText={setDateDraft} placeholder="YYYY-MM-DD" placeholderTextColor="#586678" autoCapitalize="none" style={s.modalInput}/><View style={s.quickDates}><Pressable onPress={() => setDateDraft(today())} style={s.quickDate}><Text style={s.quickDateText}>Today</Text></Pressable>{routeDate ? <Pressable onPress={() => setDateDraft(routeDate)} style={s.quickDate}><Text style={s.quickDateText}>Class date</Text></Pressable> : null}</View><Pressable onPress={confirmPaperDate} style={s.modalPrimary}><Text style={s.modalPrimaryText}>Continue with this date</Text></Pressable></View></View>
+      <View style={s.modalBackdrop}><View style={s.modalCard}><View style={s.modalIcon}><Ionicons name="calendar-outline" size={25} color={appColor("#D7B9F5")}/></View><Text style={s.modalTitle}>When did you write this test?</Text><Text style={s.modalText}>Enter it now. This works offline and keeps the paper connected to the correct history/class after it is scanned.</Text><TextInput value={dateDraft} onChangeText={setDateDraft} placeholder="YYYY-MM-DD" placeholderTextColor="#586678" autoCapitalize="none" style={s.modalInput}/><View style={s.quickDates}><Pressable onPress={() => setDateDraft(today())} style={s.quickDate}><Text style={s.quickDateText}>Today</Text></Pressable>{routeDate ? <Pressable onPress={() => setDateDraft(routeDate)} style={s.quickDate}><Text style={s.quickDateText}>Class date</Text></Pressable> : null}</View><Pressable onPress={confirmPaperDate} style={s.modalPrimary}><Text style={s.modalPrimaryText}>Continue with this date</Text></Pressable></View></View>
     </Modal>
   </View>;
 }
 
 function Source({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={s.source}><Ionicons name={icon} size={18} color="#D7BDF4"/><Text style={s.sourceText}>{label}</Text></Pressable>;
+ useThemeRefresh();
+  return <Pressable onPress={onPress} style={s.source}><Ionicons name={icon} size={18} color={appColor("#D7BDF4")}/><Text style={s.sourceText}>{label}</Text></Pressable>;
 }
 function UploadReference({ asset, onPick }: { asset: CaptureAsset | null; onPick: (s: "camera" | "library" | "document") => void }) {
-  return <View style={s.upload}><View style={s.uploadTop}><Ionicons name={asset ? "checkmark-circle" : "document-attach-outline"} size={23} color={asset ? "#79D09C" : "#C9ACEB"}/><View style={{ flex: 1 }}><Text style={s.uploadTitle}>{asset ? asset.filename : "Add marking scheme, model answer or question paper"}</Text><Text style={s.uploadSub}>{asset ? "Ready to use" : "Improves grading when teacher marks are missing"}</Text></View></View><View style={s.sources}><Source icon="camera-outline" label="Camera" onPress={() => onPick("camera")}/><Source icon="images-outline" label="Photos" onPress={() => onPick("library")}/><Source icon="document-outline" label="File" onPress={() => onPick("document")}/></View></View>;
+ useThemeRefresh();
+  return <View style={s.upload}><View style={s.uploadTop}><Ionicons name={asset ? "checkmark-circle" : "document-attach-outline"} size={23} color={asset ? "#79D09C" : appColor("#C9ACEB")}/><View style={{ flex: 1 }}><Text style={s.uploadTitle}>{asset ? asset.filename : "Add marking scheme, model answer or question paper"}</Text><Text style={s.uploadSub}>{asset ? "Ready to use" : "Improves grading when teacher marks are missing"}</Text></View></View><View style={s.sources}><Source icon="camera-outline" label="Camera" onPress={() => onPick("camera")}/><Source icon="images-outline" label="Photos" onPress={() => onPick("library")}/><Source icon="document-outline" label="File" onPress={() => onPick("document")}/></View></View>;
 }
-function Metric({ label, value }: { label: string; value: string }) { return <View style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{value}</Text></View>; }
+function Metric({ label, value }: { label: string; value: string }) {
+ useThemeRefresh(); return <View style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{value}</Text></View>; }
 function Insight({ title, icon, items }: { title: string; icon: keyof typeof Ionicons.glyphMap; items: string[] }) {
-  return <View style={s.insight}><View style={s.insightHead}><Ionicons name={icon} size={18} color="#CBB0EA"/><Text style={s.insightTitle}>{title}</Text></View>{items.slice(0, 12).map((x, i) => <View key={`${x}-${i}`} style={s.insightRow}><View style={s.dot}/><Text style={s.insightText}>{x}</Text></View>)}</View>;
+ useThemeRefresh();
+  return <View style={s.insight}><View style={s.insightHead}><Ionicons name={icon} size={18} color={appColor("#CBB0EA")}/><Text style={s.insightTitle}>{title}</Text></View>{items.slice(0, 12).map((x, i) => <View key={`${x}-${i}`} style={s.insightRow}><View style={s.dot}/><Text style={s.insightText}>{x}</Text></View>)}</View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root:{flex:1,backgroundColor:"#080D14"},head:{padding:18,paddingTop:22,flexDirection:"row",alignItems:"center",gap:11},back:{width:43,height:43,borderRadius:14,backgroundColor:"#151B25",alignItems:"center",justifyContent:"center"},title:{color:"#F5F6F8",fontSize:21,fontWeight:"900"},sub:{color:"#748194",fontSize:9.2,lineHeight:14,marginTop:3},content:{padding:18,paddingBottom:55,maxWidth:880,width:"100%",alignSelf:"center"},
   offline:{borderRadius:17,backgroundColor:"#211A10",borderWidth:1,borderColor:"#5A4727",padding:13,flexDirection:"row",gap:9,marginBottom:9},offlineTitle:{color:"#E6C98D",fontSize:10,fontWeight:"900"},offlineText:{color:"#A59069",fontSize:8.7,lineHeight:14,marginTop:3},queued:{borderRadius:16,backgroundColor:"#102019",borderWidth:1,borderColor:"#315843",padding:12,flexDirection:"row",gap:8,alignItems:"center",marginBottom:9},queuedText:{flex:1,color:"#8CC9A4",fontSize:8.8,lineHeight:14},
   notice:{borderRadius:17,backgroundColor:"#102019",borderWidth:1,borderColor:"#315843",padding:13,flexDirection:"row",gap:9},noticeText:{flex:1,color:"#86A493",fontSize:8.8,lineHeight:14},linkedBanner:{borderRadius:16,backgroundColor:"#101A24",borderWidth:1,borderColor:"#28455B",padding:12,flexDirection:"row",alignItems:"center",gap:9,marginTop:10},linkedTitle:{color:"#BDDDF2",fontSize:9.5,fontWeight:"900"},linkedText:{color:"#72879A",fontSize:8.5,marginTop:2},unlink:{color:"#C5A9E6",fontSize:8.5,fontWeight:"900"},

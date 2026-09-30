@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
@@ -16,7 +19,7 @@ type Props = {
 };
 
 const tones = {
-  info: { accent: "#B784FF", surface: "#21182D", icon: "information-circle-outline" as const },
+  info: { accent: appColor("#B784FF"), surface: appColor("#21182D"), icon: "information-circle-outline" as const },
   success: { accent: "#79D29F", surface: "#12251A", icon: "checkmark-circle-outline" as const },
   warning: { accent: "#F0B477", surface: "#2A2115", icon: "alert-circle-outline" as const },
   danger: { accent: "#E59AAA", surface: "#29171D", icon: "warning-outline" as const },
@@ -34,6 +37,7 @@ export default function StudyArcDialog({
   icon,
   tone = "info",
 }: Props) {
+ useThemeRefresh();
   const palette = tones[tone];
   const primary = () => { onPrimary?.(); if (!onPrimary) onClose(); };
   const secondary = () => { onSecondary?.(); if (!onSecondary) onClose(); };
@@ -56,7 +60,7 @@ export default function StudyArcDialog({
   </Modal>;
 }
 
-const s=StyleSheet.create({
+const s=createThemeStyles({
   overlay:{flex:1,backgroundColor:"rgba(3,6,10,.78)",alignItems:"center",justifyContent:"center",padding:20},
   card:{width:"100%",maxWidth:410,borderRadius:25,backgroundColor:"#101720",borderWidth:1,borderColor:"#334154",padding:19,shadowColor:"#000",shadowOpacity:.4,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:16},
   icon:{width:50,height:50,borderRadius:16,borderWidth:1,alignItems:"center",justifyContent:"center",marginBottom:13},

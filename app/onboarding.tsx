@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
@@ -18,6 +21,7 @@ import { format12Hour } from "../lib/time";
 const TOTAL_STEPS = 9;
 
 export default function OnboardingScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const { session, loading: authLoading } = useAuth();
   const { isAdmin, refreshing: adminLoading } = useAppConfig();
@@ -122,7 +126,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={["#171027", "#080D14", "#080D14"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[appColor("#171027"), appColor("#080D14"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
       <View style={s.topBar}>
         <Text style={s.brandText}>Study<Text style={s.brandAccent}> Arc</Text></Text>
         <Text style={s.stepText}>{step + 1} / {TOTAL_STEPS}</Text>
@@ -160,13 +164,13 @@ export default function OnboardingScreen() {
                 return (
                   <Pressable key={item.id} onPress={() => chooseStream(item.id)} style={[s.bigOption, active && s.bigOptionActive]}>
                     <View style={[s.optionIcon, active && s.optionIconActive]}>
-                      <Ionicons name={icon} size={25} color={active ? "#F3E9FF" : "#8995A6"} />
+                      <Ionicons name={icon} size={25} color={active ? appColor("#F3E9FF") : "#8995A6"} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[s.bigOptionText, active && s.bigOptionTextActive]}>{item.title}</Text>
                       <Text style={s.optionHint}>{item.description}</Text>
                     </View>
-                    <Ionicons name={active ? "checkmark-circle" : "ellipse-outline"} size={23} color={active ? "#B784FF" : "#566274"} />
+                    <Ionicons name={active ? "checkmark-circle" : "ellipse-outline"} size={23} color={active ? appColor("#B784FF") : "#566274"} />
                   </Pressable>
                 );
               })}
@@ -182,13 +186,13 @@ export default function OnboardingScreen() {
                 return (
                   <Pressable key={value} onPress={() => setMedium(value)} style={[s.bigOption, active && s.bigOptionActive]}>
                     <View style={[s.optionIcon, active && s.optionIconActive]}>
-                      <Ionicons name="language-outline" size={25} color={active ? "#F3E9FF" : "#8995A6"} />
+                      <Ionicons name="language-outline" size={25} color={active ? appColor("#F3E9FF") : "#8995A6"} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[s.bigOptionText, active && s.bigOptionTextActive]}>{value} Medium</Text>
                       <Text style={s.optionHint}>{value === "Sinhala" ? "පාඩම් නාම සිංහලෙන්, ලಭ್ಯ විට" : "Lesson names in English"}</Text>
                     </View>
-                    <Ionicons name={active ? "checkmark-circle" : "ellipse-outline"} size={23} color={active ? "#B784FF" : "#566274"} />
+                    <Ionicons name={active ? "checkmark-circle" : "ellipse-outline"} size={23} color={active ? appColor("#B784FF") : "#566274"} />
                   </Pressable>
                 );
               })}
@@ -212,7 +216,7 @@ export default function OnboardingScreen() {
                     style={[s.bigOption, active && s.bigOptionActive, !active && subjectChoices.length >= 3 && { opacity: 0.5 }]}
                   >
                     <View style={[s.subjectCheck, active && s.subjectCheckActive]}>
-                      {active ? <Ionicons name="checkmark" size={16} color="#160B20" /> : null}
+                      {active ? <Ionicons name="checkmark" size={16} color={appColor("#160B20")} /> : null}
                     </View>
                     <Text style={[s.bigOptionText, { flex: 1 }, active && s.bigOptionTextActive]}>{subject}</Text>
                     {config?.requiredSubjects?.includes(subject) ? <Text style={s.required}>REQUIRED</Text> : null}
@@ -221,7 +225,7 @@ export default function OnboardingScreen() {
               })}
             </View>
             {subjectChoices.includes("Combined Mathematics") ? (
-              <View style={s.tip}><Ionicons name="git-branch-outline" size={19} color="#B784FF" /><Text style={s.tipText}>Combined Mathematics is selected once, but Study Arc plans <Text style={s.tipStrong}>Pure Mathematics</Text> and <Text style={s.tipStrong}>Applied Mathematics</Text> as separate workload tracks.</Text></View>
+              <View style={s.tip}><Ionicons name="git-branch-outline" size={19} color={appColor("#B784FF")} /><Text style={s.tipText}>Combined Mathematics is selected once, but Study Arc plans <Text style={s.tipStrong}>Pure Mathematics</Text> and <Text style={s.tipStrong}>Applied Mathematics</Text> as separate workload tracks.</Text></View>
             ) : null}
           </Question>
         )}
@@ -233,8 +237,8 @@ export default function OnboardingScreen() {
                 const active = examYear === year;
                 return (
                   <Pressable key={year} onPress={() => setExamYear(year)} style={[s.examCard, active && s.examCardActive]}>
-                    <View><Text style={[s.examYear, active && { color: "#F4EFFF" }]}>{year}</Text><Text style={s.examDate}>{examDateLabel(year)}</Text></View>
-                    <Ionicons name={active ? "checkmark-circle" : "chevron-forward"} size={24} color={active ? "#B784FF" : "#566274"} />
+                    <View><Text style={[s.examYear, active && { color: appColor("#F4EFFF") }]}>{year}</Text><Text style={s.examDate}>{examDateLabel(year)}</Text></View>
+                    <Ionicons name={active ? "checkmark-circle" : "chevron-forward"} size={24} color={active ? appColor("#B784FF") : "#566274"} />
                   </Pressable>
                 );
               })}
@@ -257,11 +261,11 @@ export default function OnboardingScreen() {
         {step === 7 && (
           <Question eyebrow="DAILY STUDY TARGET" title="How much academic work would you like each day?" subtitle="Class time counts toward this target by default. You can change it later from planner controls.">
             <View style={s.studyStepper}>
-              <Pressable onPress={() => setHours(Math.max(1, hours - 0.5))} style={s.roundStep}><Ionicons name="remove" size={27} color="#E3D3F8" /></Pressable>
+              <Pressable onPress={() => setHours(Math.max(1, hours - 0.5))} style={s.roundStep}><Ionicons name="remove" size={27} color={appColor("#E3D3F8")} /></Pressable>
               <View style={{ alignItems: "center" }}><Text style={s.studyHours}>{hours.toFixed(1)}</Text><Text style={s.studyHoursLabel}>academic hours / day</Text></View>
-              <Pressable onPress={() => setHours(Math.min(12, hours + 0.5))} style={s.roundStep}><Ionicons name="add" size={27} color="#E3D3F8" /></Pressable>
+              <Pressable onPress={() => setHours(Math.min(12, hours + 0.5))} style={s.roundStep}><Ionicons name="add" size={27} color={appColor("#E3D3F8")} /></Pressable>
             </View>
-            <View style={s.tip}><Ionicons name="timer-outline" size={19} color="#B784FF" /><Text style={s.tipText}>Study Arc fits self-study around classes, breaks, travel, sleep and protected time instead of blindly adding more hours.</Text></View>
+            <View style={s.tip}><Ionicons name="timer-outline" size={19} color={appColor("#B784FF")} /><Text style={s.tipText}>Study Arc fits self-study around classes, breaks, travel, sleep and protected time instead of blindly adding more hours.</Text></View>
           </Question>
         )}
 
@@ -269,11 +273,11 @@ export default function OnboardingScreen() {
           <Question eyebrow="WEEKLY CLASSES" title="Add your regular classes" subtitle="Optional. Study Arc works around class time, breaks, preparation, travel and weekly changes.">
             <View style={s.subjectSummary}>{effectiveSubjects.map((subject) => <View key={subject} style={s.subjectChip}><Text style={s.subjectChipText}>{subject}</Text></View>)}</View>
             <Pressable onPress={() => setClassOpen(true)} style={s.addClass}>
-              <Ionicons name="add-circle-outline" size={24} color="#EBDDFF" />
+              <Ionicons name="add-circle-outline" size={24} color={appColor("#EBDDFF")} />
               <View style={{ flex: 1 }}><Text style={s.addClassTitle}>Add weekly class</Text><Text style={s.addClassSub}>Theory, revision, paper or extra class · physical or online</Text></View>
               <Text style={s.classCount}>{classCount}</Text>
             </Pressable>
-            <View style={s.tip}><Ionicons name="sparkles-outline" size={19} color="#B784FF" /><Text style={s.tipText}>Later you can record missed classes, reschedule a week, add paper-class topics and block unavailable time.</Text></View>
+            <View style={s.tip}><Ionicons name="sparkles-outline" size={19} color={appColor("#B784FF")} /><Text style={s.tipText}>Later you can record missed classes, reschedule a week, add paper-class topics and block unavailable time.</Text></View>
           </Question>
         )}
       </ScrollView>
@@ -284,7 +288,7 @@ export default function OnboardingScreen() {
         ) : <View />}
         <Pressable disabled={!canContinue || saving} onPress={next} style={[s.next, (!canContinue || saving) && { opacity: 0.45 }]}>
           <Text style={s.nextText}>{step === TOTAL_STEPS - 1 ? (saving ? "Creating plan…" : "Build my plan") : "Continue"}</Text>
-          <Ionicons name="arrow-forward" size={19} color="#160B1F" />
+          <Ionicons name="arrow-forward" size={19} color={appColor("#160B1F")} />
         </Pressable>
       </View>
 
@@ -296,14 +300,16 @@ export default function OnboardingScreen() {
 }
 
 function Question({ eyebrow, title, subtitle, children }: { eyebrow: string; title: string; subtitle: string; children: React.ReactNode }) {
+ useThemeRefresh();
   return <View><Text style={s.eyebrow}>{eyebrow}</Text><Text style={s.title}>{title}</Text><Text style={s.subtitle}>{subtitle}</Text>{children}</View>;
 }
 
 function ClockCard({ icon, label, value, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={s.clockCard}><Ionicons name={icon} size={30} color={icon === "sunny-outline" ? "#F2C15D" : "#8DA9FF"} /><View style={{ flex: 1 }}><Text style={s.clockLabel}>{label}</Text><Text style={s.clockValue}>{value}</Text></View><Ionicons name="time-outline" size={26} color="#B784FF" /></Pressable>;
+ useThemeRefresh();
+  return <Pressable onPress={onPress} style={s.clockCard}><Ionicons name={icon} size={30} color={icon === "sunny-outline" ? "#F2C15D" : "#8DA9FF"} /><View style={{ flex: 1 }}><Text style={s.clockLabel}>{label}</Text><Text style={s.clockValue}>{value}</Text></View><Ionicons name="time-outline" size={26} color={appColor("#B784FF")} /></Pressable>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   topBar: { paddingHorizontal: 22, paddingTop: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   brandText: { color: "#F3F5F8", fontSize: 23, fontWeight: "900" },

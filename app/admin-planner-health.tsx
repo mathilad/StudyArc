@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
@@ -36,6 +39,7 @@ const zero: Health = {
   officialScheduleYears: [],
 };
 export default function AdminPlannerHealth() {
+ useThemeRefresh();
   const router = useRouter();
   const { session } = useAuth();
   const { isAdmin } = useAppConfig();
@@ -71,7 +75,7 @@ export default function AdminPlannerHealth() {
   return (
     <View style={s.root}>
       <LinearGradient
-        colors={["#181025", "#080D14"]}
+        colors={[appColor("#181025"), appColor("#080D14")]}
         style={StyleSheet.absoluteFill}
       />
       <View style={s.head}>
@@ -86,7 +90,7 @@ export default function AdminPlannerHealth() {
           </Text>
         </View>
         <Pressable onPress={load} style={s.refresh}>
-          <Ionicons name="refresh" size={18} color="#D5BCEF" />
+          <Ionicons name="refresh" size={18} color={appColor("#D5BCEF")} />
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={s.content}>
@@ -100,7 +104,7 @@ export default function AdminPlannerHealth() {
           <Ionicons
             name={issues === 0 ? "checkmark-circle-outline" : "pulse-outline"}
             size={28}
-            color={issues === 0 ? "#87D9A6" : "#DAB9FA"}
+            color={issues === 0 ? "#87D9A6" : appColor("#DAB9FA")}
           />
           <View style={{ flex: 1 }}>
             <Text style={s.heroTitle}>
@@ -163,7 +167,7 @@ export default function AdminPlannerHealth() {
           onPress={() => router.push("/admin-catalog")}
           style={s.action}
         >
-          <Ionicons name="library-outline" size={20} color="#D8C1F5" />
+          <Ionicons name="library-outline" size={20} color={appColor("#D8C1F5")} />
           <View style={{ flex: 1 }}>
             <Text style={s.actionTitle}>Open Academic Catalog</Text>
             <Text style={s.actionSub}>
@@ -220,6 +224,7 @@ function Metric({
   value: number;
   warn?: boolean;
 }) {
+ useThemeRefresh();
   const bad = warn && value > 0;
   return (
     <View style={[s.metric, bad && s.metricBad]}>
@@ -230,7 +235,7 @@ function Metric({
     </View>
   );
 }
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   head: {
     padding: 18,

@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -5,6 +8,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleShee
 import { useAuth } from "../context/AuthContext";
 
 export default function ResetPasswordScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const { updatePassword, signOut } = useAuth();
   const [password, setPassword] = useState("");
@@ -43,7 +47,7 @@ export default function ResetPasswordScreen() {
     <KeyboardAvoidingView style={s.page} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={s.card}>
         <View style={s.brand}><Text style={s.brandText}>Study<Text style={s.brandAccent}> Arc</Text></Text></View>
-        <View style={s.iconWrap}><Ionicons name="shield-checkmark-outline" size={31} color="#D3B1FA" /></View>
+        <View style={s.iconWrap}><Ionicons name="shield-checkmark-outline" size={31} color={appColor("#D3B1FA")} /></View>
         <Text style={s.title}>Choose new password</Text>
         <Text style={s.subtitle}>This screen should open from the newest Study Arc password-reset email. Enter a new password below.</Text>
         <Text style={s.label}>NEW PASSWORD</Text>
@@ -67,7 +71,7 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   page: { flex: 1, backgroundColor: "#090D13", alignItems: "center", justifyContent: "center", padding: 22 },
   card: { width: "100%", maxWidth: 430, backgroundColor: "#0F141C", borderWidth: 1, borderColor: "#252D39", borderRadius: 24, padding: 26 },
   brand: { alignItems: "center", marginBottom: 20 }, brandText: { color: "#F5F5F7", fontSize: 25, fontWeight: "900" }, brandAccent: { color: "#B784FF" },

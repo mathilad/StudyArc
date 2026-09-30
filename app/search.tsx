@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -24,6 +27,7 @@ const termScore=(term:string,word:string)=>{if(!term||!word)return 0;if(word===t
 const searchScore=(query:string,item:SearchItem)=>{const terms=normalise(query).split(/\s+/).filter(Boolean);const title=normalise(item.title);const haystack=normalise(`${item.title} ${item.subtitle} ${item.keywords}`);const words=haystack.split(/[^\p{L}\p{N}]+/u).filter(Boolean);let total=0;for(const term of terms){let best=haystack.includes(term)?72:0;if(title.includes(term))best=Math.max(best,92);for(const word of words)best=Math.max(best,termScore(term,word));if(best<45)return 0;total+=best}return total+(title===normalise(query)?120:0)};
 
 export default function SearchScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const { profile, classes } = useStudent();
   const { sessions } = useStudy();
@@ -113,17 +117,17 @@ export default function SearchScreen() {
   }, [filtered]);
 
   return <View style={s.root}>
-    <LinearGradient colors={["#171020", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <LinearGradient colors={[appColor("#171020"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
     <View style={s.header}><Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF" /></Pressable><View style={{ flex: 1 }}><Text style={s.title}>Search Study Arc</Text><Text style={s.sub}>Find lessons, study data, tools and settings—even with close spellings.</Text></View></View>
-    <View style={s.searchBox}><Ionicons name="search" size={20} color="#9585A8" /><TextInput autoFocus value={query} onChangeText={setQuery} placeholder="Try “notifications”, “timer”, “performence” or “Physics”…" placeholderTextColor="#596677" style={s.input} returnKeyType="search" /><Pressable hitSlop={8} onPress={() => setQuery("")}>{query ? <Ionicons name="close-circle" size={19} color="#778496" /> : null}</Pressable></View>
+    <View style={s.searchBox}><Ionicons name="search" size={20} color={appColor("#9585A8")} /><TextInput autoFocus value={query} onChangeText={setQuery} placeholder="Try “notifications”, “timer”, “performence” or “Physics”…" placeholderTextColor="#596677" style={s.input} returnKeyType="search" /><Pressable hitSlop={8} onPress={() => setQuery("")}>{query ? <Ionicons name="close-circle" size={19} color="#778496" /> : null}</Pressable></View>
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      {!query ? <View style={s.tip}><Ionicons name="sparkles-outline" size={19} color="#CBAAF1" /><Text style={s.tipText}>Search includes subjects, lessons, your saved data, app tools and settings. Close spellings and common keywords are ranked toward the intended result.</Text></View> : null}
-      {sections.length ? sections.map(([section, rows]) => <View key={section} style={s.section}><Text style={s.sectionTitle}>{section.toUpperCase()}</Text>{rows.map(item => <Pressable key={item.id} onPress={item.open} style={s.row}><View style={s.icon}><Ionicons name={item.icon} size={20} color="#C7A9EA" /></View><View style={{ flex: 1, minWidth: 0 }}><Text style={s.rowTitle} numberOfLines={1}>{item.title}</Text><Text style={s.rowSub} numberOfLines={2}>{item.subtitle}</Text></View><Ionicons name="chevron-forward" size={18} color="#607084" /></Pressable>)}</View>) : <View style={s.empty}><Ionicons name="search-outline" size={35} color="#657386" /><Text style={s.emptyTitle}>Nothing matched that search</Text><Text style={s.emptyText}>Try another spelling or a related word. Search understands close matches for tools, settings and study content.</Text></View>}
+      {!query ? <View style={s.tip}><Ionicons name="sparkles-outline" size={19} color={appColor("#CBAAF1")} /><Text style={s.tipText}>Search includes subjects, lessons, your saved data, app tools and settings. Close spellings and common keywords are ranked toward the intended result.</Text></View> : null}
+      {sections.length ? sections.map(([section, rows]) => <View key={section} style={s.section}><Text style={s.sectionTitle}>{section.toUpperCase()}</Text>{rows.map(item => <Pressable key={item.id} onPress={item.open} style={s.row}><View style={s.icon}><Ionicons name={item.icon} size={20} color={appColor("#C7A9EA")} /></View><View style={{ flex: 1, minWidth: 0 }}><Text style={s.rowTitle} numberOfLines={1}>{item.title}</Text><Text style={s.rowSub} numberOfLines={2}>{item.subtitle}</Text></View><Ionicons name="chevron-forward" size={18} color="#607084" /></Pressable>)}</View>) : <View style={s.empty}><Ionicons name="search-outline" size={35} color="#657386" /><Text style={s.emptyTitle}>Nothing matched that search</Text><Text style={s.emptyText}>Try another spelling or a related word. Search understands close matches for tools, settings and study content.</Text></View>}
     </ScrollView>
   </View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" }, header: { padding: 18, paddingTop: 22, flexDirection: "row", alignItems: "center", gap: 11 }, back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#151B25", alignItems: "center", justifyContent: "center" }, title: { color: "#F5F6F8", fontSize: 22, fontWeight: "900" }, sub: { color: "#748194", fontSize: 9.5, marginTop: 3 },
   searchBox: { marginHorizontal: 18, minHeight: 56, borderRadius: 18, backgroundColor: "#121923", borderWidth: 1, borderColor: "#344152", paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 10 }, input: { flex: 1, color: "#F0F2F6", fontSize: 12, minHeight: 52 }, content: { padding: 18, paddingBottom: 50, maxWidth: 820, width: "100%", alignSelf: "center" },
   tip: { borderRadius: 16, backgroundColor: "#171422", borderWidth: 1, borderColor: "#41334F", padding: 12, flexDirection: "row", gap: 9, marginBottom: 15 }, tipText: { flex: 1, color: "#8D8199", fontSize: 9, lineHeight: 14 }, section: { marginBottom: 18 }, sectionTitle: { color: "#748295", fontSize: 8.5, fontWeight: "900", letterSpacing: 1.2, marginBottom: 7 }, row: { minHeight: 66, borderRadius: 17, backgroundColor: "#101720", borderWidth: 1, borderColor: "#293646", padding: 11, flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 7 }, icon: { width: 40, height: 40, borderRadius: 13, backgroundColor: "#B784FF12", alignItems: "center", justifyContent: "center" }, rowTitle: { color: "#E9ECF0", fontSize: 11.5, fontWeight: "900" }, rowSub: { color: "#718094", fontSize: 8.5, lineHeight: 13, marginTop: 3 },

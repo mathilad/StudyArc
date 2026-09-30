@@ -1,3 +1,5 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React,{useEffect,useMemo,useRef,useState} from "react";
@@ -10,6 +12,7 @@ const two=(n:number)=>String(n).padStart(2,"0");
 const clockText=()=>{const d=new Date();return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`};
 
 export default function RewardArtwork({item,large=false,playing=true}:Props){
+ useThemeRefresh();
  const h=large?238:138;
  const[a,b,c]=item.colors;
  const pulse=useRef(new Animated.Value(0)).current;
@@ -134,7 +137,7 @@ export default function RewardArtwork({item,large=false,playing=true}:Props){
  </LinearGradient>
 }
 
-const s=StyleSheet.create({
+const s=createThemeStyles({
  frame:{borderRadius:20,overflow:"hidden",position:"relative",borderWidth:1,borderColor:"#FFFFFF18",padding:14},
  glowOne:{position:"absolute",width:150,height:150,borderRadius:90,backgroundColor:"#FFFFFF12",right:-45,top:-55},
  glowTwo:{position:"absolute",width:100,height:100,borderRadius:60,backgroundColor:"#00000020",left:-25,bottom:-40},

@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
@@ -23,6 +26,7 @@ function Field({ label, value, onChangeText, placeholder, numeric = false, multi
   numeric?: boolean;
   multiline?: boolean;
 }) {
+ useThemeRefresh();
   return <View style={s.field}>
     <Text style={s.label}>{label}</Text>
     <TextInput
@@ -38,6 +42,7 @@ function Field({ label, value, onChangeText, placeholder, numeric = false, multi
 }
 
 function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {
+ useThemeRefresh();
   return <Pressable onPress={() => onChange(!value)} style={[s.toggle, value && s.toggleOn]}>
     <Ionicons name={value ? "checkmark-circle" : "ellipse-outline"} size={16} color={value ? "#B9E9CA" : "#7B8898"}/>
     <Text style={[s.toggleText, value && s.toggleTextOn]}>{label}</Text>
@@ -45,6 +50,7 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 }
 
 export default function StudyArcAIActionEditor({ action, onChange, onRemove }: Props) {
+ useThemeRefresh();
   const current = action as any;
   const patch = (values: Record<string, unknown>) => onChange({ ...current, ...values } as StudyArcAIAction);
   const [planDraft, setPlanDraft] = useState(action.type === "update_plan" ? JSON.stringify(action.changes, null, 2) : "");
@@ -68,7 +74,7 @@ export default function StudyArcAIActionEditor({ action, onChange, onRemove }: P
 
   return <View style={s.card}>
     <View style={s.head}>
-      <View style={s.icon}><Ionicons name="create-outline" size={17} color="#D6BAF4"/></View>
+      <View style={s.icon}><Ionicons name="create-outline" size={17} color={appColor("#D6BAF4")}/></View>
       <View style={{ flex: 1 }}><Text style={s.title}>{action.type.replace(/_/g, " ").toUpperCase()}</Text><Text style={s.sub}>Review and edit the detected values.</Text></View>
       <Pressable onPress={onRemove} style={s.remove}><Ionicons name="trash-outline" size={16} color="#D9919E"/></Pressable>
     </View>
@@ -127,6 +133,6 @@ export default function StudyArcAIActionEditor({ action, onChange, onRemove }: P
   </View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   card:{borderRadius:16,backgroundColor:"#0E151E",borderWidth:1,borderColor:"#2C3949",padding:11,marginTop:8},head:{flexDirection:"row",alignItems:"center",gap:8},icon:{width:34,height:34,borderRadius:10,backgroundColor:"#281B36",alignItems:"center",justifyContent:"center"},title:{color:"#E8EDF2",fontSize:9.5,fontWeight:"900",letterSpacing:.45},sub:{color:"#6E7C8D",fontSize:8,marginTop:2},remove:{width:34,height:34,borderRadius:10,backgroundColor:"#25171D",alignItems:"center",justifyContent:"center"},field:{flex:1,minWidth:0,marginTop:8},label:{color:"#748294",fontSize:7.2,fontWeight:"900",letterSpacing:.75,marginBottom:4},input:{minHeight:39,borderRadius:10,backgroundColor:"#090F16",borderWidth:1,borderColor:"#273443",color:"#E8ECF1",paddingHorizontal:9,fontSize:9},multiline:{minHeight:76,textAlignVertical:"top",paddingTop:9},two:{flexDirection:"row",gap:7},toggle:{minHeight:39,borderRadius:10,backgroundColor:"#121A24",borderWidth:1,borderColor:"#2A3848",paddingHorizontal:10,flexDirection:"row",alignItems:"center",gap:7,marginTop:8},toggleOn:{backgroundColor:"#173025",borderColor:"#315F47"},toggleText:{color:"#8793A2",fontSize:8.5,fontWeight:"800"},toggleTextOn:{color:"#B9E9CA"},json:{minHeight:110,textAlignVertical:"top",paddingTop:9,fontFamily:"monospace"},error:{color:"#E89AA6",fontSize:8,marginTop:5},valid:{color:"#80C89A",fontSize:8,marginTop:5},
 });

@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from "expo-audio";
 import { LinearGradient } from "expo-linear-gradient";
@@ -28,6 +31,7 @@ function actionLabel(action: StudyArcAIAction) {
 }
 
 export default function StudyArcAIAssistant() {
+ useThemeRefresh();
   const router = useRouter();
   const { profile, classes, testMarks, topicProgress, saveProfile, addClass, addTestMark, setLessonCovered } = useStudent();
   const { assignments, exams, examComponents, addAssignment, addExam, addExamComponent } = useAcademic();
@@ -191,11 +195,11 @@ export default function StudyArcAIAssistant() {
   };
 
   return <View style={s.root}>
-    <LinearGradient colors={["#1B1028", "#090D14", "#080D14"]} style={StyleSheet.absoluteFill} />
+    <LinearGradient colors={[appColor("#1B1028"), appColor("#090D14"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
     <View style={s.header}>
       <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF" /></Pressable>
       <View style={{ flex: 1 }}><Text style={s.title}>StudyArc AI</Text><Text style={s.sub}>Chat, attach school work, or send a voice message.</Text></View>
-      <View style={s.aiBadge}><Ionicons name="sparkles" size={16} color="#EAD9FF" /><Text style={s.aiBadgeText}>GEMINI</Text></View>
+      <View style={s.aiBadge}><Ionicons name="sparkles" size={16} color={appColor("#EAD9FF")} /><Text style={s.aiBadgeText}>GEMINI</Text></View>
     </View>
 
     <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -206,22 +210,22 @@ export default function StudyArcAIAssistant() {
         <View style={s.reviewHead}><View><Text style={s.reviewTitle}>Review proposed changes</Text><Text style={s.reviewSub}>Edit anything StudyArc misread before applying it.</Text></View><Text style={s.count}>{pendingActions.length}</Text></View>
         <ScanReviewBanner items={pendingActions.map(actionLabel)}/>
         {pendingActions.map((action, index) => <StudyArcAIActionEditor key={`${action.type}-${index}`} action={action} onChange={next => setPendingActions(current => current.map((item, i) => i === index ? next : item))} onRemove={() => setPendingActions(current => current.filter((_, i) => i !== index))}/>)}
-        <View style={s.reviewButtons}><Pressable disabled={applying} onPress={() => setPendingActions([])} style={s.discard}><Text style={s.discardText}>Discard</Text></Pressable><Pressable disabled={applying} onPress={applyAll} style={s.apply}><Ionicons name="checkmark" size={17} color="#170B20" /><Text style={s.applyText}>{applying ? "Applying…" : "Confirm & Apply"}</Text></Pressable></View>
+        <View style={s.reviewButtons}><Pressable disabled={applying} onPress={() => setPendingActions([])} style={s.discard}><Text style={s.discardText}>Discard</Text></Pressable><Pressable disabled={applying} onPress={applyAll} style={s.apply}><Ionicons name="checkmark" size={17} color={appColor("#170B20")} /><Text style={s.applyText}>{applying ? "Applying…" : "Confirm & Apply"}</Text></Pressable></View>
       </View> : null}
 
-      {attachment ? <View style={s.attachment}><Ionicons name={attachment.mimeType.includes("pdf") ? "document-text-outline" : "image-outline"} size={19} color="#D7BCF6" /><View style={{ flex: 1 }}><Text style={s.attachmentTitle} numberOfLines={1}>{attachment.filename}</Text><Text style={s.attachmentSub}>Ready to send with your message</Text></View><Pressable onPress={() => setAttachment(null)}><Ionicons name="close" size={18} color="#A77D8B" /></Pressable></View> : null}
+      {attachment ? <View style={s.attachment}><Ionicons name={attachment.mimeType.includes("pdf") ? "document-text-outline" : "image-outline"} size={19} color={appColor("#D7BCF6")} /><View style={{ flex: 1 }}><Text style={s.attachmentTitle} numberOfLines={1}>{attachment.filename}</Text><Text style={s.attachmentSub}>Ready to send with your message</Text></View><Pressable onPress={() => setAttachment(null)}><Ionicons name="close" size={18} color="#A77D8B" /></Pressable></View> : null}
       {attachment?.previewUri ? <Image source={{ uri: attachment.previewUri }} style={s.preview} resizeMode="contain" /> : null}
-      {audio ? <View style={s.attachment}><Ionicons name="mic-outline" size={19} color="#D7BCF6" /><View style={{ flex: 1 }}><Text style={s.attachmentTitle}>Voice message ready</Text><Text style={s.attachmentSub}>Gemini will interpret it together with your StudyArc data.</Text></View><Pressable onPress={() => setAudio(null)}><Ionicons name="close" size={18} color="#A77D8B" /></Pressable></View> : null}
+      {audio ? <View style={s.attachment}><Ionicons name="mic-outline" size={19} color={appColor("#D7BCF6")} /><View style={{ flex: 1 }}><Text style={s.attachmentTitle}>Voice message ready</Text><Text style={s.attachmentSub}>Gemini will interpret it together with your StudyArc data.</Text></View><Pressable onPress={() => setAudio(null)}><Ionicons name="close" size={18} color="#A77D8B" /></Pressable></View> : null}
 
       <View style={s.composer}>
         <TextInput value={message} onChangeText={setMessage} multiline placeholder="Example: I have Physics class Saturday 8–12. Add it and reduce tonight to one hour." placeholderTextColor="#647184" style={s.input} />
         <View style={s.toolRow}>
-          <Pressable disabled={busy || recorderState.isRecording} onPress={() => chooseAttachment("camera")} style={s.tool}><Ionicons name="camera-outline" size={20} color="#C9ADEA" /></Pressable>
-          <Pressable disabled={busy || recorderState.isRecording} onPress={() => chooseAttachment("library")} style={s.tool}><Ionicons name="images-outline" size={20} color="#C9ADEA" /></Pressable>
-          <Pressable disabled={busy || recorderState.isRecording} onPress={() => chooseAttachment("document")} style={s.tool}><Ionicons name="document-attach-outline" size={20} color="#C9ADEA" /></Pressable>
-          <Pressable disabled={busy} onPress={recorderState.isRecording ? stopVoice : startVoice} style={[s.tool, recorderState.isRecording && s.recording]}><Ionicons name={recorderState.isRecording ? "stop" : "mic-outline"} size={20} color={recorderState.isRecording ? "#170B20" : "#C9ADEA"} /></Pressable>
+          <Pressable disabled={busy || recorderState.isRecording} onPress={() => chooseAttachment("camera")} style={s.tool}><Ionicons name="camera-outline" size={20} color={appColor("#C9ADEA")} /></Pressable>
+          <Pressable disabled={busy || recorderState.isRecording} onPress={() => chooseAttachment("library")} style={s.tool}><Ionicons name="images-outline" size={20} color={appColor("#C9ADEA")} /></Pressable>
+          <Pressable disabled={busy || recorderState.isRecording} onPress={() => chooseAttachment("document")} style={s.tool}><Ionicons name="document-attach-outline" size={20} color={appColor("#C9ADEA")} /></Pressable>
+          <Pressable disabled={busy} onPress={recorderState.isRecording ? stopVoice : startVoice} style={[s.tool, recorderState.isRecording && s.recording]}><Ionicons name={recorderState.isRecording ? "stop" : "mic-outline"} size={20} color={recorderState.isRecording ? appColor("#170B20") : appColor("#C9ADEA")} /></Pressable>
           <View style={{ flex: 1 }} />
-          <Pressable disabled={busy || recorderState.isRecording || (!message.trim() && !attachment && !audio)} onPress={send} style={[s.send, (busy || recorderState.isRecording) && { opacity: .6 }]}><Ionicons name="arrow-up" size={21} color="#170B20" /></Pressable>
+          <Pressable disabled={busy || recorderState.isRecording || (!message.trim() && !attachment && !audio)} onPress={send} style={[s.send, (busy || recorderState.isRecording) && { opacity: .6 }]}><Ionicons name="arrow-up" size={21} color={appColor("#170B20")} /></Pressable>
         </View>
         {recorderState.isRecording ? <Text style={s.recordingText}>Recording… {Math.floor((recorderState.durationMillis ?? 0) / 1000)}s · tap stop when finished</Text> : null}
         {busy ? <Text style={s.thinking}>StudyArc AI is interpreting your request…</Text> : null}
@@ -230,7 +234,7 @@ export default function StudyArcAIAssistant() {
   </View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" }, header: { padding: 18, paddingTop: 22, flexDirection: "row", alignItems: "center", gap: 11, borderBottomWidth: 1, borderBottomColor: "#241C2E" }, back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#151B25", alignItems: "center", justifyContent: "center" }, title: { color: "#F5F6F8", fontSize: 22, fontWeight: "900" }, sub: { color: "#748194", fontSize: 9.5, marginTop: 3 }, aiBadge: { height: 34, borderRadius: 12, paddingHorizontal: 10, backgroundColor: "#2A1D39", borderWidth: 1, borderColor: "#58406D", flexDirection: "row", alignItems: "center", gap: 5 }, aiBadgeText: { color: "#DCC7F2", fontSize: 7.5, fontWeight: "900", letterSpacing: .8 },
   content: { padding: 16, paddingBottom: 46, maxWidth: 820, width: "100%", alignSelf: "center" }, notice: { borderRadius: 17, backgroundColor: "#102019", borderWidth: 1, borderColor: "#315843", padding: 12, flexDirection: "row", gap: 9, marginBottom: 13 }, noticeText: { flex: 1, color: "#81978A", fontSize: 8.8, lineHeight: 14 }, bubble: { maxWidth: "88%", borderRadius: 18, paddingHorizontal: 13, paddingVertical: 11, marginBottom: 8 }, aiBubble: { alignSelf: "flex-start", backgroundColor: "#111923", borderWidth: 1, borderColor: "#293646" }, userBubble: { alignSelf: "flex-end", backgroundColor: "#7045A7" }, bubbleText: { color: "#CCD3DB", fontSize: 10.5, lineHeight: 16 }, userText: { color: "#FFF" },
   review: { borderRadius: 20, backgroundColor: "#171321", borderWidth: 1, borderColor: "#4A385A", padding: 14, marginVertical: 10 }, reviewHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }, reviewTitle: { color: "#EFE7F6", fontSize: 13, fontWeight: "900" }, reviewSub: { color: "#806F8D", fontSize: 8.5, marginTop: 3 }, count: { minWidth: 30, height: 30, borderRadius: 10, backgroundColor: "#B784FF22", color: "#D9C0F6", textAlign: "center", paddingTop: 7, fontSize: 10, fontWeight: "900" }, actionRow: { minHeight: 48, borderRadius: 13, backgroundColor: "#0F161F", borderWidth: 1, borderColor: "#293646", padding: 9, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }, actionIcon: { width: 31, height: 31, borderRadius: 10, backgroundColor: "#B784FF14", alignItems: "center", justifyContent: "center" }, actionText: { flex: 1, color: "#B8C0CA", fontSize: 9.2, fontWeight: "800" }, reviewButtons: { flexDirection: "row", gap: 8, marginTop: 8 }, discard: { flex: 1, height: 46, borderRadius: 14, backgroundColor: "#141B24", borderWidth: 1, borderColor: "#2B3746", alignItems: "center", justifyContent: "center" }, discardText: { color: "#8390A0", fontSize: 10, fontWeight: "900" }, apply: { flex: 1.4, height: 46, borderRadius: 14, backgroundColor: "#B784FF", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }, applyText: { color: "#170B20", fontSize: 10, fontWeight: "900" },

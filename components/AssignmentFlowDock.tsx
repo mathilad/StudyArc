@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -8,6 +11,7 @@ import { subjectDisplayName } from "../lib/subjectDisplay";
 const dueValue = (item: Assignment) => item.dueAt ? new Date(item.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
 
 export default function AssignmentFlowDock() {
+ useThemeRefresh();
   const pathname = usePathname();
   const router = useRouter();
   const { assignments } = useAcademic();
@@ -49,14 +53,14 @@ export default function AssignmentFlowDock() {
         <Text style={s.meta} numberOfLines={1}>{current ? `${subjectDisplayName(current.subjectName)} · ${current.estimatedMinutes} min` : "Use the + button at the top to add new work."}</Text>
       </View>
       {current ? <>
-        <Pressable onPress={() => setIndex(value => (value + 1) % open.length)} style={s.next}><Ionicons name="play-skip-forward" size={17} color="#D5C2EB"/><Text style={s.nextText}>NEXT</Text></Pressable>
-        <Pressable onPress={start} style={s.start}><Ionicons name="play" size={15} color="#160B20"/><Text style={s.startText}>START</Text></Pressable>
+        <Pressable onPress={() => setIndex(value => (value + 1) % open.length)} style={s.next}><Ionicons name="play-skip-forward" size={17} color={appColor("#D5C2EB")}/><Text style={s.nextText}>NEXT</Text></Pressable>
+        <Pressable onPress={start} style={s.start}><Ionicons name="play" size={15} color={appColor("#160B20")}/><Text style={s.startText}>START</Text></Pressable>
       </> : null}
     </View>
   </View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   shell:{position:"absolute",left:10,right:10,bottom:10,zIndex:80,pointerEvents:"box-none"},
   dock:{minHeight:68,borderRadius:20,backgroundColor:"#111720F2",borderWidth:1,borderColor:"#49365B",padding:9,flexDirection:"row",alignItems:"center",gap:7,shadowColor:"#000",shadowOpacity:.35,shadowRadius:16,shadowOffset:{width:0,height:7},elevation:14},
   info:{flex:1,minWidth:0},eyebrow:{color:"#9A82B1",fontSize:6.8,fontWeight:"900",letterSpacing:.9},title:{color:"#F0EDF4",fontSize:10.5,fontWeight:"900",marginTop:2},meta:{color:"#758294",fontSize:7.6,fontWeight:"700",marginTop:2},

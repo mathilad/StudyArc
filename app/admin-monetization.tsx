@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
@@ -35,6 +38,7 @@ type AdminPayment = {
 type Refund = { id:string; payment_id:string; amount_lkr:number; reason:string; status:string; provider_refund_id:string|null; requested_at:string; payment:{payment_reference:string}|null };
 
 export default function AdminMonetizationScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const { session } = useAuth();
   const { isAdmin, role } = useAppConfig();
@@ -310,7 +314,7 @@ export default function AdminMonetizationScreen() {
   return (
     <View style={s.root}>
       <LinearGradient
-        colors={["#1C112A", "#080D14", "#080D14"]}
+        colors={[appColor("#1C112A"), appColor("#080D14"), appColor("#080D14")]}
         style={StyleSheet.absoluteFill}
       />
       <View style={s.head}>
@@ -448,7 +452,7 @@ export default function AdminMonetizationScreen() {
                 <Ionicons
                   name={plan.featured ? "star" : "star-outline"}
                   size={17}
-                  color={plan.featured ? "#160B20" : "#D2B4F2"}
+                  color={plan.featured ? appColor("#160B20") : appColor("#D2B4F2")}
                 />
               </Pressable>
               <Pressable
@@ -456,7 +460,7 @@ export default function AdminMonetizationScreen() {
                 onPress={() => savePlan(plan.id, plan.enabled, plan.featured)}
                 style={s.save}
               >
-                <Ionicons name="checkmark" size={17} color="#160B20" />
+                <Ionicons name="checkmark" size={17} color={appColor("#160B20")} />
               </Pressable>
             </View>
           </View>
@@ -497,7 +501,7 @@ export default function AdminMonetizationScreen() {
             onChange={setInstructions}
           />
           <Pressable disabled={busy} onPress={addBank} style={s.primary}>
-            <Ionicons name="add" size={18} color="#160B20" />
+            <Ionicons name="add" size={18} color={appColor("#160B20")} />
             <Text style={s.primaryText}>Add payment method</Text>
           </Pressable>
         </View>
@@ -531,7 +535,7 @@ export default function AdminMonetizationScreen() {
                     onPress={() => viewReceipt(p.receipt_path!)}
                     style={s.view}
                   >
-                    <Ionicons name="eye-outline" size={16} color="#CDB3EC" />
+                    <Ionicons name="eye-outline" size={16} color={appColor("#CDB3EC")} />
                   </Pressable>
                 ) : null}
                 <Pressable
@@ -564,6 +568,7 @@ export default function AdminMonetizationScreen() {
   );
 }
 function Metric({ label, value }: { label: string; value: string }) {
+ useThemeRefresh();
   return (
     <View style={s.metric}>
       <Text style={s.metricLabel}>{label}</Text>
@@ -582,6 +587,7 @@ function Toggle({
   value: boolean;
   onPress: () => void;
 }) {
+ useThemeRefresh();
   return (
     <Pressable onPress={onPress} style={s.toggleRow}>
       <View style={{ flex: 1 }}>
@@ -603,6 +609,7 @@ function Field({
   value: string;
   onChange: (v: string) => void;
 }) {
+ useThemeRefresh();
   return (
     <View style={{ marginTop: 9 }}>
       <Text style={s.fieldLabel}>{label}</Text>
@@ -615,7 +622,7 @@ function Field({
     </View>
   );
 }
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   head: {
     padding: 18,

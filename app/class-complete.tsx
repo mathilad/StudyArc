@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -29,6 +32,7 @@ const nextOccurrence = (item: ClassSchedule) => {
 };
 
 export default function ClassCompleteScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const p = useLocalSearchParams<{ subjectName?: string | string[]; classId?: string | string[]; occurrenceDate?: string | string[] }>();
   const classId = Array.isArray(p.classId) ? p.classId[0] : p.classId;
@@ -346,7 +350,7 @@ export default function ClassCompleteScreen() {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={["#1A1227", "#080D14", "#080D14"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[appColor("#1A1227"), appColor("#080D14"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
       <View style={s.head}>
         <Pressable onPress={() => router.back()} style={s.back}><Ionicons name="arrow-back" size={21} color="#FFF" /></Pressable>
         <View style={{ flex: 1 }}>
@@ -361,14 +365,14 @@ export default function ClassCompleteScreen() {
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="always">
         {!classItem ? <View style={s.warning}><Ionicons name="alert-circle-outline" size={19} color="#E5ADBA" /><Text style={s.warningText}>This class could not be found in your schedule. Learning can still be recorded, but class time cannot be attached.</Text></View> : null}
 
-        <View style={s.info}><Ionicons name="information-circle-outline" size={20} color="#C9A8F3" /><Text style={s.infoText}>Choose what the teacher covered. Pressing Finish & save now saves the selections on this screen automatically; you do not have to press the smaller save button first.</Text></View>
+        <View style={s.info}><Ionicons name="information-circle-outline" size={20} color={appColor("#C9A8F3")} /><Text style={s.infoText}>Choose what the teacher covered. Pressing Finish & save now saves the selections on this screen automatically; you do not have to press the smaller save button first.</Text></View>
 
         <View style={s.timeCard}>
           <View><Text style={s.timeLabel}>CLASS TIME</Text><Text style={s.timeValue}>{effectiveMinutes} min</Text><Text style={s.timeSub}>{rawMinutes} min scheduled − {breakMinutes} min break</Text></View>
           <View style={s.breakControls}>
-            <Pressable onPress={() => setBreakMinutes(Math.max(0, breakMinutes - 5))} style={s.step}><Ionicons name="remove" size={18} color="#D5C2EC" /></Pressable>
+            <Pressable onPress={() => setBreakMinutes(Math.max(0, breakMinutes - 5))} style={s.step}><Ionicons name="remove" size={18} color={appColor("#D5C2EC")} /></Pressable>
             <Text style={s.breakText}>{breakMinutes}m break</Text>
-            <Pressable onPress={() => setBreakMinutes(Math.min(Math.max(0, rawMinutes - 5), breakMinutes + 5))} style={s.step}><Ionicons name="add" size={18} color="#D5C2EC" /></Pressable>
+            <Pressable onPress={() => setBreakMinutes(Math.min(Math.max(0, rawMinutes - 5), breakMinutes + 5))} style={s.step}><Ionicons name="add" size={18} color={appColor("#D5C2EC")} /></Pressable>
           </View>
         </View>
 
@@ -392,14 +396,14 @@ export default function ClassCompleteScreen() {
             <View style={s.wrap}>{available.map((value) => <Pressable key={value} onPress={() => chooseSubject(value)} style={[s.chip, subjectName === value && s.chipOn]}><Text style={[s.chipText, subjectName === value && s.chipTextOn]}>{subjectDisplayName(value)}</Text></Pressable>)}</View>
 
             <Text style={s.label}>LESSON / TOPIC</Text>
-            <View style={s.topicList}>{(config?.topics ?? []).map((item: any) => <Pressable key={item.id} onPress={() => chooseTopic(item.title)} style={[s.topic, topicName === item.title && s.topicOn]}><View style={s.topicNum}><Text style={s.topicNumText}>{item.unit ?? item.id}</Text></View><Text style={s.topicTitle}>{topicDisplayName(subjectName, item.title, profile.medium)}</Text>{topicName === item.title ? <Ionicons name="checkmark-circle" size={19} color="#B784FF" /> : null}</Pressable>)}</View>
+            <View style={s.topicList}>{(config?.topics ?? []).map((item: any) => <Pressable key={item.id} onPress={() => chooseTopic(item.title)} style={[s.topic, topicName === item.title && s.topicOn]}><View style={s.topicNum}><Text style={s.topicNumText}>{item.unit ?? item.id}</Text></View><Text style={s.topicTitle}>{topicDisplayName(subjectName, item.title, profile.medium)}</Text>{topicName === item.title ? <Ionicons name="checkmark-circle" size={19} color={appColor("#B784FF")} /> : null}</Pressable>)}</View>
 
             <Text style={s.label}>SUBTOPICS TOUCHED IN CLASS</Text>
             <Text style={s.help}>Select a subtopic even if only part of it was taught. This records teacher coverage, not personal mastery.</Text>
-            <View style={s.topicList}>{(topic?.subtopics ?? []).map((value: string) => { const on = selected.includes(value); return <Pressable key={value} onPress={() => toggleSubtopic(value)} style={[s.subtopic, on && s.subtopicOn]}><View style={[s.check, on && s.checkOn]}>{on ? <Ionicons name="checkmark" size={13} color="#130A1B" /> : null}</View><View style={{ flex: 1 }}><Text style={s.subtopicText}>{subtopicDisplayName(subjectName, topic?.title ?? topicName, value, profile.medium)}</Text><Text style={s.subtopicMeta}>{on ? "Will be saved for this class" : "Not selected"}</Text></View></Pressable>; })}</View>
+            <View style={s.topicList}>{(topic?.subtopics ?? []).map((value: string) => { const on = selected.includes(value); return <Pressable key={value} onPress={() => toggleSubtopic(value)} style={[s.subtopic, on && s.subtopicOn]}><View style={[s.check, on && s.checkOn]}>{on ? <Ionicons name="checkmark" size={13} color={appColor("#130A1B")} /> : null}</View><View style={{ flex: 1 }}><Text style={s.subtopicText}>{subtopicDisplayName(subjectName, topic?.title ?? topicName, value, profile.medium)}</Text><Text style={s.subtopicMeta}>{on ? "Will be saved for this class" : "Not selected"}</Text></View></Pressable>; })}</View>
 
-            <Pressable disabled={saving} onPress={saveCovered} style={[s.saveCovered, saving && s.disabled]}><Ionicons name={editingId ? "save-outline" : "add-circle-outline"} size={18} color="#160B20" /><Text style={s.saveCoveredText}>{editingId ? "Update class-learning entry" : "Save entry & add another"}</Text></Pressable>
-            <Pressable onPress={addReview} style={s.review}><Ionicons name="refresh-outline" size={18} color="#D6B9F7" /><View style={{ flex: 1 }}><Text style={s.reviewTitle}>Review this topic tomorrow</Text><Text style={s.reviewSub}>Adds a 45-minute revision priority without marking the topic mastered.</Text></View></Pressable>
+            <Pressable disabled={saving} onPress={saveCovered} style={[s.saveCovered, saving && s.disabled]}><Ionicons name={editingId ? "save-outline" : "add-circle-outline"} size={18} color={appColor("#160B20")} /><Text style={s.saveCoveredText}>{editingId ? "Update class-learning entry" : "Save entry & add another"}</Text></Pressable>
+            <Pressable onPress={addReview} style={s.review}><Ionicons name="refresh-outline" size={18} color={appColor("#D6B9F7")} /><View style={{ flex: 1 }}><Text style={s.reviewTitle}>Review this topic tomorrow</Text><Text style={s.reviewSub}>Adds a 45-minute revision priority without marking the topic mastered.</Text></View></Pressable>
 
             {occurrenceRecords.length > 0 ? <><Text style={s.section}>SAVED FOR THIS CLASS</Text>{occurrenceRecords.map((record) => <View key={record.id} style={s.saved}><Ionicons name="checkmark-circle" size={18} color="#79D29F" /><View style={{ flex: 1 }}><Text style={s.savedTitle}>{subjectDisplayName(record.subjectName)} · {topicDisplayName(record.subjectName, record.topicName, profile.medium)}</Text><Text style={s.savedSub}>{record.subtopicNames.length} subtopic{record.subtopicNames.length === 1 ? "" : "s"}</Text></View><Pressable onPress={() => editRecord(record)} style={s.miniButton}><Ionicons name="create-outline" size={16} color="#BED0E5" /></Pressable></View>)}</> : null}
           </>
@@ -419,13 +423,13 @@ export default function ClassCompleteScreen() {
 
           <Text style={s.label}>DUE DATE</Text>
           <View style={s.quickDates}>
-            <Pressable onPress={() => chooseAssignmentDate(addDays(1))} style={s.dateButton}><Ionicons name="sunny-outline" size={15} color="#D7C2F1" /><Text style={s.dateButtonText}>Tomorrow</Text></Pressable>
-            <Pressable onPress={() => chooseAssignmentDate(addDays(7))} style={s.dateButton}><Ionicons name="calendar-outline" size={15} color="#D7C2F1" /><Text style={s.dateButtonText}>Next week</Text></Pressable>
+            <Pressable onPress={() => chooseAssignmentDate(addDays(1))} style={s.dateButton}><Ionicons name="sunny-outline" size={15} color={appColor("#D7C2F1")} /><Text style={s.dateButtonText}>Tomorrow</Text></Pressable>
+            <Pressable onPress={() => chooseAssignmentDate(addDays(7))} style={s.dateButton}><Ionicons name="calendar-outline" size={15} color={appColor("#D7C2F1")} /><Text style={s.dateButtonText}>Next week</Text></Pressable>
           </View>
           <Text style={s.classHint}>Or make it due at the next class for this subject:</Text>
           <View style={s.quickDates}>
             <Pressable disabled={!nextTheory} onPress={() => chooseAssignmentClass(nextTheory)} style={[s.classButton, !nextTheory && s.disabled]}><Ionicons name="school-outline" size={15} color="#9ECFFF" /><View><Text style={s.classButtonTitle}>Next Theory</Text><Text style={s.classButtonSub}>{nextTheory ? nextTheory.date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "No theory class"}</Text></View></Pressable>
-            <Pressable disabled={!nextRevision} onPress={() => chooseAssignmentClass(nextRevision)} style={[s.classButton, !nextRevision && s.disabled]}><Ionicons name="refresh-outline" size={15} color="#E4C1FF" /><View><Text style={s.classButtonTitle}>Next Revision</Text><Text style={s.classButtonSub}>{nextRevision ? nextRevision.date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "No revision class"}</Text></View></Pressable>
+            <Pressable disabled={!nextRevision} onPress={() => chooseAssignmentClass(nextRevision)} style={[s.classButton, !nextRevision && s.disabled]}><Ionicons name="refresh-outline" size={15} color={appColor("#E4C1FF")} /><View><Text style={s.classButtonTitle}>Next Revision</Text><Text style={s.classButtonSub}>{nextRevision ? nextRevision.date.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" }) : "No revision class"}</Text></View></Pressable>
           </View>
           {classItem ? <View style={s.linked}><Ionicons name="link-outline" size={16} color="#82C9F7" /><Text style={s.linkedText}>Linked to this class · {classItem.title || subjectDisplayName(classItem.subjectName)} · {classItem.classType}</Text></View> : null}
 
@@ -437,13 +441,13 @@ export default function ClassCompleteScreen() {
           <Text style={s.label}>REPEAT</Text>
           <View style={s.wrap}>{(["None", "Daily", "Weekly"] as AssignmentRepeat[]).map((value) => <Pressable key={value} onPress={() => setAssignmentRepeat(value)} style={[s.chip, assignmentRepeat === value && s.chipOn]}><Text style={[s.chipText, assignmentRepeat === value && s.chipTextOn]}>{value === "None" ? "One time" : value}</Text></Pressable>)}</View>
 
-          <Pressable disabled={assignmentSaving} onPress={() => saveAssignmentDraft(true)} style={[s.assignmentPrimary, assignmentSaving && s.disabled]}><Ionicons name={assignmentEditingId ? "save-outline" : "add"} size={18} color="#160B20" /><Text style={s.assignmentPrimaryText}>{assignmentSaving ? "Saving…" : assignmentEditingId ? "Save assignment changes" : "Add assignment"}</Text></Pressable>
+          <Pressable disabled={assignmentSaving} onPress={() => saveAssignmentDraft(true)} style={[s.assignmentPrimary, assignmentSaving && s.disabled]}><Ionicons name={assignmentEditingId ? "save-outline" : "add"} size={18} color={appColor("#160B20")} /><Text style={s.assignmentPrimaryText}>{assignmentSaving ? "Saving…" : assignmentEditingId ? "Save assignment changes" : "Add assignment"}</Text></Pressable>
           {assignmentEditingId ? <Pressable onPress={resetAssignmentForm} style={s.cancelEdit}><Text style={s.cancelEditText}>Cancel editing</Text></Pressable> : null}
         </View>
 
-        {classAssignments.length > 0 ? <><Text style={s.section}>ASSIGNMENTS FROM THIS CLASS</Text>{classAssignments.map((assignment) => <View key={assignment.id} style={s.assignmentItem}><Pressable onPress={() => startAssignment(assignment)} style={s.assignmentPlay}><Ionicons name="play-circle-outline" size={24} color="#B784FF" /></Pressable><View style={{ flex: 1 }}><Text style={s.assignmentItemTitle}>{assignment.title}</Text><Text style={s.assignmentItemSub}>{subjectDisplayName(assignment.subjectName)}{assignment.topicName ? ` · ${topicDisplayName(assignment.subjectName, assignment.topicName, profile.medium)}` : ""} · {assignment.estimatedMinutes} min{assignment.repeatPattern !== "None" ? ` · repeats ${assignment.repeatPattern.toLowerCase()}` : ""}{assignment.dueAt ? ` · due ${new Date(assignment.dueAt).toLocaleString()}` : ""}</Text></View><Pressable onPress={() => editAssignment(assignment)} style={s.assignmentEdit}><Ionicons name="create-outline" size={18} color="#D8C3F4" /></Pressable></View>)}</> : null}
+        {classAssignments.length > 0 ? <><Text style={s.section}>ASSIGNMENTS FROM THIS CLASS</Text>{classAssignments.map((assignment) => <View key={assignment.id} style={s.assignmentItem}><Pressable onPress={() => startAssignment(assignment)} style={s.assignmentPlay}><Ionicons name="play-circle-outline" size={24} color={appColor("#B784FF")} /></Pressable><View style={{ flex: 1 }}><Text style={s.assignmentItemTitle}>{assignment.title}</Text><Text style={s.assignmentItemSub}>{subjectDisplayName(assignment.subjectName)}{assignment.topicName ? ` · ${topicDisplayName(assignment.subjectName, assignment.topicName, profile.medium)}` : ""} · {assignment.estimatedMinutes} min{assignment.repeatPattern !== "None" ? ` · repeats ${assignment.repeatPattern.toLowerCase()}` : ""}{assignment.dueAt ? ` · due ${new Date(assignment.dueAt).toLocaleString()}` : ""}</Text></View><Pressable onPress={() => editAssignment(assignment)} style={s.assignmentEdit}><Ionicons name="create-outline" size={18} color={appColor("#D8C3F4")} /></Pressable></View>)}</> : null}
 
-        {!isPaper ? <><View style={s.historyHead}><View><Text style={s.historyTitle}>Recent class learning</Text><Text style={s.historySub}>Edit or remove mistakes at any time.</Text></View><View style={s.historyCount}><Text style={s.historyCountText}>{records.length}</Text></View></View>{recentRecords.length === 0 ? <View style={s.empty}><Ionicons name="school-outline" size={28} color="#586779" /><Text style={s.emptyTitle}>No class-learning records yet</Text><Text style={s.emptyText}>Save what the teacher actually worked on after each class.</Text></View> : recentRecords.map((record) => <View key={record.id} style={s.historyCard}><View style={s.historyIcon}><Ionicons name="school-outline" size={18} color="#CDAEF4" /></View><View style={{ flex: 1, minWidth: 0 }}><Text style={s.historySubject}>{subjectDisplayName(record.subjectName)}</Text><Text style={s.historyTopic} numberOfLines={2}>{topicDisplayName(record.subjectName, record.topicName, profile.medium)}</Text><Text style={s.historyMeta}>{new Date(`${record.occurrenceDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })} · {record.subtopicNames.length} subtopic{record.subtopicNames.length === 1 ? "" : "s"}</Text></View><View style={s.historyActions}><Pressable onPress={() => editRecord(record)} style={s.historyButton}><Ionicons name="create-outline" size={16} color="#BFD0E5" /></Pressable><Pressable onPress={() => setPendingDelete(record)} style={[s.historyButton, s.historyDelete]}><Ionicons name="trash-outline" size={16} color="#E9A0AD" /></Pressable></View></View>)}</> : null}
+        {!isPaper ? <><View style={s.historyHead}><View><Text style={s.historyTitle}>Recent class learning</Text><Text style={s.historySub}>Edit or remove mistakes at any time.</Text></View><View style={s.historyCount}><Text style={s.historyCountText}>{records.length}</Text></View></View>{recentRecords.length === 0 ? <View style={s.empty}><Ionicons name="school-outline" size={28} color="#586779" /><Text style={s.emptyTitle}>No class-learning records yet</Text><Text style={s.emptyText}>Save what the teacher actually worked on after each class.</Text></View> : recentRecords.map((record) => <View key={record.id} style={s.historyCard}><View style={s.historyIcon}><Ionicons name="school-outline" size={18} color={appColor("#CDAEF4")} /></View><View style={{ flex: 1, minWidth: 0 }}><Text style={s.historySubject}>{subjectDisplayName(record.subjectName)}</Text><Text style={s.historyTopic} numberOfLines={2}>{topicDisplayName(record.subjectName, record.topicName, profile.medium)}</Text><Text style={s.historyMeta}>{new Date(`${record.occurrenceDate}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })} · {record.subtopicNames.length} subtopic{record.subtopicNames.length === 1 ? "" : "s"}</Text></View><View style={s.historyActions}><Pressable onPress={() => editRecord(record)} style={s.historyButton}><Ionicons name="create-outline" size={16} color="#BFD0E5" /></Pressable><Pressable onPress={() => setPendingDelete(record)} style={[s.historyButton, s.historyDelete]}><Ionicons name="trash-outline" size={16} color="#E9A0AD" /></Pressable></View></View>)}</> : null}
       </ScrollView>
 
       <Modal visible={!!pendingDelete} transparent animationType="fade" onRequestClose={() => !deleting && setPendingDelete(null)}>
@@ -465,7 +469,7 @@ export default function ClassCompleteScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   head: { padding: 18, paddingTop: 22, flexDirection: "row", gap: 11, alignItems: "center", borderBottomWidth: 1, borderBottomColor: "#2C2436" },
   back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#151C27", alignItems: "center", justifyContent: "center" },

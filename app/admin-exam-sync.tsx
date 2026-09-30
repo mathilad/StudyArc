@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Redirect, useRouter } from "expo-router";
@@ -31,6 +34,7 @@ type Row = {
   verified_at: string;
 };
 export default function AdminExamSync() {
+ useThemeRefresh();
   const router = useRouter();
   const { session } = useAuth();
   const { isAdmin } = useAppConfig();
@@ -146,7 +150,7 @@ export default function AdminExamSync() {
   return (
     <View style={s.root}>
       <LinearGradient
-        colors={["#11192A", "#080D14"]}
+        colors={[appColor("#11192A"), appColor("#080D14")]}
         style={StyleSheet.absoluteFill}
       />
       <View style={s.head}>
@@ -239,7 +243,7 @@ export default function AdminExamSync() {
           <Pressable onPress={() => setAmended((v) => !v)} style={s.toggle}>
             <View style={[s.check, amended && s.checkOn]}>
               {amended ? (
-                <Ionicons name="checkmark" size={14} color="#140B1D" />
+                <Ionicons name="checkmark" size={14} color={appColor("#140B1D")} />
               ) : null}
             </View>
             <Text style={s.toggleText}>
@@ -247,7 +251,7 @@ export default function AdminExamSync() {
             </Text>
           </Pressable>
           <Pressable disabled={busy} onPress={save} style={s.primary}>
-            <Ionicons name="sync-outline" size={18} color="#130B1C" />
+            <Ionicons name="sync-outline" size={18} color={appColor("#130B1C")} />
             <Text style={s.primaryText}>
               {busy ? "Saving…" : "Save official component"}
             </Text>
@@ -303,6 +307,7 @@ function Field({
   placeholder?: string;
   keyboard?: boolean;
 }) {
+ useThemeRefresh();
   return (
     <View style={{ marginTop: 9 }}>
       <Text style={s.label}>{label}</Text>
@@ -318,7 +323,7 @@ function Field({
     </View>
   );
 }
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   head: {
     padding: 18,

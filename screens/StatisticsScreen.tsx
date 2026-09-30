@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -11,9 +14,9 @@ import { type StudySession, useStudy } from "../context/StudyContext";
 import { SUBJECTS, expandSubjectChoices, type SubjectName } from "../data/subjects";
 import { durationMinutes } from "../lib/time";
 
-const PIE_COLORS = ["#B784FF", "#63B8FF", "#65D79A", "#FF8DA1", "#F0B86A", "#8E9CFF", "#55C7C2", "#DA89FF"];
+const PIE_COLORS = [appColor("#B784FF"), "#63B8FF", "#65D79A", "#FF8DA1", "#F0B86A", "#8E9CFF", "#55C7C2", appColor("#DA89FF")];
 const WORK_COLORS: Record<string, string> = {
-  "Study Session": "#B784FF",
+  "Study Session": appColor("#B784FF"),
   Revision: "#F0A96B",
   "Past Papers": "#63B8FF",
   "Tute Questions": "#65D79A",
@@ -34,6 +37,7 @@ const average = (values: (number | null)[]) => {
 const sumSeconds = (sessions: StudySession[]) => sessions.reduce((sum, row) => sum + row.durationSeconds, 0);
 
 export default function StatisticsScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const { profile, classes, topicProgress, testMarks, subtopicCoverage } = useStudent();
   const { sessions } = useStudy();
@@ -82,7 +86,7 @@ export default function StatisticsScreen() {
 
   return (
     <Screen>
-      <LinearGradient colors={["#0E1220", "#080D14"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[appColor("#0E1220"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         <Text style={s.title}>Analytics</Text>
         <Text style={s.subtitle}>Your study time, effort, subjects and lessons — based on your saved Study Arc sessions.</Text>
@@ -185,6 +189,7 @@ function SubjectAnalytics({
   onOpenMarks,
   onOpenTopic,
 }: any) {
+ useThemeRefresh();
   const config = SUBJECTS[name as SubjectName];
   const total = sumSeconds(sessions);
   const focus = average(sessions.map((row: StudySession) => row.focusRating));
@@ -228,7 +233,7 @@ function SubjectAnalytics({
   return (
     <View style={s.subjectBlock}>
       <Pressable onPress={onOpenSubject}>
-        <LinearGradient colors={[config.color + "32", config.accent + "12", "#101720"]} style={[s.subjectHead, { borderColor: config.color + "66" }]}>
+        <LinearGradient colors={[config.color + "32", config.accent + "12", appColor("#101720")]} style={[s.subjectHead, { borderColor: config.color + "66" }]}>
           <View style={{ flex: 1 }}>
             <Text style={[s.subjectName, { color: config.color }]}>{name}</Text>
             <Text style={s.range}>LIFETIME EFFORT</Text>
@@ -313,6 +318,7 @@ function SubjectAnalytics({
 }
 
 function AnalyticsCard({ title, subtitle, children, style }: { title: string; subtitle?: string; children: React.ReactNode; style?: any }) {
+ useThemeRefresh();
   return (
     <View style={[s.card, style]}>
       <View style={s.cardHead}>
@@ -327,15 +333,17 @@ function AnalyticsCard({ title, subtitle, children, style }: { title: string; su
 }
 
 function OverviewMetric({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+ useThemeRefresh();
   return (
     <View style={s.overviewMetric}>
-      <View style={s.overviewIcon}><Ionicons name={icon} size={18} color="#C7A5F3" /></View>
+      <View style={s.overviewIcon}><Ionicons name={icon} size={18} color={appColor("#C7A5F3")} /></View>
       <View style={{ flex: 1 }}><Text style={s.overviewValue}>{value}</Text><Text style={s.overviewLabel}>{label}</Text></View>
     </View>
   );
 }
 
 function Metric({ label, value, onPress }: { label: string; value: string; onPress: () => void }) {
+ useThemeRefresh();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [s.metric, pressed && { opacity: 0.72 }]}>
       <View style={{ flex: 1 }}><Text style={s.metricValue}>{value}</Text><Text style={s.metricLabel}>{label}</Text></View>
@@ -351,6 +359,7 @@ function StudyTimeUsage({
   segments: { label: string; value: number; color: string }[];
   totalSeconds: number;
 }) {
+ useThemeRefresh();
   const visible = segments.filter((item) => item.value > 0);
 
   const friendlyLabel = (label: string) => {
@@ -363,7 +372,7 @@ function StudyTimeUsage({
     return (
       <View style={s.studyUsageEmpty}>
         <View style={s.studyUsageEmptyIcon}>
-          <Ionicons name="pie-chart-outline" size={24} color="#746584" />
+          <Ionicons name="pie-chart-outline" size={24} color={appColor("#746584")} />
         </View>
         <Text style={s.studyUsageEmptyTitle}>No study time yet</Text>
         <Text style={s.studyUsageEmptyText}>
@@ -419,6 +428,7 @@ function StudyTimeUsage({
 }
 
 function DonutChart({ segments, centerTop, centerBottom }: { segments: { label: string; value: number; color: string }[]; centerTop: string; centerBottom: string }) {
+ useThemeRefresh();
   const positive = segments.filter((row) => row.value > 0);
   const total = positive.reduce((sum, row) => sum + row.value, 0);
   const radius = 43;
@@ -427,7 +437,7 @@ function DonutChart({ segments, centerTop, centerBottom }: { segments: { label: 
   return (
     <View style={s.donutWrap}>
       <Svg width="150" height="150" viewBox="0 0 120 120">
-        <Circle cx="60" cy="60" r={radius} stroke="#1B2531" strokeWidth="14" fill="none" />
+        <Circle cx="60" cy="60" r={radius} stroke={appColor("#1B2531")} strokeWidth="14" fill="none" />
         {total > 0 && positive.map((row) => {
           const length = row.value / total * circumference;
           const dashOffset = -offset;
@@ -441,6 +451,7 @@ function DonutChart({ segments, centerTop, centerBottom }: { segments: { label: 
 }
 
 function Legend({ segments, formatValue, compact = false }: { segments: { label: string; value: number; color: string }[]; formatValue: (v: number) => string; compact?: boolean }) {
+ useThemeRefresh();
   const shown = segments.filter((row) => row.value > 0);
   if (!shown.length) return <Text style={s.emptyChart}>No study data yet.</Text>;
   return (
@@ -457,10 +468,12 @@ function Legend({ segments, formatValue, compact = false }: { segments: { label:
 }
 
 function LegendDot({ color, label }: { color: string; label: string }) {
+ useThemeRefresh();
   return <View style={s.legendDotRow}><View style={[s.legendDot, { backgroundColor: color }]} /><Text style={s.legendDotText}>{label}</Text></View>;
 }
 
 function LineChart({ series, labels }: { series: { name: string; color: string; values: number[] }[]; labels: string[] }) {
+ useThemeRefresh();
   const width = 100;
   const height = 42;
   const max = Math.max(30, ...series.flatMap((row) => row.values));
@@ -481,7 +494,7 @@ function LineChart({ series, labels }: { series: { name: string; color: string; 
   );
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   content: { padding: 20, paddingBottom: 52, maxWidth: 1080, width: "100%", alignSelf: "center" },
   title: { color: "#F5F6F8", fontSize: 34, fontWeight: "900" },
   subtitle: { color: "#7B8797", fontSize: 13, marginTop: 5, marginBottom: 16, lineHeight: 19 },

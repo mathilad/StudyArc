@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 import React, { useState } from "react";
@@ -5,6 +8,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleShee
 import { useAuth } from "../context/AuthContext";
 
 export default function ForgotPasswordScreen() {
+ useThemeRefresh();
   const { sendPasswordReset } = useAuth();
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -24,7 +28,7 @@ export default function ForgotPasswordScreen() {
     <KeyboardAvoidingView style={s.page} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={s.card}>
         <View style={s.brand}><Text style={s.brandText}>Study<Text style={s.brandAccent}> Arc</Text></Text></View>
-        <View style={s.iconWrap}><Ionicons name="key-outline" size={30} color="#D3B1FA" /></View>
+        <View style={s.iconWrap}><Ionicons name="key-outline" size={30} color={appColor("#D3B1FA")} /></View>
         <Text style={s.title}>Reset your password</Text>
         <Text style={s.subtitle}>Enter your Study Arc email. We’ll send a secure link that opens the app so you can choose a new password.</Text>
         <Text style={s.label}>EMAIL</Text>
@@ -43,7 +47,7 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   page: { flex: 1, backgroundColor: "#090D13", alignItems: "center", justifyContent: "center", padding: 22 },
   card: { width: "100%", maxWidth: 430, backgroundColor: "#0F141C", borderWidth: 1, borderColor: "#252D39", borderRadius: 24, padding: 26 },
   brand: { alignItems: "center", marginBottom: 20 }, brandText: { color: "#F5F5F7", fontSize: 25, fontWeight: "900" }, brandAccent: { color: "#B784FF" },

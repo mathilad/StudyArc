@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -22,6 +25,7 @@ const fmt = (seconds: number) => {
 };
 
 export default function FocusLab() {
+ useThemeRefresh();
   const router = useRouter();
   const { profile } = useStudent();
   const { sessions } = useStudy();
@@ -41,7 +45,7 @@ export default function FocusLab() {
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={["#121523", "#080D14"]} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[appColor("#121523"), appColor("#080D14")]} style={StyleSheet.absoluteFill} />
       <View style={s.head}>
         <Pressable onPress={() => router.back()} style={s.back}>
           <Ionicons name="arrow-back" size={21} color="#FFF" />
@@ -53,7 +57,7 @@ export default function FocusLab() {
       </View>
 
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={["#32224A", "#171B28"]} style={s.scoreHero}>
+        <LinearGradient colors={[appColor("#32224A"), appColor("#171B28")]} style={s.scoreHero}>
           <Text style={s.scoreLabel}>7-DAY PRODUCTIVITY EFFICIENCY</Text>
           <Text style={s.scoreValue}>{efficiency.score}%</Text>
           <Text style={s.scoreSub}>
@@ -133,6 +137,7 @@ export default function FocusLab() {
 }
 
 function Metric({ label, value, sub }: { label: string; value: string; sub: string }) {
+ useThemeRefresh();
   return (
     <View style={s.metric}>
       <Text style={s.metricLabel}>{label}</Text>
@@ -143,10 +148,11 @@ function Metric({ label, value, sub }: { label: string; value: string; sub: stri
 }
 
 function Empty({ text }: { text: string }) {
+ useThemeRefresh();
   return <View style={s.empty}><Text style={s.emptyText}>{text}</Text></View>;
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   root: { flex: 1, backgroundColor: "#080D14" },
   head: { padding: 18, paddingTop: 22, flexDirection: "row", alignItems: "center", gap: 11 },
   back: { width: 43, height: 43, borderRadius: 14, backgroundColor: "#151B25", alignItems: "center", justifyContent: "center" },

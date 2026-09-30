@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -82,6 +85,7 @@ const formatStudyTime = (seconds: number) => {
 ============================================================ */
 
 export default function StopWatchScreen() {
+ useThemeRefresh();
   const router = useRouter();
   const { width, height } = useWindowDimensions();
 
@@ -733,7 +737,7 @@ export default function StopWatchScreen() {
                   ]}
                 >
                   <View style={styles.startPrimaryIcon}>
-                    <Ionicons name="play" size={24} color="#160B20" />
+                    <Ionicons name="play" size={24} color={appColor("#160B20")} />
                   </View>
                   <View>
                     <Text style={styles.startPrimaryText}>START SESSION</Text>
@@ -836,7 +840,7 @@ export default function StopWatchScreen() {
                   <Ionicons
                     name="refresh"
                     size={17}
-                    color={currentLapMilliseconds <= 0 ? "#66616C" : "#E8E4EB"}
+                    color={currentLapMilliseconds <= 0 ? "#66616C" : appColor("#E8E4EB")}
                   />
 
                   <Text
@@ -974,7 +978,7 @@ export default function StopWatchScreen() {
           <View style={styles.modalBackdrop}>
             <View style={styles.stopModal}>
               <View style={styles.stopModalIcon}>
-                <Ionicons name="stop-circle-outline" size={28} color="#D8B9FF" />
+                <Ionicons name="stop-circle-outline" size={28} color={appColor("#D8B9FF")} />
               </View>
               <Text style={styles.stopModalTitle}>Stop study session?</Text>
               <Text style={styles.stopModalText}>
@@ -986,7 +990,7 @@ export default function StopWatchScreen() {
                 onPress={saveFromStopModal}
                 style={[styles.modalSave, stopping && styles.modalDisabled]}
               >
-                <Ionicons name="checkmark" size={18} color="#160B20" />
+                <Ionicons name="checkmark" size={18} color={appColor("#160B20")} />
                 <Text style={styles.modalSaveText}>{stopping ? "SAVING…" : "SAVE SESSION"}</Text>
               </Pressable>
 
@@ -1028,7 +1032,7 @@ export default function StopWatchScreen() {
    STYLES
 ================================================================ */
 
-const styles = StyleSheet.create({
+const styles = createThemeStyles({
   page: {
     flex: 1,
     width: "100%",

@@ -1,3 +1,6 @@
+import {useThemeRefresh} from "../context/AppThemeContext";
+import {createThemeStyles} from "../lib/themeStyles";
+import {appColor} from "../lib/appTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -5,6 +8,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useOffline } from "../context/OfflineContext";
 
 export default function OfflineStatusBanner() {
+ useThemeRefresh();
   const pathname = usePathname();
   const { isOnline, checking, pendingChanges, refreshConnectivity } = useOffline();
   const [retrying, setRetrying] = useState(false);
@@ -37,7 +41,7 @@ export default function OfflineStatusBanner() {
 
   return (
     <View style={[s.banner, isOnline ? s.online : s.offline]}>
-      <Ionicons name={icon} size={14} color={isOnline ? "#D8C4F2" : "#FFD49B"} />
+      <Ionicons name={icon} size={14} color={isOnline ? appColor("#D8C4F2") : "#FFD49B"} />
       <Text style={[s.text, !isOnline && s.offlineText]} numberOfLines={1}>{message}</Text>
       {onlinePending ? (
         <Pressable onPress={retry} disabled={retrying || checking} hitSlop={8} style={s.retry} accessibilityRole="button" accessibilityLabel="Retry saved changes sync">
@@ -45,13 +49,13 @@ export default function OfflineStatusBanner() {
         </Pressable>
       ) : null}
       <Pressable onPress={() => setDismissed(true)} hitSlop={8} style={s.close} accessibilityRole="button" accessibilityLabel="Close sync status">
-        <Ionicons name="close" size={16} color={isOnline ? "#C9B5DF" : "#F4C98E"} />
+        <Ionicons name="close" size={16} color={isOnline ? appColor("#C9B5DF") : "#F4C98E"} />
       </Pressable>
     </View>
   );
 }
 
-const s = StyleSheet.create({
+const s = createThemeStyles({
   banner: {
     position: "absolute",
     zIndex: 1000,
