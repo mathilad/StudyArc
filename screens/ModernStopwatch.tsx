@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, BackHandler, FlatList, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { isPaperSection } from "../lib/paperFormats";
 import { useSocial } from "../context/SocialContext";
 import { useStudy, type PaperSection, type StudyType } from "../context/StudyContext";
 import { clearActiveStudyTimer, elapsedFromPersistedTimer, readActiveStudyTimer, writeActiveStudyTimer, type PersistedStudyTimer } from "../lib/timerPersistence";
@@ -22,13 +23,13 @@ const todayText = (seconds: number) => {
 
 export default function ModernStopwatch() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ subjectName?: string | string[]; topicName?: string | string[]; studyType?: string | string[]; paperYear?: string | string[]; paperSection?: string | string[]; attemptNo?: string | string[]; assignmentId?: string | string[]; assignmentTitle?: string | string[]; targetMinutes?: string | string[]; markAfter?: string | string[]; selectedQuestions?: string | string[]; lessonPractice?: string | string[] }>();
+  const params = useLocalSearchParams<{ subjectName?: string | string[]; topicName?: string | string[]; studyType?: string | string[]; paperYear?: string | string[]; paperSection?: string | string[]; attemptNo?: string | string[]; assignmentId?: string | string[]; assignmentTitle?: string | string[]; targetMinutes?: string | string[]; markAfter?: string | string[]; recordQuestions?: string | string[]; selectedQuestions?: string | string[]; lessonPractice?: string | string[] }>();
   const { addSession, todaySeconds } = useStudy();
   const { setStudying } = useSocial();
   const routeStudyType = first(params.studyType);
   const initialStudyType: StudyType = routeStudyType === "Revision" || routeStudyType === "Tute Questions" || routeStudyType === "Past Papers" ? routeStudyType : "Study Session";
   const routePaperSection = first(params.paperSection);
-  const initialSection: PaperSection | null = routePaperSection === "MCQ" || routePaperSection === "Essay" || routePaperSection === "Full Paper" ? routePaperSection : null;
+  const initialSection: PaperSection | null = isPaperSection(routePaperSection) ? routePaperSection : null;
   const initialMeta = useMemo<TimerMeta>(() => ({
     subjectName: first(params.subjectName) ?? null,
     topicName: first(params.topicName) ?? null,
@@ -38,6 +39,7 @@ export default function ModernStopwatch() {
     attemptNo: first(params.attemptNo) ? Number(first(params.attemptNo)) : null,
   }), [params.attemptNo, params.paperYear, params.subjectName, params.topicName, initialSection, initialStudyType]);
 
+ const[recordQuestions,setRecordQuestions]=useState(first(params.recordQuestions)==="1");
   const [meta, setMeta] = useState<TimerMeta>(initialMeta);
   const [elapsed, setElapsed] = useState(0);
   const [lapStart, setLapStart] = useState(0);
@@ -71,6 +73,7 @@ export default function ModernStopwatch() {
       paperYear: meta.paperYear,
       paperSection: meta.paperSection,
       attemptNo: meta.attemptNo,
+      recordQuestions,
       updatedAtEpoch: Date.now(),
     };
     writeActiveStudyTimer(snapshot).catch(() => undefined);
@@ -80,6 +83,7 @@ export default function ModernStopwatch() {
     let alive = true;
     void readActiveStudyTimer().then(saved => {
       if (!alive || !saved) return;
+      setRecordQuestions(saved.recordQuestions??false);
       sessionStartedAt.current = new Date(saved.sessionStartedAtIso);
       accumulated.current = saved.accumulatedMilliseconds;
       runStartedAt.current = saved.running ? saved.runStartedAtEpoch : null;
@@ -178,7 +182,7 @@ export default function ModernStopwatch() {
       await clearActiveStudyTimer();
       await setStudying(false).catch(() => undefined);
       setStopOpen(false);
-      router.replace({ pathname: "/session-complete", params: {
+      router.replace({ pathname: recordQuestions?"/past-paper-record":"/session-complete", params: {
         sessionId,
         duration: String(durationSeconds),
         subjectName,

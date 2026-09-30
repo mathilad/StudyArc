@@ -24,6 +24,7 @@ export type PersistedStudyTimer = {
   paperYear: number | null;
   paperSection: PaperSection | null;
   attemptNo: number | null;
+  recordQuestions?: boolean;
   updatedAtEpoch?: number;
 };
 

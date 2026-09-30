@@ -58,6 +58,14 @@ const numbered = (from: number, to: number, kind: TrackerQuestion["kind"]): Trac
   Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => ({ itemKey: String(from + i), number: from + i, kind }));
 
 export function trackerQuestions(subject: string, year: number, section: string): TrackerQuestion[] {
+  if (section === "Full Paper") {
+    if (subject === "Physics" || subject === "Chemistry") return [...trackerQuestions(subject, year, "MCQ"), ...trackerQuestions(subject, year, "Structured + Essay")];
+    if (year < 2000) return trackerQuestions(subject, year, "Legacy paper");
+    return [...trackerQuestions(subject, year, "Part A"), ...trackerQuestions(subject, year, "Part B")];
+  }
+  if (section === "Full MCQ Paper") return trackerQuestions(subject, year, "MCQ");
+  if (section === "Full Essay Paper") return trackerQuestions(subject, year, "Structured + Essay");
+  if (section === "Structured" || section === "Essay") return trackerQuestions(subject, year, "Structured + Essay").filter(q => q.kind === section);
   if (section === "MCQ") return numbered(1, mcqCountForYear(year), "MCQ");
 
   if (subject === "Physics" || subject === "Chemistry") {

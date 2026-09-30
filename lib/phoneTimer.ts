@@ -99,6 +99,7 @@ export async function reconcilePhoneTimerToPersistence(): Promise<boolean> {
     paperYear: existing?.paperYear ?? null,
     paperSection: existing?.paperSection ?? null,
     attemptNo: existing?.attemptNo ?? null,
+    recordQuestions: existing?.recordQuestions,
     updatedAtEpoch: nativeUpdated || now,
   };
   await writeActiveStudyTimer(next);
