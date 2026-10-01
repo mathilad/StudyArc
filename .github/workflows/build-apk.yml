@@ -24,7 +24,7 @@ jobs:
       EXPO_PUBLIC_APP_DATABASE_URL: ${{ secrets.EXPO_PUBLIC_APP_DATABASE_URL }}
       EXPO_PUBLIC_APP_DATABASE_KEY: ${{ secrets.EXPO_PUBLIC_APP_DATABASE_KEY }}
       EXPO_PUBLIC_APP_DATABASE_PROVIDER: ${{ secrets.EXPO_PUBLIC_APP_DATABASE_PROVIDER }}
-      APP_VERSION: "1.1.7"
+      APP_VERSION: "1.1.8"
       NODE_ENV: production
 
     steps:
@@ -57,7 +57,9 @@ jobs:
       - name: Generate normal Android project
         env:
           CI: "1"
-        run: npx expo prebuild --platform android --clean
+        run: |
+          npx expo prebuild --platform android --clean
+          node scripts/verify-android-startup-config.cjs
       - name: Build normal release APK
         working-directory: android
         timeout-minutes: 45
@@ -78,6 +80,27 @@ jobs:
             unzip -l "$APK" | awk '{print $4}' | grep "^lib/${ABI}/" > /dev/null
           done
           "${BUILD_TOOLS}/apksigner" verify --verbose --print-certs "$APK"
+      - name: Enable Android emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Check 32-bit Android startup and crash recovery
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86
+          target: default
+          ram-size: 2048M
+          heap-size: 384M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash scripts/verify-android-startup.sh
+      - name: Upload Android startup checks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: StudyArc-Android-Startup-Checks
+          path: startup-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -86,6 +109,7 @@ jobs:
           path: |
             gradle-build.log
             apk-badging.txt
+            startup-diagnostics/
           if-no-files-found: ignore
           retention-days: 7
       - name: Prepare APK

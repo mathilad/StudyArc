@@ -2,12 +2,12 @@
   "expo": {
     "name": "StudyArc",
     "slug": "study-arc",
-    "version": "1.1.7",
+    "version": "1.1.8",
     "orientation": "default",
     "scheme": "studyarc",
     "userInterfaceStyle": "dark",
     "icon": "./assets/images/icon.png",
-    "runtimeVersion": "1.1.7",
+    "runtimeVersion": "1.1.8",
     "updates": {
       "enabled": true,
       "url": "https://aliqufgpassfhwobjsoh.supabase.co/functions/v1/studyarc-updates",
@@ -57,14 +57,15 @@
         "expo-image-picker",
         {
           "photosPermission": "StudyArc uses your photo library only when you choose a profile picture, Smart Capture, or attach school work to StudyArc AI.",
-          "microphonePermission": false
+          "microphonePermission": "StudyArc uses your microphone only when you choose Audio Recall or a StudyArc AI voice message."
         }
-      ]
+      ],
+      "./plugins/withStartupRecovery"
     ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.studyarc.app",
-      "buildNumber": "21",
+      "buildNumber": "22",
       "infoPlist": {
         "UIStatusBarHidden": true,
         "UIViewControllerBasedStatusBarAppearance": false
@@ -72,7 +73,7 @@
     },
     "android": {
       "package": "com.studyarc.app",
-      "versionCode": 21,
+      "versionCode": 22,
       "predictiveBackGestureEnabled": false,
       "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
