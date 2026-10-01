@@ -50,6 +50,8 @@ jobs:
           python scripts/generate-studyarc-brand-assets.py
       - name: Type-check app
         run: npm run typecheck
+      - name: Run regression tests
+        run: node --test tests/*.test.cjs
       - name: Generate normal Android project
         env:
           CI: "1"
@@ -61,7 +63,7 @@ jobs:
         run: |
           set -o pipefail
           chmod +x gradlew
-          ./gradlew :app:assembleRelease --no-daemon --console=plain --stacktrace 2>&1 | tee ../gradle-build.log
+          ./gradlew :app:assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64 --no-daemon --console=plain --stacktrace 2>&1 | tee ../gradle-build.log
       - name: Verify APK
         shell: bash
         run: |
@@ -70,6 +72,9 @@ jobs:
           test -f "$APK"
           BUILD_TOOLS=$(find "${ANDROID_HOME}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
           "${BUILD_TOOLS}/aapt" dump badging "$APK" | tee apk-badging.txt
+          for ABI in armeabi-v7a arm64-v8a; do
+            unzip -l "$APK" | awk '{print $4}' | grep "^lib/${ABI}/" > /dev/null
+          done
           "${BUILD_TOOLS}/apksigner" verify --verbose --print-certs "$APK"
       - name: Upload diagnostics on failure
         if: failure()
