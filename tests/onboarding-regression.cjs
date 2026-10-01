@@ -39,6 +39,7 @@ const supabase = { from(table) {
 const Provider = compile('context/StudentContext.tsx', {
   ...hooks, ...store, supabase, React: {},
   useAuth: () => ({ user, loading: false }),
+  useRewards: () => ({ awardPersonalBest: async () => {}, awardMilestone: async () => {} }),
   useOffline: () => ({ isOnline: online, checking: false, syncTick: 0, refreshConnectivity: async () => {} }),
 }, ';StudentProvider');
 function render() { cursor = 0; return Provider({ children: null }); }
