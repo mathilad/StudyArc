@@ -7,7 +7,6 @@ import { Redirect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +22,7 @@ import {
 } from "../context/MonetizationContext";
 import { supabase } from "../lib/supabase";
 import InlineActionLoader from "../components/InlineActionLoader";
+import PaymentReceiptViewer from "../components/PaymentReceiptViewer";
 
 const money = (n: number) => `LKR ${Math.round(n).toLocaleString()}`;
 type AdminPayment = {
@@ -48,11 +48,13 @@ export default function AdminMonetizationScreen() {
     [newOnly, setNewOnly] = useState(true),
     [methods, setMethods] = useState<PaymentMethod[]>([]),
     [pending, setPending] = useState<AdminPayment[]>([]),
+    [receiptHistory, setReceiptHistory] = useState<AdminPayment[]>([]),
     [refundable, setRefundable] = useState<AdminPayment[]>([]),
     [refunds, setRefunds] = useState<Refund[]>([]),
     [stats, setStats] = useState<any>(null),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<AdminPayment | null>(null);
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [refundReason,setRefundReason]=useState<Record<string,string>>({});
   const [refundWindow,setRefundWindow]=useState("14");
@@ -77,6 +79,7 @@ export default function AdminMonetizationScreen() {
         { data: statData, error: ste },
         { data: approvedRows, error: ae },
         { data: refundRows, error: re },
+        { data: receiptRows, error: he },
       ] = await Promise.all([
         supabase
           .from("app_settings")
@@ -93,8 +96,13 @@ export default function AdminMonetizationScreen() {
         supabase.rpc("admin_monetization_stats"),
         supabase.from("payments").select("id,user_id,amount_lkr,payment_reference,status,submitted_at,subscription_plans(name)").eq("status","APPROVED").order("submitted_at",{ascending:false}).limit(20),
         supabase.from("payment_refunds").select("id,payment_id,amount_lkr,reason,status,provider_refund_id,requested_at,payments(payment_reference)").order("requested_at",{ascending:false}).limit(30),
+        supabase.from("payments")
+          .select("id,user_id,amount_lkr,payment_reference,status,receipt_path,submitted_at,subscription_plans(name)")
+          .not("receipt_path", "is", null)
+          .order("submitted_at", { ascending: false })
+          .limit(50),
       ]);
-      if (se || me || pe || ste || ae || re) throw se ?? me ?? pe ?? ste ?? ae ?? re;
+      if (se || me || pe || ste || ae || re || he) throw se ?? me ?? pe ?? ste ?? ae ?? re ?? he;
       const byKey = Object.fromEntries(
         (settingRows ?? []).map((r: any) => [r.key, r.value]),
       );
@@ -124,6 +132,7 @@ export default function AdminMonetizationScreen() {
       );
       setRefundable((approvedRows??[]).map((r:any)=>({...r,plan:r.subscription_plans??null})));
       setRefunds((refundRows??[]).map((r:any)=>({...r,payment:r.payments??null})));
+      setReceiptHistory((receiptRows ?? []).map((r: any) => ({ ...r, plan: r.subscription_plans ?? null })));
       setStats(statData);
     } catch (e) {
       setMessage(
@@ -278,16 +287,6 @@ export default function AdminMonetizationScreen() {
             },
           },
         ]);
-  const viewReceipt = async (path: string) => {
-    const { data, error } = await supabase.storage
-      .from("payment-receipts")
-      .createSignedUrl(path, 300);
-    if (error) {
-      setMessage(error.message);
-      return;
-    }
-    if (data?.signedUrl) Linking.openURL(data.signedUrl);
-  };
   const saveRefundSettings=async()=>{
     const days=Number(refundWindow);
     if(!Number.isInteger(days)||days<1||days>180){setMessage("Refund window must be 1 to 180 days.");return;}
@@ -532,7 +531,9 @@ export default function AdminMonetizationScreen() {
               <View style={s.paymentActions}>
                 {p.receipt_path ? (
                   <Pressable
-                    onPress={() => viewReceipt(p.receipt_path!)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View payment slip ${p.payment_reference}`}
+                    onPress={() => setReceipt(p)}
                     style={s.view}
                   >
                     <Ionicons name="eye-outline" size={16} color={appColor("#CDB3EC")} />
@@ -557,6 +558,22 @@ export default function AdminMonetizationScreen() {
           ))
         )}
 
+        <Text style={s.section}>PAYMENT SLIPS & HISTORY</Text>
+        <Text style={s.help}>The latest 50 submitted slips stay available after approval or rejection.</Text>
+        {receiptHistory.length === 0 ? <View style={s.empty}><Text style={s.emptyText}>No payment slips submitted yet.</Text></View> : receiptHistory.map(p => (
+          <View key={p.id} style={s.payment}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.paymentRef}>{p.payment_reference}</Text>
+              <Text style={s.paymentMeta}>{p.plan?.name ?? "Plan"} · {money(p.amount_lkr)} · {p.status}</Text>
+              <Text style={s.paymentMeta}>User {p.user_id.slice(0, 8)}… · {new Date(p.submitted_at).toLocaleString()}</Text>
+            </View>
+            <Pressable accessibilityRole="button" accessibilityLabel={`View payment slip ${p.payment_reference}`} onPress={() => setReceipt(p)} style={[s.view, { minWidth: 92, gap: 6, flexDirection: "row", paddingHorizontal: 12 }]}>
+              <Ionicons name="document-text-outline" size={17} color={appColor("#CDB3EC")} />
+              <Text style={{ color: appColor("#CDB3EC"), fontSize: 12, fontWeight: "700" }}>View slip</Text>
+            </Pressable>
+          </View>
+        ))}
+
         <Text style={s.section}>CREATE REFUND · ADMIN ONLY</Text>
         <Text style={s.help}>Record refunds handled through bank transfer or another manual method. These controls are visible only to administrators.</Text>
         {refundable.length===0?<View style={s.empty}><Text style={s.emptyText}>No approved payments available.</Text></View>:refundable.map(p=><View key={p.id} style={s.refundCard}><View style={{flex:1}}><Text style={s.paymentRef}>{p.payment_reference}</Text><Text style={s.paymentMeta}>{p.plan?.name??"Plan"} · {money(p.amount_lkr)}</Text><TextInput value={refundReason[p.id]??""} onChangeText={v=>setRefundReason(d=>({...d,[p.id]:v}))} placeholder="Reason for refund" placeholderTextColor="#596678" style={s.input}/></View><Pressable disabled={busy||!(refundReason[p.id]??"").trim()} onPress={()=>createRefund(p.id)} style={[s.refundButton,(busy||!(refundReason[p.id]??"").trim())&&{opacity:.5}]}><Ionicons name="return-down-back-outline" size={16} color="#FFDDE4"/><Text style={s.refundButtonText}>ADD REFUND</Text></Pressable></View>)}
@@ -564,6 +581,7 @@ export default function AdminMonetizationScreen() {
         <Text style={s.section}>REFUND HISTORY</Text>
         {refunds.length===0?<View style={s.empty}><Text style={s.emptyText}>No refunds recorded.</Text></View>:refunds.map(r=><View key={r.id} style={s.payment}><View style={{flex:1}}><Text style={s.paymentRef}>{r.payment?.payment_reference??r.payment_id.slice(0,8)}</Text><Text style={s.paymentMeta}>{money(r.amount_lkr)} · {r.status}</Text><Text style={s.paymentMeta}>{r.reason} · {new Date(r.requested_at).toLocaleString()}</Text>{r.provider_refund_id?<Text style={s.paymentMeta}>Provider refund {r.provider_refund_id}</Text>:null}</View>{["REQUESTED","FAILED","CANCELLED"].includes(r.status)?<Pressable disabled={busy} onPress={()=>removeRefund(r.id)} style={s.reject}><Ionicons name="trash-outline" size={16} color="#FFDCE2"/></Pressable>:null}</View>)}
       </ScrollView>
+      {receipt?.receipt_path ? <PaymentReceiptViewer path={receipt.receipt_path} reference={receipt.payment_reference} onClose={() => setReceipt(null)} /> : null}
     </View>
   );
 }
