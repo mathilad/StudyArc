@@ -1,0 +1,16 @@
+name = "studyarc-data-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "studyarc-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[vars]
+# Keep Supabase as the authentication provider. These are Worker-side values,
+# not Expo public variables. Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY as
+# Worker secrets with: wrangler secret put SUPABASE_URL
+# wrangler secret put SUPABASE_PUBLISHABLE_KEY
