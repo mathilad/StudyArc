@@ -1,3 +1,18 @@
+interface D1Result<T = Record<string, unknown>> {
+  results?: T[];
+  success: boolean;
+  meta: { changes: number; last_row_id?: number };
+}
+interface D1PreparedStatement {
+  bind(...values: unknown[]): D1PreparedStatement;
+  first<T = Record<string, unknown>>(): Promise<T | null>;
+  all<T = Record<string, unknown>>(): Promise<D1Result<T>>;
+  run(): Promise<D1Result>;
+}
+interface D1Database {
+  prepare(query: string): D1PreparedStatement;
+}
+
 export interface Env {
   DB: D1Database;
   SUPABASE_URL: string;
@@ -176,8 +191,13 @@ export default {
         filters.sql.push('"user_id" = ?');
         filters.values.push(userId);
       } else if (config.owner === "friendship") {
-        filters.sql.push('(requester_id = ? OR addressee_id = ?)');
-        filters.values.push(userId, userId);
+        if (request.method === "PATCH") {
+          filters.sql.push('"addressee_id" = ?');
+          filters.values.push(userId);
+        } else {
+          filters.sql.push('(requester_id = ? OR addressee_id = ?)');
+          filters.values.push(userId, userId);
+        }
       } else if (table === "social_profiles" || table === "study_presence" || table === "daily_study_rankings") {
         filters.sql.push('"user_id" = ?');
         filters.values.push(userId);
