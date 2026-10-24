@@ -185,6 +185,7 @@ export default {
     }
 
     if (request.method === "PATCH" || request.method === "DELETE") {
+      if (table === "contact_messages") return json({ error: "This table is read/insert only" }, 405, cors);
       const filters = parseFilters(url, config.columns);
       if (!filters.sql.length) return json({ error: "A filter is required for update/delete" }, 400, cors);
       if (config.owner === "user_id") {
@@ -212,7 +213,7 @@ export default {
       const entries = Object.entries(body);
       if (!entries.length) return json({ error: "Empty update" }, 400, cors);
       for (const [key, value] of entries) {
-        if (!config.columns.includes(key) || !validIdentifier(key) || key === "id" || key === "user_id") return json({ error: `Invalid update column: ${key}` }, 400, cors);
+        if (!config.columns.includes(key) || !validIdentifier(key) || key === "id" || key === "user_id" || (table === "friendships" && (key === "requester_id" || key === "addressee_id"))) return json({ error: `Invalid update column: ${key}` }, 400, cors);
         if (Array.isArray(value) || (value && typeof value === "object")) body[key] = JSON.stringify(value);
       }
       const setSql = entries.map(([key]) => `"${key}" = ?`).join(", ");
