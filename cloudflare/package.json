@@ -1,0 +1,16 @@
+{
+  "name": "studyarc-cloudflare-data-api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy --config wrangler.toml",
+    "d1:apply": "wrangler d1 migrations apply studyarc-db --remote --config wrangler.toml"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20261025.0",
+    "typescript": "5.9.3",
+    "wrangler": "4.45.0"
+  }
+}
