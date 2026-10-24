@@ -1,0 +1,32 @@
+name: Check StudyArc Cloudflare Data API
+
+on:
+  push:
+    branches: [cloudflare-d1-integration]
+    paths:
+      - "cloudflare/**"
+      - ".github/workflows/test-cloudflare-data-api.yml"
+  pull_request:
+    paths:
+      - "cloudflare/**"
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Type-check Worker
+        run: npm run typecheck
+      - name: Validate SQL schema is non-empty
+        run: test -s migrations/0001_initial_schema.sql
